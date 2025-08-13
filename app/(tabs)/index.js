@@ -1,0 +1,253 @@
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+
+const { width } = Dimensions.get('window');
+
+export default function HomeScreen() {
+  const motivationalQuotes = [
+    "Progress, not perfection.",
+    "Small steps lead to big changes.",
+    "Clarity comes from action, not thought.",
+    "Your potential is endless.",
+    "Every day is a new opportunity."
+  ];
+
+  const todaysQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+
+  const quickActions = [
+    { id: 1, title: '5-Minute Meditation', subtitle: 'Clear your mind', icon: 'heart', color: '#EF4444' },
+    { id: 2, title: 'Breathing Exercise', subtitle: 'Reduce stress', icon: 'leaf', color: '#10B981' },
+    { id: 3, title: 'Daily Reflection', subtitle: 'Review your progress', icon: 'trending-up', color: '#8B5CF6' },
+    { id: 4, title: 'Gratitude Practice', subtitle: 'Appreciate the moment', icon: 'sunny', color: '#F59E0B' },
+  ];
+
+  const guides = [
+    { id: 1, title: 'Managing Overthinking', description: 'Learn techniques to break the cycle of overthinking' },
+    { id: 2, title: 'Learning from Mistakes', description: 'Transform setbacks into growth opportunities' },
+    { id: 3, title: 'Journaling for Clarity', description: 'Effective writing techniques for self-discovery' },
+    { id: 4, title: 'Mindful Living', description: 'Practices for present-moment awareness' },
+  ];
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="dark" />
+      
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.greeting}>Good morning!</Text>
+          <Text style={styles.subtitle}>How are you feeling today?</Text>
+        </View>
+
+        <View style={styles.quoteCard}>
+          <View style={styles.quoteIconContainer}>
+            <Ionicons name="bulb" size={24} color="#F59E0B" />
+          </View>
+          <Text style={styles.quote}>{todaysQuote}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          
+          <View style={styles.actionsGrid}>
+            {quickActions.map((action) => (
+              <TouchableOpacity key={action.id} style={styles.actionCard}>
+                <View style={[styles.actionIcon, { backgroundColor: action.color + '20' }]}>
+                  <Ionicons name={action.icon} size={24} color={action.color} />
+                </View>
+                <Text style={styles.actionTitle}>{action.title}</Text>
+                <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Guides & Tutorials</Text>
+          
+          {guides.map((guide) => (
+            <TouchableOpacity key={guide.id} style={styles.guideCard}>
+              <View style={styles.guideContent}>
+                <Text style={styles.guideTitle}>{guide.title}</Text>
+                <Text style={styles.guideDescription}>{guide.description}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Today's Progress</Text>
+          
+          <View style={styles.progressCard}>
+            <View style={styles.progressItem}>
+              <Ionicons name="book" size={20} color="#3B82F6" />
+              <Text style={styles.progressLabel}>Journal Entries</Text>
+              <Text style={styles.progressValue}>2</Text>
+            </View>
+            <View style={styles.progressItem}>
+              <Ionicons name="bulb" size={20} color="#8B5CF6" />
+              <Text style={styles.progressLabel}>Thoughts Released</Text>
+              <Text style={styles.progressValue}>1</Text>
+            </View>
+            <View style={styles.progressItem}>
+              <Ionicons name="alert-circle" size={20} color="#F59E0B" />
+              <Text style={styles.progressLabel}>Mistakes Avoided</Text>
+              <Text style={styles.progressValue}>3</Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 24,
+  },
+  greeting: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  quoteCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  quoteIconContainer: {
+    marginRight: 12,
+  },
+  quote: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    flex: 1,
+  },
+  section: {
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  actionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    width: (width - 48) / 2,
+    marginBottom: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  actionSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  guideCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  guideContent: {
+    flex: 1,
+  },
+  guideTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  guideDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  progressCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  progressItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  progressLabel: {
+    flex: 1,
+    fontSize: 14,
+    color: '#6B7280',
+    marginLeft: 12,
+  },
+  progressValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+});
