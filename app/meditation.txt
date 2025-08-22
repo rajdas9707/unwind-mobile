@@ -1,0 +1,487 @@
+import React, { useEffect, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  FlatList,
+  Animated,
+  Easing,
+  Platform,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
+import { Audio } from "expo-av";
+
+// --- Config --- //
+const SESSION_SECONDS = 300; // 5 minutes
+
+// Breathing patterns in seconds
+const BREATH_PATTERNS = {
+  Balanced: { inhale: 4, hold: 2, exhale: 4, label: "4-2-4" },
+  "Box (Focus)": { inhale: 4, hold: 4, exhale: 4, label: "4-4-4" },
+  "4-7-8 (Calm)": { inhale: 4, hold: 7, exhale: 8, label: "4-7-8" },
+};
+
+const THEMES = {
+  Day: { bg: "#e6f0ff", fg: "#0f172a", accent: "#2563eb", soft: "#c7d2fe" },
+  Night: { bg: "#0b1220", fg: "#e5e7eb", accent: "#60a5fa", soft: "#1f2a44" },
+};
+
+export default function MeditationScreen() {
+  // Timer + playback
+  const [secondsLeft, setSecondsLeft] = useState(SESSION_SECONDS);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+
+  // Mode / theme
+  const [patternName, setPatternName] = useState("Balanced");
+  const [themeName, setThemeName] = useState("Day");
+  const theme = THEMES[themeName];
+  const pattern = BREATH_PATTERNS[patternName];
+
+  // Audio
+  const [sound, setSound] = useState(null);
+
+  // Animation (breathing circle)
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const phaseText = useRef("Inhale").current; // simple mutable ref for phase label
+  const [visiblePhase, setVisiblePhase] = useState("Inhale");
+
+  // Reflection modal
+  const [reflectOpen, setReflectOpen] = useState(false);
+  const [mood, setMood] = useState(null);
+  const [note, setNote] = useState("");
+
+  // Interval for timer
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    const id = setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          clearInterval(id);
+          endSession();
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [isPlaying]);
+
+  // Start/stop audio
+  const togglePlay = async () => {
+    if (!isPlaying) {
+      await startAudioIfNeeded();
+      setIsPlaying(true);
+      startBreathingLoop();
+    } else {
+      setIsPlaying(false);
+      stopBreathingLoop();
+      if (sound) await sound.pauseAsync();
+    }
+  };
+
+  const startAudioIfNeeded = async () => {
+    if (sound) {
+      if (!isMuted) await sound.playAsync();
+      return;
+    }
+    // Replace with your own audio file in assets (works in Expo Go)
+    // e.g. /assets/sounds/ocean.mp3
+    const { sound: s } = await Audio.Sound.createAsync(
+      require("../assets/rain.mp3"),
+      { volume: isMuted ? 0 : 1, isLooping: true }
+    );
+    setSound(s);
+    if (!isMuted) await s.playAsync();
+  };
+
+  const toggleMute = async () => {
+    setIsMuted((m) => !m);
+    if (sound) {
+      await sound.setStatusAsync({ volume: isMuted ? 1 : 0 });
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (sound) sound.unloadAsync();
+    };
+  }, [sound]);
+
+  // Breathing loop (Inhale -> Hold -> Exhale) with animation + haptics
+  const breathingLoopRef = useRef(null);
+  const startBreathingLoop = () => {
+    const { inhale, hold, exhale } = pattern;
+
+    const runCycle = async () => {
+      // Inhale
+      setVisiblePhase("Inhale");
+      phaseText.current = "Inhale";
+      haptic();
+      await animateScale(1.0, 1.25, inhale * 1000);
+
+      // Hold
+      setVisiblePhase("Hold");
+      phaseText.current = "Hold";
+      haptic("soft");
+      await wait(hold * 1000);
+
+      // Exhale
+      setVisiblePhase("Exhale");
+      phaseText.current = "Exhale";
+      haptic();
+      await animateScale(1.25, 1.0, exhale * 1000);
+    };
+
+    const loop = async () => {
+      while (isPlaying) {
+        await runCycle();
+      }
+    };
+
+    if (!breathingLoopRef.current) {
+      breathingLoopRef.current = loop();
+    }
+  };
+
+  const stopBreathingLoop = () => {
+    breathingLoopRef.current = null;
+  };
+
+  const animateScale = (from, to, duration) =>
+    new Promise((resolve) => {
+      scaleAnim.setValue(from);
+      Animated.timing(scaleAnim, {
+        toValue: to,
+        duration,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => resolve());
+    });
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const haptic = async (type = "light") => {
+    if (Platform.OS === "ios" || Platform.OS === "android") {
+      try {
+        await Haptics.impactAsync(
+          type === "soft"
+            ? Haptics.ImpactFeedbackStyle.Soft
+            : Haptics.ImpactFeedbackStyle.Light
+        );
+      } catch {}
+    }
+  };
+
+  const endSession = async () => {
+    setIsPlaying(false);
+    stopBreathingLoop();
+    if (sound) await sound.pauseAsync();
+    setReflectOpen(true);
+  };
+
+  const resetSession = async () => {
+    setIsPlaying(false);
+    stopBreathingLoop();
+    if (sound) await sound.stopAsync();
+    setSecondsLeft(SESSION_SECONDS);
+    setVisiblePhase("Inhale");
+    setMood(null);
+    setNote("");
+  };
+
+  // Save reflection
+  const saveReflection = async () => {
+    const record = {
+      ts: new Date().toISOString(),
+      durationSec: SESSION_SECONDS,
+      pattern: patternName,
+      mood: mood || null,
+      note: note || "",
+    };
+    try {
+      const key = "meditation_sessions";
+      const raw = await AsyncStorage.getItem(key);
+      const list = raw ? JSON.parse(raw) : [];
+      list.push(record);
+      await AsyncStorage.setItem(key, JSON.stringify(list));
+    } catch (e) {}
+    setReflectOpen(false);
+    resetSession();
+  };
+
+  const formatTime = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec < 10 ? "0" + sec : sec}`;
+  };
+
+  // UI helpers
+  const PatternCard = ({ name }) => (
+    <TouchableOpacity
+      onPress={() => {
+        setPatternName(name);
+        // restart breath loop timings seamlessly on next cycle
+      }}
+      style={[
+        styles.patternCard,
+        {
+          borderColor: name === patternName ? theme.accent : "#0000",
+          backgroundColor: theme.soft,
+        },
+      ]}
+    >
+      <Text style={[styles.patternTitle, { color: theme.fg }]}>{name}</Text>
+      <Text style={{ color: theme.fg, opacity: 0.7, fontSize: 12 }}>
+        {BREATH_PATTERNS[name].label}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.fg }]}>5-Minute Reset</Text>
+        <Text style={[styles.subtitle, { color: theme.fg, opacity: 0.7 }]}>
+          Breathe. Reset. Refocus.
+        </Text>
+      </View>
+
+      {/* Timer */}
+      <Text style={[styles.timer, { color: theme.fg }]}>
+        {formatTime(secondsLeft)}
+      </Text>
+
+      {/* Breathing Circle */}
+      <View style={styles.centerWrap}>
+        <Animated.View
+          style={[
+            styles.circle,
+            {
+              transform: [{ scale: scaleAnim }],
+              backgroundColor: theme.soft,
+              shadowColor: theme.accent,
+            },
+          ]}
+        />
+        <Text style={[styles.phaseText, { color: theme.fg }]}>
+          {visiblePhase}
+        </Text>
+      </View>
+
+      {/* Pattern Selector */}
+      <View style={styles.listWrap}>
+        <FlatList
+          data={Object.keys(BREATH_PATTERNS)}
+          horizontal
+          keyExtractor={(k) => k}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16 }}
+          renderItem={({ item }) => <PatternCard name={item} />}
+        />
+      </View>
+
+      {/* Controls */}
+      <View style={styles.controls}>
+        <TouchableOpacity
+          onPress={togglePlay}
+          style={[styles.btn, { backgroundColor: theme.accent }]}
+        >
+          <Text style={styles.btnText}>{isPlaying ? "Pause" : "Start"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={toggleMute}
+          style={[styles.btnGhost, { borderColor: theme.accent }]}
+        >
+          <Text style={[styles.btnGhostText, { color: theme.accent }]}>
+            {isMuted ? "Unmute" : "Mute"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setThemeName(themeName === "Day" ? "Night" : "Day")}
+          style={[styles.btnGhost, { borderColor: theme.accent }]}
+        >
+          <Text style={[styles.btnGhostText, { color: theme.accent }]}>
+            {themeName === "Day" ? "Night" : "Day"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Reset */}
+      <TouchableOpacity onPress={resetSession} style={styles.resetLink}>
+        <Text style={{ color: theme.fg, opacity: 0.6 }}>Reset Session</Text>
+      </TouchableOpacity>
+
+      {/* Reflection Modal */}
+      <Modal visible={reflectOpen} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: theme.bg }]}>
+            <Text style={[styles.modalTitle, { color: theme.fg }]}>
+              Session complete 🎉
+            </Text>
+            <Text style={{ color: theme.fg, opacity: 0.7, marginBottom: 12 }}>
+              How do you feel right now?
+            </Text>
+
+            <View style={styles.moodRow}>
+              {["😟", "😐", "🙂", "😍"].map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[
+                    styles.moodBtn,
+                    { borderColor: m === mood ? theme.accent : theme.soft },
+                  ]}
+                  onPress={() => setMood(m)}
+                >
+                  <Text style={{ fontSize: 24 }}>{m}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              placeholder="One word or sentence about how you feel…"
+              placeholderTextColor={theme.fg + "99"}
+              value={note}
+              onChangeText={setNote}
+              style={[
+                styles.input,
+                {
+                  color: theme.fg,
+                  borderColor: theme.soft,
+                  backgroundColor:
+                    themeName === "Day" ? "#ffffff" : "rgba(255,255,255,0.06)",
+                },
+              ]}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => {
+                  setReflectOpen(false);
+                  resetSession();
+                }}
+                style={[styles.btnGhost, { borderColor: theme.accent }]}
+              >
+                <Text style={[styles.btnGhostText, { color: theme.accent }]}>
+                  Skip
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={saveReflection}
+                style={[styles.btn, { backgroundColor: theme.accent }]}
+              >
+                <Text style={styles.btnText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// --- Styles --- //
+const styles = StyleSheet.create({
+  container: { flex: 1, paddingTop: 56 },
+  header: { alignItems: "center", marginBottom: 8 },
+  title: { fontSize: 24, fontWeight: "800", letterSpacing: 0.3 },
+  subtitle: { fontSize: 14, marginTop: 2 },
+  timer: { fontSize: 48, fontWeight: "800", textAlign: "center", marginTop: 8 },
+  centerWrap: { alignItems: "center", justifyContent: "center", marginTop: 24 },
+  circle: {
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    opacity: 0.9,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 20,
+  },
+  phaseText: {
+    position: "absolute",
+    fontSize: 16,
+    fontWeight: "700",
+    opacity: 0.9,
+  },
+  listWrap: { marginTop: 22, height: 100 },
+  patternCard: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    marginRight: 12,
+    borderWidth: 2,
+    minWidth: 140,
+    justifyContent: "center",
+  },
+  patternTitle: { fontSize: 14, fontWeight: "700", marginBottom: 4 },
+  controls: {
+    marginTop: 10,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  btn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+  },
+  btnText: { color: "#fff", fontWeight: "700" },
+  btnGhost: {
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 2,
+  },
+  btnGhostText: { fontWeight: "700" },
+  resetLink: { marginTop: 14, alignItems: "center" },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 18,
+  },
+  modalCard: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "800", marginBottom: 8 },
+  moodRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 10,
+  },
+  moodBtn: {
+    width: 64,
+    height: 54,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    fontSize: 14,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 14,
+  },
+});

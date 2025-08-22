@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   Text,
@@ -19,9 +19,7 @@ export default function HomeScreen() {
     if (!str) return "";
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
-  const [userInfo, setUserInfo] = useState({});
-  const [taskCount, setTaskCount] = useState(0);
-
+  const [userInfo, setUserInfo] = React.useState({});
   const motivationalQuotes = [
     "Progress, not perfection.",
     "Small steps lead to big changes.",
@@ -30,40 +28,8 @@ export default function HomeScreen() {
     "Every day is a new opportunity.",
   ];
 
-  const taskCategories = [
-    {
-      id: 1,
-      title: "2-Minute Tasks",
-      subtitle: "Quick wins",
-      icon: "timer",
-      color: "#10B981",
-      route: "tasks/2-Minute",
-    },
-    {
-      id: 2,
-      title: "Urgent Tasks",
-      subtitle: "Act now",
-      icon: "alert-circle",
-      color: "#EF4444",
-      route: "tasks/Urgent",
-    },
-    {
-      id: 3,
-      title: "Important Tasks",
-      subtitle: "Focus deeply",
-      icon: "star",
-      color: "#8B5CF6",
-      route: "tasks/Important",
-    },
-    {
-      id: 4,
-      title: "Low Energy Tasks",
-      subtitle: "Gentle progress",
-      icon: "moon",
-      color: "#3B82F6",
-      route: "tasks/Low Energy",
-    },
-  ];
+  const todaysQuote =
+    motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
 
   const quickActions = [
     {
@@ -125,8 +91,15 @@ export default function HomeScreen() {
     const loadUserInfo = async () => {
       try {
         const storedUserInfo = await AsyncStorage.getItem("userInfo");
+        console.log("Loaded user info:", storedUserInfo);
         if (storedUserInfo) {
           const parsed = JSON.parse(storedUserInfo);
+          /*userInfo:{
+    name: 'John Doe',
+    email: 'john.doe@example.com',
+    joinDate: '2024-01-15',
+  }*/
+
           setUserInfo(parsed);
         }
       } catch (error) {
@@ -134,28 +107,13 @@ export default function HomeScreen() {
       }
     };
 
-    const loadTaskCount = async () => {
-      try {
-        const tasks = await AsyncStorage.getItem("tasks");
-        if (tasks) {
-          const parsedTasks = JSON.parse(tasks);
-          const totalCompleted = Object.values(parsedTasks)
-            .flat()
-            .filter((t) => t.completed).length;
-          setTaskCount(totalCompleted);
-        }
-      } catch (error) {
-        console.error("Error loading task count:", error);
-      }
-    };
-
     loadUserInfo();
-    loadTaskCount();
   }, []);
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -164,6 +122,7 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>{`Good morning ${capitalize(
             userInfo?.name
           )} !`}</Text>
+          {/* {userInfo?.name} */}
           <Text style={styles.subtitle}>How are you feeling today?</Text>
         </View>
 
@@ -171,45 +130,12 @@ export default function HomeScreen() {
           <View style={styles.quoteIconContainer}>
             <Ionicons name="bulb" size={24} color="#F59E0B" />
           </View>
-          <Text style={styles.quote}>
-            {
-              motivationalQuotes[
-                Math.floor(Math.random() * motivationalQuotes.length)
-              ]
-            }
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mindful Tasks</Text>
-          <View style={styles.taskGrid}>
-            {taskCategories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={styles.taskCard}
-                onPress={() => router.push(category.route)}
-              >
-                <View
-                  style={[
-                    styles.taskIcon,
-                    { backgroundColor: category.color + "20" },
-                  ]}
-                >
-                  <Ionicons
-                    name={category.icon}
-                    size={24}
-                    color={category.color}
-                  />
-                </View>
-                <Text style={styles.taskTitle}>{category.title}</Text>
-                <Text style={styles.taskSubtitle}>{category.subtitle}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.quote}>{todaysQuote}</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
+
           <View style={styles.actionsGrid}>
             {quickActions.map((action) => (
               <TouchableOpacity
@@ -234,6 +160,7 @@ export default function HomeScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Guides & Tutorials</Text>
+
           {guides.map((guide) => (
             <TouchableOpacity key={guide.id} style={styles.guideCard}>
               <View style={styles.guideContent}>
@@ -247,6 +174,7 @@ export default function HomeScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today's Progress</Text>
+
           <View style={styles.progressCard}>
             <View style={styles.progressItem}>
               <Ionicons name="book" size={20} color="#3B82F6" />
@@ -257,11 +185,6 @@ export default function HomeScreen() {
               <Ionicons name="bulb" size={20} color="#8B5CF6" />
               <Text style={styles.progressLabel}>Thoughts Released</Text>
               <Text style={styles.progressValue}>1</Text>
-            </View>
-            <View style={styles.progressItem}>
-              <Ionicons name="checkbox" size={20} color="#10B981" />
-              <Text style={styles.progressLabel}>Tasks Completed</Text>
-              <Text style={styles.progressValue}>{taskCount}</Text>
             </View>
             <View style={styles.progressItem}>
               <Ionicons name="alert-circle" size={20} color="#F59E0B" />
@@ -328,44 +251,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#111827",
     marginBottom: 16,
-  },
-  taskGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  taskCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    width: (width - 48) / 2,
-    marginBottom: 12,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  taskIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  taskTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  taskSubtitle: {
-    fontSize: 12,
-    color: "#6B7280",
-    textAlign: "center",
   },
   actionsGrid: {
     flexDirection: "row",

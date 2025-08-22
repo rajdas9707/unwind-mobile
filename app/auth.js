@@ -1,3 +1,12 @@
+import { auth, db } from "../firebaseConfig"; // Adjust the import path as necessary
+import {
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
+} from "firebase/auth";
+// import { doc, setDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import {
   View,
@@ -36,33 +45,90 @@ export default function AuthScreen() {
     setIsLoading(true);
 
     try {
-      // Simulate authentication
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      let userCredential;
 
-      // For demo purposes, we'll just store a token
-      await AsyncStorage.setItem("userToken", "demo-token");
-      await AsyncStorage.setItem(
-        "userInfo",
-        JSON.stringify({
-          name: name || "User",
-          email: email,
-          joinDate: new Date().toISOString().split("T")[0],
-        })
-      );
+      if (isLogin) {
+        // Login user
+        userCredential = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
 
-      router.replace("/(tabs)");
+        // Check if email is verified
+        if (!userCredential.user.emailVerified) {
+          Alert.alert(
+            "Verify Email",
+            "Please verify your email before logging in."
+          );
+          setIsLoading(false);
+          return;
+        }
+
+        // console.log("userInfo", userCredential.user.displayName);
+        await AsyncStorage.setItem("userToken", userCredential.user.uid);
+
+        await AsyncStorage.setItem(
+          "userInfo",
+          JSON.stringify({
+            name: userCredential?.user.displayName || "User",
+            email: userCredential?.user.email,
+            joinDate: new Date(userCredential.user.metadata.creationTime)
+              .toISOString()
+              .split("T")[0],
+          })
+        );
+
+        Alert.alert("Success", "Logged in successfully!");
+      } else {
+        // Register user
+        userCredential = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+
+        await updateProfile(userCredential.user, {
+          displayName: name || "User",
+        });
+
+        // 🔑 Reload the user to apply changes
+        await userCredential.user.reload();
+
+        // Send verification email
+        await sendEmailVerification(userCredential.user);
+
+        Alert.alert(
+          "Verify Email",
+          "Account created! Please check your email for a verification link before logging in."
+        );
+      }
+
+      if (userCredential?.user?.emailVerified) router.replace("/(tabs)");
+      else {
+        setIsLogin(!isLogin);
+        setIsLoading(false);
+        return;
+      }
     } catch (error) {
-      Alert.alert("Error", "Authentication failed");
+      console.log(error);
+      Alert.alert("Error", error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    Alert.alert(
-      "Google Sign In",
-      "Google authentication will be implemented with Firebase"
-    );
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert("Error", "Please enter your email first");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert("Success", "Password reset email sent!");
+    } catch (error) {
+      Alert.alert("Error", error.message);
+    }
   };
 
   return (
@@ -135,6 +201,12 @@ export default function AuthScreen() {
           </View>
         )}
 
+        {isLogin && (
+          <TouchableOpacity onPress={handleForgotPassword}>
+            <Text style={styles.forgotPassword}>Forgot Password?</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={styles.submitButton}
           onPress={handleSubmit}
@@ -142,16 +214,6 @@ export default function AuthScreen() {
         >
           <Text style={styles.submitButtonText}>
             {isLoading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.googleButton}
-          onPress={handleGoogleSignIn}
-        >
-          <Ionicons name="logo-google" size={20} color="#FFFFFF" />
-          <Text style={styles.googleButtonText}>
-            {isLogin ? "Sign in with Google" : "Sign up with Google"}
           </Text>
         </TouchableOpacity>
 
@@ -171,15 +233,8 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#1F2937",
-  },
-  header: {
-    alignItems: "center",
-    paddingTop: 80,
-    paddingBottom: 40,
-  },
+  container: { flex: 1, backgroundColor: "#1F2937" },
+  header: { alignItems: "center", paddingTop: 80, paddingBottom: 40 },
   logoContainer: {
     width: 80,
     height: 80,
@@ -189,20 +244,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#9CA3AF",
-  },
-  form: {
-    flex: 1,
-    paddingHorizontal: 32,
-  },
+  title: { fontSize: 28, fontWeight: "700", color: "#FFFFFF", marginBottom: 8 },
+  subtitle: { fontSize: 16, color: "#9CA3AF" },
+  form: { flex: 1, paddingHorizontal: 32 },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -218,6 +262,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
   },
+  forgotPassword: { color: "#3B82F6", textAlign: "right", marginBottom: 10 },
   submitButton: {
     backgroundColor: "#3B82F6",
     borderRadius: 12,
@@ -226,31 +271,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 16,
   },
-  submitButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  googleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#DC2626",
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginBottom: 24,
-  },
-  googleButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
-  },
-  switchButton: {
-    alignItems: "center",
-  },
-  switchButtonText: {
-    color: "#9CA3AF",
-    fontSize: 14,
-  },
+  submitButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  switchButton: { alignItems: "center" },
+  switchButtonText: { color: "#9CA3AF", fontSize: 14 },
 });
