@@ -76,11 +76,11 @@ export default function HomeScreen() {
     },
     {
       id: 2,
-      title: "Breathing Exercise",
-      subtitle: "Reduce stress",
-      icon: "leaf",
+      title: "Mindful Tasks",
+      subtitle: "Organize your day",
+      icon: "checkmark-circle",
       color: "#10B981",
-      click: () => router.push("/todo"),
+      click: () => router.push("/tasks/2-Minute"),
     },
     {
       id: 3,

@@ -13,6 +13,9 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { auth } from "../../firebaseConfig";
+import { authorizedFetch } from "../../api/client";
+import { exportDatabase } from "../testDb";
 
 export default function AccountScreen() {
   const [userInfo, setUserInfo] = useState({});
@@ -28,6 +31,7 @@ export default function AccountScreen() {
   useEffect(() => {
     loadUserInfo();
     loadUserStats();
+    fetchProfile();
   }, []);
 
   const loadUserInfo = async () => {
@@ -46,6 +50,40 @@ export default function AccountScreen() {
       console.error("Error loading user info:", error);
     }
   };
+
+  const getIdToken = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return null;
+      return await currentUser.getIdToken();
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const idToken = await getIdToken();
+      if (!idToken) return;
+      const data = await authorizedFetch(
+        "/api/auth/profile",
+        { method: "GET" },
+        idToken
+      );
+      // Optionally store/merge user info from backend
+      if (data?.user) {
+        const updatedInfo = {
+          ...userInfo,
+          email: data.user.email || userInfo.email,
+        };
+        setUserInfo(updatedInfo);
+      }
+    } catch (e) {
+      // Ignore if unauthorized or network error; UI already works offline
+    }
+  };
+
+  // Removed: password reset is handled directly via Firebase client SDK on Mobile
 
   const loadUserStats = async () => {
     try {
@@ -342,6 +380,12 @@ export default function AccountScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Export Database Button */}
+        <TouchableOpacity style={styles.exportButton} onPress={exportDatabase}>
+          <Ionicons name="download" size={20} color="#FFFFFF" />
+          <Text style={styles.exportText}>Export Database</Text>
+        </TouchableOpacity>
+
         {/* Sign Out Button */}
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <Ionicons name="log-out" size={20} color="#EF4444" />
@@ -569,6 +613,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#EF4444",
+    marginLeft: 8,
+  },
+  exportButton: {
+    backgroundColor: "#8B5CF6",
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  exportText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
     marginLeft: 8,
   },
 });

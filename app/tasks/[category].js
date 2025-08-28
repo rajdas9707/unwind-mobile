@@ -7,17 +7,27 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
+  Alert,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  initTodoDb,
+  listTodosByCategory,
+  insertLocalTodo,
+  updateTodo,
+  toggleTodoComplete,
+  deleteTodoById,
+  moveTaskToCarriedOver,
+  resetDbConnection,
+} from "../../storage/todoDb";
 
 const TaskItem = ({
   item,
   index,
   toggleTaskCompletion,
   deleteTask,
-  dumpTask,
+  moveToCarriedOver,
   categoryColor,
   openEditModal,
 }) => {
@@ -25,8 +35,8 @@ const TaskItem = ({
     <View style={[styles.taskItem, { borderLeftColor: categoryColor }]}>
       <TouchableOpacity
         onPress={() => {
-          console.log(`Toggling task completion: ${item.id}`);
-          toggleTaskCompletion(item.id);
+          console.log(`Toggling task completion: ${item.localId}`);
+          toggleTaskCompletion(item.localId);
         }}
       >
         <Ionicons
@@ -38,15 +48,15 @@ const TaskItem = ({
       <TouchableOpacity
         style={styles.taskContent}
         onPress={() => {
-          console.log(`Opening edit modal for task: ${item.id}`);
+          console.log(`Opening edit modal for task: ${item.localId}`);
           openEditModal(item);
         }}
       >
         <Text style={[styles.taskText, item.completed && styles.completedTask]}>
-          {item.text}
+          {item.title}
         </Text>
         <Text style={styles.intentionText}>
-          Intention: {item.intention || "None"}
+          Intention: {item.description || "None"}
         </Text>
         <Text style={styles.createdAtText}>
           {new Date(item.createdAt).toLocaleDateString()}
@@ -56,17 +66,17 @@ const TaskItem = ({
         {!item.completed && (
           <TouchableOpacity
             onPress={() => {
-              console.log(`Dumping task: ${item.id}`);
-              dumpTask(item.id);
+              console.log(`Moving task to carried over: ${item.localId}`);
+              moveToCarriedOver(item.localId);
             }}
           >
-            <Ionicons name="archive-outline" size={24} color="#6B7280" />
+            <Ionicons name="time-outline" size={24} color="#F59E0B" />
           </TouchableOpacity>
         )}
         <TouchableOpacity
           onPress={() => {
-            console.log(`Deleting task: ${item.id}`);
-            deleteTask(item.id);
+            console.log(`Deleting task: ${item.localId}`);
+            deleteTask(item.localId);
           }}
         >
           <Ionicons name="trash-outline" size={24} color="#EF4444" />
@@ -95,96 +105,102 @@ export default function CategoryTasks() {
   const categoryColor = categoryColors[category] || "#10B981";
 
   useEffect(() => {
-    console.log(`Loading tasks for category: ${category}`);
-    const loadTasks = async () => {
-      try {
-        const tasksData = await AsyncStorage.getItem("tasks");
-        if (tasksData) {
-          const parsedTasks = JSON.parse(tasksData);
-          const categoryTasks = parsedTasks[category] || [];
-          setTasks(categoryTasks);
-        }
-      } catch (error) {
-        console.error("Error loading tasks:", error);
-      }
-    };
-
-    loadTasks();
-
-    // Schedule task dump at midnight
-    const checkTime = () => {
-      const now = new Date();
-      if (now.getHours() === 0 && now.getMinutes() === 0) {
-        console.log("Running midnight dump");
-        dumpPendingTasks();
-      }
-    };
-
-    const interval = setInterval(checkTime, 60000); // Check every minute
-
-    return () => clearInterval(interval);
+    (async () => {
+      await initTodoDb();
+      await loadTasks();
+    })();
   }, [category]);
 
-  const dumpPendingTasks = async () => {
+  const loadTasks = async () => {
     try {
-      const tasksData = await AsyncStorage.getItem("tasks");
-      const carriedOverData = await AsyncStorage.getItem("carriedOverTasks");
-      const parsedTasks = tasksData
-        ? JSON.parse(tasksData)
-        : { [category]: [] };
-      const parsedCarriedOver = carriedOverData
-        ? JSON.parse(carriedOverData)
-        : { [category]: [] };
-
-      const pendingTasks =
-        parsedTasks[category]?.filter((task) => !task.completed) || [];
-      const carriedOverTasks = pendingTasks.map((task) => ({
-        ...task,
-        carriedOverAt: new Date().toISOString(),
-      }));
-
-      parsedCarriedOver[category] = [
-        ...(parsedCarriedOver[category] || []),
-        ...carriedOverTasks,
-      ];
-
-      await AsyncStorage.setItem(
-        "carriedOverTasks",
-        JSON.stringify(parsedCarriedOver)
-      );
+      console.log(`Loading tasks for category: ${category}`);
+      const categoryTasks = await listTodosByCategory(category);
+      // Filter for incomplete tasks
+      const incompleteTasks = categoryTasks.filter((task) => !task.completed);
+      setTasks(incompleteTasks);
     } catch (error) {
-      console.error("Error dumping pending tasks:", error);
+      console.error("Error loading tasks:", error);
+    }
+  };
+
+  const moveToCarriedOver = async (taskId) => {
+    try {
+      await moveTaskToCarriedOver(taskId);
+      await loadTasks();
+      Alert.alert("Task Moved", "Task has been moved to carried over tasks.", [
+        { text: "OK" },
+      ]);
+    } catch (error) {
+      console.error("Error moving task to carried over:", error);
+      Alert.alert(
+        "Error",
+        "Failed to move task to carried over. Please try again.",
+        [{ text: "OK" }]
+      );
     }
   };
 
   const toggleTaskCompletion = async (taskId) => {
     try {
-      const tasksData = await AsyncStorage.getItem("tasks");
-      if (tasksData) {
-        const parsedTasks = JSON.parse(tasksData);
-        const updatedTasks = parsedTasks[category].map((task) =>
-          task.id === taskId ? { ...task, completed: !task.completed } : task
-        );
-        parsedTasks[category] = updatedTasks;
-        await AsyncStorage.setItem("tasks", JSON.stringify(parsedTasks));
-        setTasks(updatedTasks);
+      const task = tasks.find((t) => t.localId === taskId);
+      if (!task) return;
+
+      const newCompleted = !task.completed;
+      const updatedAt = new Date().toISOString();
+
+      await toggleTodoComplete({
+        localId: taskId,
+        completed: newCompleted,
+        updatedAt,
+      });
+
+      await loadTasks();
+
+      // Try to sync if online
+      if (isOnline && task.synced) {
+        try {
+          const idToken = await getIdToken();
+          if (idToken) {
+            await updateTodoAPI({
+              idToken,
+              id: task.serverId,
+              title: task.title,
+              description: task.description,
+              category: task.category,
+              priority: task.priority,
+              dueDate: task.dueDate,
+              completed: newCompleted,
+            });
+          }
+        } catch (e) {
+          console.log("Failed to sync task completion:", e);
+        }
       }
     } catch (error) {
-      console.error("Error updating task:", error);
+      console.error("Error toggling task completion:", error);
     }
   };
 
   const deleteTask = async (taskId) => {
     try {
-      const tasksData = await AsyncStorage.getItem("tasks");
-      if (tasksData) {
-        const parsedTasks = JSON.parse(tasksData);
-        parsedTasks[category] = parsedTasks[category].filter(
-          (task) => task.id !== taskId
-        );
-        await AsyncStorage.setItem("tasks", JSON.stringify(parsedTasks));
-        setTasks(parsedTasks[category]);
+      const task = tasks.find((t) => t.localId === taskId);
+      if (!task) return;
+
+      await deleteTodoById({ localId: taskId, serverId: task.serverId });
+
+      // Try to sync deletion if online and task was synced
+      if (isOnline && task.synced) {
+        try {
+          const idToken = await getIdToken();
+          if (idToken) {
+            await deleteTodo({ idToken, id: task.serverId });
+          }
+        } catch (e) {
+          console.log("Failed to sync task deletion:", e);
+        }
       }
+
+      await loadTasks();
     } catch (error) {
       console.error("Error deleting task:", error);
     }
@@ -192,117 +208,116 @@ export default function CategoryTasks() {
 
   const dumpTask = async (taskId) => {
     try {
-      const tasksData = await AsyncStorage.getItem("tasks");
-      const carriedOverData = await AsyncStorage.getItem("carriedOverTasks");
-      const parsedTasks = tasksData
-        ? JSON.parse(tasksData)
-        : { [category]: [] };
-      const parsedCarriedOver = carriedOverData
-        ? JSON.parse(carriedOverData)
-        : { [category]: [] };
+      const task = tasks.find((t) => t.localId === taskId);
+      if (!task) return;
 
-      const taskToDump = parsedTasks[category].find(
-        (task) => task.id === taskId
-      );
-      if (taskToDump) {
-        parsedCarriedOver[category] = [
-          ...(parsedCarriedOver[category] || []),
-          { ...taskToDump, carriedOverAt: new Date().toISOString() },
-        ];
-        parsedTasks[category] = parsedTasks[category].filter(
-          (task) => task.id !== taskId
-        );
+      // Mark task as completed (dumped)
+      const updatedAt = new Date().toISOString();
+      await toggleTodoComplete({
+        localId: taskId,
+        completed: true,
+        updatedAt,
+      });
 
-        await AsyncStorage.setItem(
-          "carriedOverTasks",
-          JSON.stringify(parsedCarriedOver)
-        );
-        await AsyncStorage.setItem("tasks", JSON.stringify(parsedTasks));
-        setTasks(parsedTasks[category]);
-      }
+      await loadTasks();
     } catch (error) {
       console.error("Error dumping task:", error);
     }
   };
 
-  const addOrUpdateTask = async () => {
-    if (newTask.trim()) {
-      try {
-        const tasksData = await AsyncStorage.getItem("tasks");
-        const parsedTasks = tasksData
-          ? JSON.parse(tasksData)
-          : {
-              "2-Minute": [],
-              Urgent: [],
-              Important: [],
-              "Low Energy": [],
-            };
+  const openEditModal = (task) => {
+    setEditingTaskId(task.localId);
+    setNewTask(task.title);
+    setIntention(task.description || "");
+    setModalVisible(true);
+  };
 
-        if (editingTaskId) {
-          // Update existing task
-          const updatedTasks = parsedTasks[category].map((task) =>
-            task.id === editingTaskId
-              ? { ...task, text: newTask, intention }
-              : task
-          );
-          parsedTasks[category] = updatedTasks;
-          await AsyncStorage.setItem("tasks", JSON.stringify(parsedTasks));
-          setTasks(updatedTasks);
-        } else {
-          // Add new task
-          const newTaskObj = {
-            id: Date.now().toString(),
-            text: newTask,
-            intention,
-            category,
-            completed: false,
-            createdAt: new Date().toISOString(),
-          };
-          parsedTasks[category] = [
-            ...(parsedTasks[category] || []),
-            newTaskObj,
-          ];
-          await AsyncStorage.setItem("tasks", JSON.stringify(parsedTasks));
-          setTasks([...tasks, newTaskObj]);
-        }
+  const saveEditedTask = async () => {
+    if (!newTask.trim()) return;
 
-        setNewTask("");
-        setIntention("");
-        setEditingTaskId(null);
-        setModalVisible(false);
-      } catch (error) {
-        console.error("Error adding/updating task:", error);
-      }
+    try {
+      const updatedAt = new Date().toISOString();
+      await updateTodo({
+        localId: editingTaskId,
+        title: newTask.trim(),
+        description: intention.trim(),
+        category,
+        priority: "medium",
+        dueDate: null,
+        updatedAt,
+      });
+
+      await loadTasks();
+      setModalVisible(false);
+      setNewTask("");
+      setIntention("");
+      setEditingTaskId(null);
+    } catch (error) {
+      console.error("Error updating task:", error);
     }
   };
 
-  const openModal = () => {
-    console.log("Opening add task modal");
-    setEditingTaskId(null);
-    setNewTask("");
-    setIntention("");
-    setModalVisible(true);
-  };
+  const addNewTask = async () => {
+    if (!newTask.trim()) return;
 
-  const openEditModal = (task) => {
-    console.log(`Opening edit modal for task: ${task.id}`);
-    setEditingTaskId(task.id);
-    setNewTask(task.text);
-    setIntention(task.intention || "");
-    setModalVisible(true);
-  };
+    try {
+      console.log("Adding new task:", { title: newTask.trim(), category });
 
-  const closeModal = () => {
-    console.log("Closing modal");
-    setModalVisible(false);
-    setEditingTaskId(null);
-    setNewTask("");
-    setIntention("");
-  };
+      // Ensure database is initialized
+      await initTodoDb();
 
-  const openCarriedOverScreen = () => {
-    console.log(`Navigating to carried-over screen for category: ${category}`);
-    router.push(`/tasks/${category}/carried-over`);
+      const createdAt = new Date().toISOString();
+      const updatedAt = createdAt;
+
+      const newTaskObj = await insertLocalTodo({
+        title: newTask.trim(),
+        description: intention.trim(),
+        category,
+        priority: "medium",
+        dueDate: null,
+        createdAt,
+        updatedAt,
+      });
+
+      setNewTask("");
+      setIntention("");
+      await loadTasks();
+
+      Alert.alert("Task Added", "Your task has been saved successfully!", [
+        { text: "OK" },
+      ]);
+    } catch (error) {
+      console.error("Error adding task:", error);
+
+      // If it's a database connection error, try to reset and retry
+      if (error.message && error.message.includes("NullPointerException")) {
+        try {
+          console.log("Attempting to reset database connection...");
+          resetDbConnection();
+          await initTodoDb();
+          Alert.alert(
+            "Database Reset",
+            "Database connection has been reset. Please try adding the task again.",
+            [{ text: "OK" }]
+          );
+        } catch (resetError) {
+          console.error("Error resetting database:", resetError);
+          Alert.alert(
+            "Database Error",
+            "Unable to reset database connection. Please restart the app and try again.",
+            [{ text: "OK" }]
+          );
+        }
+      } else {
+        Alert.alert(
+          "Error Adding Task",
+          `Failed to add task: ${
+            error.message || "Database error"
+          }. Please try again.`,
+          [{ text: "OK" }]
+        );
+      }
+    }
   };
 
   return (
@@ -313,10 +328,21 @@ export default function CategoryTasks() {
           { backgroundColor: `${categoryColor}30` },
         ]}
       >
-        <Text style={[styles.header, { color: categoryColor }]}>
-          {category} Tasks
-        </Text>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            onPress={() => {
+              console.log("Navigating back to main task list");
+              router.back();
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color={categoryColor} />
+          </TouchableOpacity>
+          <Text style={[styles.header, { color: categoryColor }]}>
+            {category} Tasks
+          </Text>
+        </View>
       </View>
+
       <FlatList
         data={tasks}
         renderItem={({ item, index }) => (
@@ -325,47 +351,53 @@ export default function CategoryTasks() {
             index={index}
             toggleTaskCompletion={toggleTaskCompletion}
             deleteTask={deleteTask}
-            dumpTask={dumpTask}
+            moveToCarriedOver={moveToCarriedOver}
             categoryColor={categoryColor}
             openEditModal={openEditModal}
           />
         )}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.localId.toString()}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="sad-outline" size={48} color="#6B7280" />
-            <Text style={styles.emptyText}>
-              No tasks in this category yet. Add one to get started!
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={64}
+              color="#9CA3AF"
+            />
+            <Text style={styles.emptyText}>No tasks yet</Text>
+            <Text style={styles.emptySubtext}>
+              Add your first task to get started
             </Text>
           </View>
         }
         contentContainerStyle={styles.listContainer}
       />
-      <TouchableOpacity
-        style={[
-          styles.shortcutButton,
-          { backgroundColor: `${categoryColor}30`, zIndex: 1000 },
-        ]}
-        onPress={openCarriedOverScreen}
-      >
-        <Ionicons name="time-outline" size={24} color="#111827" />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: categoryColor, zIndex: 1000 }]}
-        onPress={openModal}
-      >
-        <Ionicons name="add" size={30} color="#FFFFFF" />
-      </TouchableOpacity>
+
+      <View style={styles.floatingButtonsContainer}>
+        <TouchableOpacity
+          style={[styles.pendingButton, { backgroundColor: "#F59E0B" }]}
+          onPress={() => router.push(`/tasks/${category}/carried-over`)}
+        >
+          <Ionicons name="time-outline" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: categoryColor }]}
+          onPress={() => setModalVisible(true)}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
       <Modal
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={closeModal}
+        onRequestClose={() => setModalVisible(false)}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={closeModal}
+          onPress={() => setModalVisible(false)}
         >
           <View
             style={styles.modalContent}
@@ -378,9 +410,7 @@ export default function CategoryTasks() {
               ]}
             >
               <Text style={styles.modalTitle}>
-                {editingTaskId
-                  ? `Edit ${category} Task`
-                  : `Add New ${category} Task`}
+                {editingTaskId ? "Edit Task" : "Add New Task"}
               </Text>
               <TextInput
                 style={styles.modalInput}
@@ -399,17 +429,17 @@ export default function CategoryTasks() {
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={styles.modalButton}
-                  onPress={closeModal}
+                  onPress={() => setModalVisible(false)}
                 >
                   <Text style={styles.modalButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
                     styles.modalButton,
-                    styles.addButton,
+                    styles.modalAddButton,
                     { backgroundColor: categoryColor },
                   ]}
-                  onPress={addOrUpdateTask}
+                  onPress={editingTaskId ? saveEditedTask : addNewTask}
                 >
                   <Text style={styles.modalButtonText}>
                     {editingTaskId ? "Save Changes" : "Add Task"}
@@ -435,10 +465,25 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   header: {
     fontSize: 30,
     fontWeight: "800",
     textAlign: "center",
+    flex: 1,
+  },
+  networkStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  networkText: {
+    fontSize: 12,
+    fontWeight: "500",
   },
   listContainer: {
     padding: 16,
@@ -462,11 +507,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 12,
   },
-  taskActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
   taskText: {
     fontSize: 16,
     fontWeight: "600",
@@ -486,45 +526,34 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     marginTop: 4,
   },
+  unsyncedText: {
+    fontSize: 12,
+    color: "#F59E0B",
+    fontWeight: "500",
+    marginTop: 4,
+  },
+  taskActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  syncButton: {
+    padding: 4,
+  },
   emptyContainer: {
     alignItems: "center",
     marginTop: 40,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: "600",
     color: "#6B7280",
-    textAlign: "center",
-    marginTop: 12,
+    marginTop: 16,
   },
-  shortcutButton: {
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  fab: {
-    position: "absolute",
-    bottom: 20,
-    right: 20,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
+  emptySubtext: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    marginTop: 8,
   },
   modalOverlay: {
     flex: 1,
@@ -567,8 +596,41 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 8,
   },
+  modalAddButton: {
+    backgroundColor: "#8B5CF6",
+  },
+  floatingButtonsContainer: {
+    position: "absolute",
+    bottom: 30,
+    right: 30,
+    flexDirection: "row",
+    gap: 16,
+  },
+  pendingButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#F59E0B",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#F59E0B",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
   addButton: {
-    backgroundColor: "#10B981",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#8B5CF6",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalButtonText: {
     fontSize: 16,

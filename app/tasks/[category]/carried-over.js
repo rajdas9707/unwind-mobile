@@ -7,12 +7,23 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
+  Alert,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  initTodoDb,
+  listCarriedOverTodosByCategory,
+  updateTodo,
+  toggleTodoComplete,
+  deleteTodoById,
+  resetDbConnection,
+  forceReconnect,
+  testDatabaseConnection,
+} from "../../../storage/todoDb";
+import runDatabaseTests from "../../../storage/testDb";
 
-const TaskItem = ({
+const CarriedOverTaskItem = ({
   item,
   index,
   toggleTaskCompletion,
@@ -21,11 +32,11 @@ const TaskItem = ({
   openEditModal,
 }) => {
   return (
-    <View style={[styles.taskItem, { borderLeftColor: "#6B7280" }]}>
+    <View style={[styles.taskItem, { borderLeftColor: categoryColor }]}>
       <TouchableOpacity
         onPress={() => {
-          console.log(`Toggling carried-over task completion: ${item.id}`);
-          toggleTaskCompletion(item.id);
+          console.log(`Toggling task completion: ${item.localId}`);
+          toggleTaskCompletion(item.localId);
         }}
       >
         <Ionicons
@@ -37,28 +48,34 @@ const TaskItem = ({
       <TouchableOpacity
         style={styles.taskContent}
         onPress={() => {
-          console.log(`Opening edit modal for carried-over task: ${item.id}`);
+          console.log(`Opening edit modal for task: ${item.localId}`);
           openEditModal(item);
         }}
       >
         <Text style={[styles.taskText, item.completed && styles.completedTask]}>
-          {item.text}
+          {item.title}
         </Text>
         <Text style={styles.intentionText}>
-          Intention: {item.intention || "None"}
+          Intention: {item.description || "None"}
         </Text>
-        <Text style={styles.createdAtText}>
-          Carried Over: {new Date(item.carriedOverAt).toLocaleDateString()}
+        <Text style={styles.carriedOverText}>
+          Carried Over: {new Date(item.carried_over_at).toLocaleDateString()}
+        </Text>
+        <Text style={styles.originalDateText}>
+          Originally Created:{" "}
+          {new Date(item.original_created_at).toLocaleDateString()}
         </Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => {
-          console.log(`Deleting carried-over task: ${item.id}`);
-          deleteTask(item.id);
-        }}
-      >
-        <Ionicons name="trash-outline" size={24} color="#EF4444" />
-      </TouchableOpacity>
+      <View style={styles.taskActions}>
+        <TouchableOpacity
+          onPress={() => {
+            console.log(`Deleting task: ${item.localId}`);
+            deleteTask(item.localId);
+          }}
+        >
+          <Ionicons name="trash-outline" size={24} color="#EF4444" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -66,11 +83,12 @@ const TaskItem = ({
 export default function CarriedOverTasks() {
   const { category } = useLocalSearchParams();
   const router = useRouter();
-  const [carriedOverTasks, setCarriedOverTasks] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTask, setNewTask] = useState("");
   const [intention, setIntention] = useState("");
   const [editingTaskId, setEditingTaskId] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const categoryColors = {
     "2-Minute": "#10B981",
@@ -82,106 +100,159 @@ export default function CarriedOverTasks() {
   const categoryColor = categoryColors[category] || "#10B981";
 
   useEffect(() => {
-    console.log(`Loading carried-over tasks for category: ${category}`);
-    const loadCarriedOverTasks = async () => {
+    let isMounted = true;
+
+    const initializeAndLoad = async () => {
       try {
-        const carriedOverData = await AsyncStorage.getItem("carriedOverTasks");
-        if (carriedOverData) {
-          const parsedCarriedOver = JSON.parse(carriedOverData);
-          const categoryCarriedOver = parsedCarriedOver[category] || [];
-          setCarriedOverTasks(categoryCarriedOver);
+        await initTodoDb();
+        if (isMounted) {
+          await loadTasks();
         }
       } catch (error) {
-        console.error("Error loading carried-over tasks:", error);
+        console.error("Error in useEffect initialization:", error);
+        if (isMounted) {
+          Alert.alert(
+            "Database Error",
+            "Failed to initialize database. Please restart the app.",
+            [{ text: "OK" }]
+          );
+        }
       }
     };
 
-    loadCarriedOverTasks();
+    initializeAndLoad();
+
+    return () => {
+      isMounted = false;
+    };
   }, [category]);
+
+  const loadTasks = async () => {
+    setIsLoading(true);
+    try {
+      console.log(`Loading carried over tasks for category: ${category}`);
+      const categoryTasks = await listCarriedOverTodosByCategory(category);
+      setTasks(categoryTasks);
+    } catch (error) {
+      console.error("Error loading carried over tasks:", error);
+
+      // If it's a database connection error, try to reset and retry once
+      if (error.message && error.message.includes("NullPointerException")) {
+        console.log(
+          "Database connection error detected, attempting to reset and retry..."
+        );
+        try {
+          const reconnected = await forceReconnect();
+          if (reconnected) {
+            const categoryTasks = await listCarriedOverTodosByCategory(
+              category
+            );
+            setTasks(categoryTasks);
+          } else {
+            throw new Error("Failed to reconnect to database");
+          }
+        } catch (retryError) {
+          console.error("Retry failed:", retryError);
+          // Show user-friendly error message
+          Alert.alert(
+            "Database Error",
+            "Unable to load tasks. Please restart the app and try again.",
+            [{ text: "OK" }]
+          );
+        }
+      } else {
+        // Show user-friendly error message for other errors
+        Alert.alert(
+          "Error",
+          "Failed to load carried over tasks. Please try again.",
+          [{ text: "OK" }]
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const toggleTaskCompletion = async (taskId) => {
     try {
-      const carriedOverData = await AsyncStorage.getItem("carriedOverTasks");
-      if (carriedOverData) {
-        const parsedCarriedOver = JSON.parse(carriedOverData);
-        const updatedTasks = parsedCarriedOver[category].map((task) =>
-          task.id === taskId ? { ...task, completed: !task.completed } : task
-        );
-        parsedCarriedOver[category] = updatedTasks;
-        await AsyncStorage.setItem(
-          "carriedOverTasks",
-          JSON.stringify(parsedCarriedOver)
-        );
-        setCarriedOverTasks(updatedTasks);
-      }
+      const task = tasks.find((t) => t.localId === taskId);
+      if (!task) return;
+
+      const newCompleted = !task.completed;
+      const updatedAt = new Date().toISOString();
+
+      await toggleTodoComplete({
+        localId: taskId,
+        completed: newCompleted,
+        updatedAt,
+      });
+
+      await loadTasks();
     } catch (error) {
-      console.error("Error updating carried-over task:", error);
+      console.error("Error toggling task completion:", error);
     }
   };
 
   const deleteTask = async (taskId) => {
     try {
-      const carriedOverData = await AsyncStorage.getItem("carriedOverTasks");
-      if (carriedOverData) {
-        const parsedCarriedOver = JSON.parse(carriedOverData);
-        parsedCarriedOver[category] = parsedCarriedOver[category].filter(
-          (task) => task.id !== taskId
-        );
-        await AsyncStorage.setItem(
-          "carriedOverTasks",
-          JSON.stringify(parsedCarriedOver)
-        );
-        setCarriedOverTasks(parsedCarriedOver[category]);
-      }
+      await deleteTodoById({ localId: taskId });
+      await loadTasks();
     } catch (error) {
-      console.error("Error deleting carried-over task:", error);
-    }
-  };
-
-  const updateTask = async () => {
-    if (newTask.trim()) {
-      try {
-        const carriedOverData = await AsyncStorage.getItem("carriedOverTasks");
-        const parsedCarriedOver = carriedOverData
-          ? JSON.parse(carriedOverData)
-          : { [category]: [] };
-
-        const updatedTasks = parsedCarriedOver[category].map((task) =>
-          task.id === editingTaskId
-            ? { ...task, text: newTask, intention }
-            : task
-        );
-        parsedCarriedOver[category] = updatedTasks;
-        await AsyncStorage.setItem(
-          "carriedOverTasks",
-          JSON.stringify(parsedCarriedOver)
-        );
-        setCarriedOverTasks(updatedTasks);
-
-        setNewTask("");
-        setIntention("");
-        setEditingTaskId(null);
-        setModalVisible(false);
-      } catch (error) {
-        console.error("Error updating carried-over task:", error);
-      }
+      console.error("Error deleting task:", error);
     }
   };
 
   const openEditModal = (task) => {
-    console.log(`Opening edit modal for carried-over task: ${task.id}`);
-    setEditingTaskId(task.id);
-    setNewTask(task.text);
-    setIntention(task.intention || "");
+    setEditingTaskId(task.localId);
+    setNewTask(task.title);
+    setIntention(task.description || "");
     setModalVisible(true);
   };
 
-  const closeModal = () => {
-    console.log("Closing modal");
-    setModalVisible(false);
-    setEditingTaskId(null);
-    setNewTask("");
-    setIntention("");
+  const saveEditedTask = async () => {
+    if (!newTask.trim()) return;
+
+    try {
+      const updatedAt = new Date().toISOString();
+      await updateTodo({
+        localId: editingTaskId,
+        title: newTask.trim(),
+        description: intention.trim(),
+        category,
+        priority: "medium",
+        dueDate: null,
+        updatedAt,
+      });
+
+      await loadTasks();
+      setModalVisible(false);
+      setNewTask("");
+      setIntention("");
+      setEditingTaskId(null);
+    } catch (error) {
+      console.error("Error updating task:", error);
+    }
+  };
+
+  const runDebugTests = async () => {
+    try {
+      console.log("Running database debug tests...");
+      const success = await runDatabaseTests();
+      if (success) {
+        Alert.alert("Debug Tests", "All database tests passed successfully!");
+      } else {
+        Alert.alert(
+          "Debug Tests",
+          "Some database tests failed. Check console for details."
+        );
+      }
+    } catch (error) {
+      console.error("Debug tests failed:", error);
+      Alert.alert(
+        "Debug Tests",
+        "Debug tests failed. Check console for details."
+      );
+    }
   };
 
   return (
@@ -195,49 +266,66 @@ export default function CarriedOverTasks() {
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={() => {
-              console.log("Navigating back to main task list");
+              console.log("Navigating back to category tasks");
               router.back();
             }}
           >
             <Ionicons name="arrow-back" size={24} color={categoryColor} />
           </TouchableOpacity>
           <Text style={[styles.header, { color: categoryColor }]}>
-            Carried Over {category} Tasks
+            {category} - Carried Over Tasks
           </Text>
-          <View style={{ width: 24 }} />
+          <TouchableOpacity onPress={runDebugTests}>
+            <Ionicons name="bug-outline" size={24} color="#EF4444" />
+          </TouchableOpacity>
         </View>
       </View>
-      <FlatList
-        data={carriedOverTasks}
-        renderItem={({ item, index }) => (
-          <TaskItem
-            item={item}
-            index={index}
-            toggleTaskCompletion={toggleTaskCompletion}
-            deleteTask={deleteTask}
-            categoryColor={categoryColor}
-            openEditModal={openEditModal}
-          />
-        )}
-        keyExtractor={(item) => item.id + item.carriedOverAt}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="sad-outline" size={48} color="#6B7280" />
-            <Text style={styles.emptyText}>No carried-over tasks yet.</Text>
-          </View>
-        }
-        contentContainerStyle={styles.listContainer}
-      />
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading carried over tasks...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={tasks}
+          renderItem={({ item, index }) => (
+            <CarriedOverTaskItem
+              item={item}
+              index={index}
+              toggleTaskCompletion={toggleTaskCompletion}
+              deleteTask={deleteTask}
+              categoryColor={categoryColor}
+              openEditModal={openEditModal}
+            />
+          )}
+          keyExtractor={(item) => item.localId.toString()}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={64}
+                color="#9CA3AF"
+              />
+              <Text style={styles.emptyText}>No carried over tasks</Text>
+              <Text style={styles.emptySubtext}>
+                Tasks moved to carried over will appear here
+              </Text>
+            </View>
+          }
+          contentContainerStyle={styles.listContainer}
+        />
+      )}
+
       <Modal
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={closeModal}
+        onRequestClose={() => setModalVisible(false)}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={closeModal}
+          onPress={() => setModalVisible(false)}
         >
           <View
             style={styles.modalContent}
@@ -249,7 +337,7 @@ export default function CarriedOverTasks() {
                 { backgroundColor: `${categoryColor}10` },
               ]}
             >
-              <Text style={styles.modalTitle}>Edit {category} Task</Text>
+              <Text style={styles.modalTitle}>Edit Carried Over Task</Text>
               <TextInput
                 style={styles.modalInput}
                 placeholder="Task description..."
@@ -267,7 +355,7 @@ export default function CarriedOverTasks() {
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={styles.modalButton}
-                  onPress={closeModal}
+                  onPress={() => setModalVisible(false)}
                 >
                   <Text style={styles.modalButtonText}>Cancel</Text>
                 </TouchableOpacity>
@@ -277,9 +365,11 @@ export default function CarriedOverTasks() {
                     styles.addButton,
                     { backgroundColor: categoryColor },
                   ]}
-                  onPress={updateTask}
+                  onPress={saveEditedTask}
                 >
-                  <Text style={styles.modalButtonText}>Save Changes</Text>
+                  <Text style={[styles.modalButtonText, { color: "#FFFFFF" }]}>
+                    Save Changes
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -304,13 +394,13 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   header: {
-    fontSize: 30,
+    fontSize: 24,
     fontWeight: "800",
     textAlign: "center",
     flex: 1,
+    marginLeft: 16,
   },
   listContainer: {
     padding: 16,
@@ -348,20 +438,36 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     marginTop: 6,
   },
-  createdAtText: {
+  carriedOverText: {
+    fontSize: 12,
+    color: "#F59E0B",
+    fontWeight: "500",
+    marginTop: 4,
+  },
+  originalDateText: {
     fontSize: 12,
     color: "#9CA3AF",
-    marginTop: 4,
+    marginTop: 2,
+  },
+  taskActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   emptyContainer: {
     alignItems: "center",
     marginTop: 40,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: "600",
     color: "#6B7280",
-    textAlign: "center",
-    marginTop: 12,
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    marginTop: 8,
   },
   modalOverlay: {
     flex: 1,
@@ -412,5 +518,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827",
     textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#6B7280",
   },
 });
