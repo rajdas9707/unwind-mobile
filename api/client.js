@@ -1,6 +1,7 @@
 // Lightweight API client for authorized requests to the backend
 import axios from "axios";
 import { auth } from "../firebaseConfig";
+import { Alert } from "react-native";
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || "http://192.168.29.225:5000";
 
@@ -16,7 +17,13 @@ export async function authorizedFetch(path, options = {}, idToken) {
     if (!token && auth?.currentUser) {
       token = await auth.currentUser.getIdToken();
     }
-  } catch {}
+  } catch {
+    Alert.alert(
+      "Authentication Error",
+      "Failed to retrieve authentication token. Please log in again."
+    );
+    throw new Error("Failed to retrieve authentication token");
+  }
 
   const headers = {
     "Content-Type": "application/json",
@@ -73,6 +80,8 @@ export async function listJournalEntries({
   if (page) params.set("page", String(page));
   if (limit) params.set("limit", String(limit));
   const qs = params.toString() ? `?${params.toString()}` : "";
+  console.log("qs", qs);
+
   return authorizedFetch(`/api/journal${qs}`, { method: "GET" }, idToken);
 }
 

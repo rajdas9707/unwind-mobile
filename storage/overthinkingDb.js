@@ -1,13 +1,6 @@
 import * as SQLite from "expo-sqlite";
 
-let dbPromise;
-
-function getDb() {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync("unwind.db");
-  }
-  return dbPromise;
-}
+import { getDb } from "./db";
 
 export async function initOverthinkingDb() {
   const db = await getDb();

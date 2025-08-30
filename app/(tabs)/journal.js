@@ -26,7 +26,6 @@ import {
 } from "../../api/client";
 import { Calendar } from "react-native-calendars";
 import {
-  initJournalDb,
   listEntriesByDate,
   listLatestEntries,
   insertLocalEntry,
@@ -40,8 +39,10 @@ import {
   getNetworkStatus,
   startNetworkMonitoring,
 } from "../../utils/networkUtils";
+import { useDatabaseReady } from "../../hooks/useDatabaseReady";
 
 export default function JournalScreen() {
+  const { isReady } = useDatabaseReady();
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
@@ -115,11 +116,12 @@ export default function JournalScreen() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
+
     let stopMonitoring;
     let removeListener;
 
     (async () => {
-      await initJournalDb();
       await loadLatestEntries();
       await syncFromBackend();
 

@@ -12,12 +12,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  initTodoDb,
   listCarriedOverTodosByCategory,
   updateTodo,
   toggleTodoComplete,
   deleteTodoById,
-  resetDbConnection,
   forceReconnect,
   testDatabaseConnection,
 } from "../../../storage/todoDb";
@@ -104,7 +102,6 @@ export default function CarriedOverTasks() {
 
     const initializeAndLoad = async () => {
       try {
-        await initTodoDb();
         if (isMounted) {
           await loadTasks();
         }

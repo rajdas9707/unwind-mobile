@@ -12,14 +12,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  initTodoDb,
   listTodosByCategory,
   insertLocalTodo,
   updateTodo,
   toggleTodoComplete,
   deleteTodoById,
   moveTaskToCarriedOver,
-  resetDbConnection,
 } from "../../storage/todoDb";
 
 const TaskItem = ({
@@ -106,7 +104,6 @@ export default function CategoryTasks() {
 
   useEffect(() => {
     (async () => {
-      await initTodoDb();
       await loadTasks();
     })();
   }, [category]);
@@ -263,8 +260,7 @@ export default function CategoryTasks() {
     try {
       console.log("Adding new task:", { title: newTask.trim(), category });
 
-      // Ensure database is initialized
-      await initTodoDb();
+
 
       const createdAt = new Date().toISOString();
       const updatedAt = createdAt;
@@ -293,8 +289,6 @@ export default function CategoryTasks() {
       if (error.message && error.message.includes("NullPointerException")) {
         try {
           console.log("Attempting to reset database connection...");
-          resetDbConnection();
-          await initTodoDb();
           Alert.alert(
             "Database Reset",
             "Database connection has been reset. Please try adding the task again.",

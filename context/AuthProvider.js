@@ -1,6 +1,6 @@
 import React, { createContext, useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebaseConfig";
+import { auth } from "../firebaseConfig";
 import { View, ActivityIndicator } from "react-native";
 
 export const AuthContext = createContext();
@@ -10,12 +10,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    (async () => {
+      await AsyncStorage.getItem("userToken");
+
+      const currentUser = await AsyncStorage.getItem("userInfo");
+
       setUser(currentUser);
       setLoading(false);
-    });
-
-    return unsubscribe;
+    })();
   }, []);
 
   if (loading) {

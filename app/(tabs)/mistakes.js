@@ -14,7 +14,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import RNPickerSelect from "react-native-picker-select";
 import {
-  initMistakesDb,
   listLatestMistakesEntries,
   listMistakesEntriesByDate,
   insertLocalMistakeEntry,
@@ -44,6 +43,7 @@ export default function MistakesScreen() {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
+  const [dbInitialized, setDbInitialized] = useState(false);
 
   const categories = [
     { label: "Work/Career", value: "Work/Career" },
@@ -62,8 +62,7 @@ export default function MistakesScreen() {
     let removeListener;
 
     (async () => {
-      await initMistakesDb();
-      await loadLatestEntries();
+      setDbInitialized(true);
 
       // Start network monitoring
       stopMonitoring = startNetworkMonitoring();
@@ -104,8 +103,15 @@ export default function MistakesScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    if (dbInitialized) {
+      loadLatestEntries();
+    }
+  }, [dbInitialized]);
+
   const loadLatestEntries = async () => {
     try {
+      if (!dbInitialized) return;
       const rows = await listLatestMistakesEntries(10);
       const normalized = rows.map((r) => ({
         localId: r.localId,
@@ -131,6 +137,7 @@ export default function MistakesScreen() {
 
   const loadEntriesForDate = async (date) => {
     try {
+      if (!dbInitialized) return;
       const rows = await listMistakesEntriesByDate(date);
       const normalized = rows.map((r) => ({
         localId: r.localId,
@@ -279,27 +286,36 @@ export default function MistakesScreen() {
   };
 
   const addEntry = async () => {
+    if (!dbInitialized) {
+      Alert.alert("Database Not Ready", "Please wait a moment and try again.");
+      return;
+    }
+
     if (!newMistake.trim()) {
       Alert.alert("Error", "Please describe the mistake");
       return;
     }
 
-    if (!newSolution.trim()) {
-      Alert.alert("Error", "Please provide a solution or lesson learned");
+    const networkAvailable = await checkNetworkStatus();
+    const timestamp = new Date().toISOString();
+    let local;
+    try {
+      local = await insertLocalMistakeEntry({
+        date: selectedDate,
+        mistake: newMistake.trim(),
+        solution: newSolution.trim(),
+        category: newCategory || "Other",
+        timestamp,
+      });
+    } catch (error) {
+      console.error("error in inserting local mistake entry:", error);
+      Alert.alert(
+        "Save Failed",
+        "Could not save the entry to the local database. Please try again.",
+        [{ text: "OK" }]
+      );
       return;
     }
-
-    // Check network status before saving
-    const networkAvailable = await checkNetworkStatus();
-
-    const timestamp = new Date().toISOString();
-    const local = await insertLocalMistakeEntry({
-      date: selectedDate,
-      mistake: newMistake.trim(),
-      solution: newSolution.trim(),
-      category: newCategory || "Other",
-      timestamp,
-    });
 
     const newEntryObj = {
       localId: local.localId,
@@ -608,8 +624,9 @@ export default function MistakesScreen() {
       </ScrollView>
 
       <TouchableOpacity
-        style={styles.addButton}
+        style={[styles.addButton, !dbInitialized && styles.disabledButton]}
         onPress={() => setShowAddModal(true)}
+        disabled={!dbInitialized}
       >
         <Ionicons name="add" size={24} color="#FFFFFF" />
       </TouchableOpacity>
@@ -946,6 +963,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+  },
+  disabledButton: {
+    backgroundColor: "#9CA3AF",
   },
   modalContainer: {
     flex: 1,

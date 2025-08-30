@@ -1,13 +1,6 @@
 import * as SQLite from "expo-sqlite";
 
-let dbPromise;
-
-function getDb() {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync("unwind.db");
-  }
-  return dbPromise;
-}
+import { getDb } from "./db";
 
 export async function initJournalDb() {
   const db = await getDb();
@@ -59,7 +52,7 @@ export async function listLatestEntries(limit = 10) {
       "SELECT id AS localId, server_id AS serverId, date, content, timestamp, synced FROM journal ORDER BY datetime(timestamp) DESC LIMIT ?",
       [limit]
     );
-    console.log("listLatestEntries result:", res);
+    console.log("listLatestEntries result:", res.length);
     return res;
   } catch (error) {
     console.log("Error in listLatestEntries:", error);

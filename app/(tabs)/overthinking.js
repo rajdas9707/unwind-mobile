@@ -13,7 +13,6 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import {
-  initOverthinkingDb,
   listLatestOverthinkingEntries,
   listOverthinkingEntriesByDate,
   insertLocalOverthinkingEntry,
@@ -32,6 +31,7 @@ import {
   createOverthinkingEntry,
   deleteOverthinkingEntry,
 } from "../../api/client";
+import { getDb } from "../../storage/db";
 
 export default function OverthinkingScreen() {
   const [selectedDate, setSelectedDate] = useState(
@@ -45,14 +45,14 @@ export default function OverthinkingScreen() {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
+  const [dbInitialized, setDbInitialized] = useState(false);
 
   useEffect(() => {
     let stopMonitoring;
     let removeListener;
 
     (async () => {
-      await initOverthinkingDb();
-      await loadLatestEntries();
+      setDbInitialized(true);
 
       // Start network monitoring
       stopMonitoring = startNetworkMonitoring();
@@ -93,8 +93,16 @@ export default function OverthinkingScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    if (dbInitialized) {
+      loadLatestEntries();
+    }
+  }, [dbInitialized]);
+
   const loadLatestEntries = async () => {
     try {
+      if (!dbInitialized) return;
+
       const rows = await listLatestOverthinkingEntries(10);
       const normalized = rows.map((r) => ({
         localId: r.localId,
@@ -119,6 +127,8 @@ export default function OverthinkingScreen() {
 
   const loadEntriesForDate = async (date) => {
     try {
+      if (!dbInitialized) return;
+
       const rows = await listOverthinkingEntriesByDate(date);
       const normalized = rows.map((r) => ({
         localId: r.localId,
@@ -264,6 +274,11 @@ export default function OverthinkingScreen() {
   };
 
   const addEntry = async () => {
+    if (!dbInitialized) {
+      Alert.alert("Database Not Ready", "Please wait a moment and try again.");
+      return;
+    }
+
     if (!newThought.trim()) {
       Alert.alert("Error", "Please describe your overthinking pattern");
       return;
@@ -273,12 +288,24 @@ export default function OverthinkingScreen() {
     const networkAvailable = await checkNetworkStatus();
 
     const timestamp = new Date().toISOString();
-    const local = await insertLocalOverthinkingEntry({
-      date: selectedDate,
-      thought: newThought.trim(),
-      solution: newSolution.trim(),
-      timestamp,
-    });
+
+    let local;
+    try {
+      local = await insertLocalOverthinkingEntry({
+        date: selectedDate,
+        thought: newThought.trim(),
+        solution: newSolution.trim(),
+        timestamp,
+      });
+    } catch (error) {
+      console.error("error in inserting local entry:", error);
+      Alert.alert(
+        "Save Failed",
+        "Could not save the entry to the local database. Please try again.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
 
     const newEntryObj = {
       localId: local.localId,
@@ -557,8 +584,9 @@ export default function OverthinkingScreen() {
       </ScrollView>
 
       <TouchableOpacity
-        style={styles.addButton}
+        style={[styles.addButton, !dbInitialized && styles.disabledButton]}
         onPress={() => setShowAddModal(true)}
+        disabled={!dbInitialized}
       >
         <Ionicons name="add" size={24} color="#FFFFFF" />
       </TouchableOpacity>
@@ -877,6 +905,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+    disabledButton: {
+      backgroundColor: "#9CA3AF",
+    },
+  },
+  disabledButton: {
+    backgroundColor: "#9CA3AF",
   },
   modalContainer: {
     flex: 1,
