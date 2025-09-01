@@ -1,41 +1,61 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { DatabaseProvider } from "../context/DatabaseProvider";
-import { AuthProvider } from "../context/AuthProvider";
-
-// import { useFrameworkReady } from "@/hooks/useFrameworkReady";
+import { View, ActivityIndicator, Text } from "react-native";
+import { initDb } from "../storage/db";
 
 export default function RootLayout() {
-  // useFrameworkReady();
-  console.log("RootLayout rendered");
+  const [dbReady, setDbReady] = useState(false);
+  const [error, setError] = useState(null);
 
+  useEffect(() => {
+    async function prepareDb() {
+      try {
+        console.log("Initializing database...");
+        await initDb();
+        setDbReady(true);
+        console.log("Database ready");
+      } catch (err) {
+        console.error("DB initialization failed:", err);
+        setError(err);
+      }
+    }
+
+    prepareDb();
+  }, []);
+
+  // Show a loading screen until DB is ready
+  if (!dbReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        {error ? (
+          <Text style={{ color: "red" }}>DB Init Failed: {error.message}</Text>
+        ) : (
+          <>
+            <ActivityIndicator size="large" />
+            <Text style={{ marginTop: 10 }}>Initializing database...</Text>
+          </>
+        )}
+      </View>
+    );
+  }
+
+  // Once DB is ready, render your stack
   return (
-    <DatabaseProvider>
-      <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="auth" />
-
-          <Stack.Screen name="meditation" options={{ title: "Meditation" }} />
-          <Stack.Screen name="reflection" options={{ title: "Reflection" }} />
-          <Stack.Screen name="gratitude" options={{ title: "Gratitude" }} />
-          <Stack.Screen name="tasks/[category]" options={{ title: "Tasks" }} />
-          <Stack.Screen
-            name="tasks/all-pending"
-            options={{ title: "All Pending Tasks" }}
-          />
-          <Stack.Screen
-            name="tasks/[category]/carried-over"
-            options={{ title: "Carried Over Tasks" }}
-          />
-          <Stack.Screen name="(tabs)" />
-
-          {/* <Stack.Screen name="+not-found" /> */}
-        </Stack>
-        <StatusBar style="auto" />
-      </AuthProvider>
-    </DatabaseProvider>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="auth" />
+        <Stack.Screen name="meditation" options={{ title: "Meditation" }} />
+        <Stack.Screen name="tasks/[category]" options={{ title: "Tasks" }} />
+        <Stack.Screen
+          name="tasks/[category]/carried-over"
+          options={{ title: "Carried Over Tasks" }}
+        />
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+      <StatusBar style="auto" />
+    </>
   );
 }

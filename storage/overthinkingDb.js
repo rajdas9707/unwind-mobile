@@ -1,65 +1,50 @@
-import * as SQLite from "expo-sqlite";
-
+// overthinkingDb.js
 import { getDb } from "./db";
 
-export async function initOverthinkingDb() {
-  const db = await getDb();
-  await db.execAsync(
-    `CREATE TABLE IF NOT EXISTS overthinking (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      server_id TEXT,
-      date TEXT NOT NULL,
-      thought TEXT NOT NULL,
-      solution TEXT,
-      timestamp TEXT NOT NULL,
-      dumped INTEGER NOT NULL DEFAULT 0,
-      synced INTEGER NOT NULL DEFAULT 0
-    );
-    CREATE INDEX IF NOT EXISTS idx_overthinking_date ON overthinking(date);
-    CREATE INDEX IF NOT EXISTS idx_overthinking_server ON overthinking(server_id);`
-  );
-}
+// -------------------- CRUD --------------------
 
+// List all entries
 export async function listAllOverthinkingEntries() {
   const db = await getDb();
-  const res = await db.getAllAsync(
-    "SELECT id AS localId, server_id AS serverId, date, thought, solution, timestamp, dumped, synced FROM overthinking ORDER BY datetime(timestamp) ASC"
-  );
-  return res;
+  return db.getAllAsync(`
+    SELECT id AS localId, server_id AS serverId, date, thought, solution, timestamp, dumped, synced
+    FROM overthinking
+    ORDER BY datetime(timestamp) ASC
+  `);
 }
 
+// List entries by date
 export async function listOverthinkingEntriesByDate(date) {
   const db = await getDb();
-  const res = await db.getAllAsync(
-    "SELECT id AS localId, server_id AS serverId, date, thought, solution, timestamp, dumped, synced FROM overthinking WHERE date = ? ORDER BY datetime(timestamp) ASC",
-    [date]
-  );
-  return res;
+  return db.getAllAsync(`
+    SELECT id AS localId, server_id AS serverId, date, thought, solution, timestamp, dumped, synced
+    FROM overthinking
+    WHERE date = ?
+    ORDER BY datetime(timestamp) ASC
+  `, [date]);
 }
 
+// List latest N entries
 export async function listLatestOverthinkingEntries(limit = 10) {
   const db = await getDb();
-  const res = await db.getAllAsync(
-    "SELECT id AS localId, server_id AS serverId, date, thought, solution, timestamp, dumped, synced FROM overthinking ORDER BY datetime(timestamp) DESC LIMIT ?",
-    [limit]
-  );
-  return res;
+  return db.getAllAsync(`
+    SELECT id AS localId, server_id AS serverId, date, thought, solution, timestamp, dumped, synced
+    FROM overthinking
+    ORDER BY datetime(timestamp) DESC
+    LIMIT ?
+  `, [limit]);
 }
 
-export async function insertLocalOverthinkingEntry({
-  date,
-  thought,
-  solution,
-  timestamp,
-}) {
+// Insert a new local entry
+export async function insertLocalOverthinkingEntry({ date, thought, solution, timestamp }) {
   const db = await getDb();
-  const result = await db.runAsync(
-    "INSERT INTO overthinking (server_id, date, thought, solution, timestamp, dumped, synced) VALUES (?, ?, ?, ?, ?, 0, 0)",
-    [null, date, thought, solution, timestamp]
-  );
-  const localId = result.lastInsertRowId;
+  const result = await db.execAsync(`
+    INSERT INTO overthinking (server_id, date, thought, solution, timestamp, dumped, synced)
+    VALUES (?, ?, ?, ?, ?, 0, 0)
+  `, [null, date, thought, solution, timestamp]);
+
   return {
-    localId,
+    localId: result.insertId || result.lastInsertRowId,
     serverId: null,
     date,
     thought,
@@ -70,31 +55,32 @@ export async function insertLocalOverthinkingEntry({
   };
 }
 
+// Mark entry as synced
 export async function markOverthinkingSynced({ localId, serverId, timestamp }) {
   const db = await getDb();
-  const result = await db.runAsync(
-    "UPDATE overthinking SET server_id = ?, timestamp = ?, synced = 1 WHERE id = ?",
-    [serverId, timestamp, localId]
-  );
-  return result;
+  await db.execAsync(`
+    UPDATE overthinking
+    SET server_id = ?, timestamp = ?, synced = 1
+    WHERE id = ?
+  `, [serverId, timestamp, localId]);
 }
 
+// Toggle dumped flag
 export async function toggleOverthinkingDumped({ localId, dumped }) {
   const db = await getDb();
-  const result = await db.runAsync(
-    "UPDATE overthinking SET dumped = ? WHERE id = ?",
-    [dumped ? 1 : 0, localId]
-  );
-  return result;
+  await db.execAsync(`
+    UPDATE overthinking
+    SET dumped = ?
+    WHERE id = ?
+  `, [dumped ? 1 : 0, localId]);
 }
 
+// Delete entry by localId or serverId
 export async function deleteOverthinkingById({ localId, serverId }) {
   const db = await getDb();
   if (localId != null) {
-    await db.runAsync("DELETE FROM overthinking WHERE id = ?", [localId]);
+    await db.execAsync(`DELETE FROM overthinking WHERE id = ?`, [localId]);
   } else if (serverId) {
-    await db.runAsync("DELETE FROM overthinking WHERE server_id = ?", [
-      serverId,
-    ]);
+    await db.execAsync(`DELETE FROM overthinking WHERE server_id = ?`, [serverId]);
   }
 }

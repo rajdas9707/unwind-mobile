@@ -1,68 +1,50 @@
-import * as SQLite from "expo-sqlite";
-
+// mistakesDb.js
 import { getDb } from "./db";
 
-export async function initMistakesDb() {
-  const db = await getDb();
-  await db.execAsync(
-    `CREATE TABLE IF NOT EXISTS mistakes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      server_id TEXT,
-      date TEXT NOT NULL,
-      mistake TEXT NOT NULL,
-      solution TEXT NOT NULL,
-      category TEXT NOT NULL,
-      timestamp TEXT NOT NULL,
-      avoided INTEGER NOT NULL DEFAULT 0,
-      synced INTEGER NOT NULL DEFAULT 0
-    );
-    CREATE INDEX IF NOT EXISTS idx_mistakes_date ON mistakes(date);
-    CREATE INDEX IF NOT EXISTS idx_mistakes_server ON mistakes(server_id);
-    CREATE INDEX IF NOT EXISTS idx_mistakes_category ON mistakes(category);`
-  );
-}
+// -------------------- CRUD --------------------
 
+// List all mistakes
 export async function listAllMistakesEntries() {
   const db = await getDb();
-  const res = await db.getAllAsync(
-    "SELECT id AS localId, server_id AS serverId, date, mistake, solution, category, timestamp, avoided, synced FROM mistakes ORDER BY datetime(timestamp) ASC"
-  );
-  return res;
+  return db.getAllAsync(`
+    SELECT id AS localId, server_id AS serverId, date, mistake, solution, category, timestamp, avoided, synced
+    FROM mistakes
+    ORDER BY datetime(timestamp) ASC
+  `);
 }
 
+// List mistakes by date
 export async function listMistakesEntriesByDate(date) {
   const db = await getDb();
-  const res = await db.getAllAsync(
-    "SELECT id AS localId, server_id AS serverId, date, mistake, solution, category, timestamp, avoided, synced FROM mistakes WHERE date = ? ORDER BY datetime(timestamp) ASC",
-    [date]
-  );
-  return res;
+  return db.getAllAsync(`
+    SELECT id AS localId, server_id AS serverId, date, mistake, solution, category, timestamp, avoided, synced
+    FROM mistakes
+    WHERE date = ?
+    ORDER BY datetime(timestamp) ASC
+  `, [date]);
 }
 
+// List latest N mistakes
 export async function listLatestMistakesEntries(limit = 10) {
   const db = await getDb();
-  const res = await db.getAllAsync(
-    "SELECT id AS localId, server_id AS serverId, date, mistake, solution, category, timestamp, avoided, synced FROM mistakes ORDER BY datetime(timestamp) DESC LIMIT ?",
-    [limit]
-  );
-  return res;
+  return db.getAllAsync(`
+    SELECT id AS localId, server_id AS serverId, date, mistake, solution, category, timestamp, avoided, synced
+    FROM mistakes
+    ORDER BY datetime(timestamp) DESC
+    LIMIT ?
+  `, [limit]);
 }
 
-export async function insertLocalMistakeEntry({
-  date,
-  mistake,
-  solution,
-  category,
-  timestamp,
-}) {
+// Insert a new mistake entry
+export async function insertLocalMistakeEntry({ date, mistake, solution, category, timestamp }) {
   const db = await getDb();
-  const result = await db.runAsync(
-    "INSERT INTO mistakes (server_id, date, mistake, solution, category, timestamp, avoided, synced) VALUES (?, ?, ?, ?, ?, ?, 0, 0)",
-    [null, date, mistake, solution, category, timestamp]
-  );
-  const localId = result.lastInsertRowId;
+  const result = await db.execAsync(`
+    INSERT INTO mistakes (server_id, date, mistake, solution, category, timestamp, avoided, synced)
+    VALUES (?, ?, ?, ?, ?, ?, 0, 0)
+  `, [null, date, mistake, solution, category, timestamp]);
+
   return {
-    localId,
+    localId: result.insertId || result.lastInsertRowId,
     serverId: null,
     date,
     mistake,
@@ -74,29 +56,32 @@ export async function insertLocalMistakeEntry({
   };
 }
 
+// Mark entry as synced
 export async function markMistakeSynced({ localId, serverId, timestamp }) {
   const db = await getDb();
-  const result = await db.runAsync(
-    "UPDATE mistakes SET server_id = ?, timestamp = ?, synced = 1 WHERE id = ?",
-    [serverId, timestamp, localId]
-  );
-  return result;
+  await db.execAsync(`
+    UPDATE mistakes
+    SET server_id = ?, timestamp = ?, synced = 1
+    WHERE id = ?
+  `, [serverId, timestamp, localId]);
 }
 
+// Toggle avoided flag
 export async function toggleMistakeAvoided({ localId, avoided }) {
   const db = await getDb();
-  const result = await db.runAsync(
-    "UPDATE mistakes SET avoided = ? WHERE id = ?",
-    [avoided ? 1 : 0, localId]
-  );
-  return result;
+  await db.execAsync(`
+    UPDATE mistakes
+    SET avoided = ?
+    WHERE id = ?
+  `, [avoided ? 1 : 0, localId]);
 }
 
+// Delete entry by localId or serverId
 export async function deleteMistakeById({ localId, serverId }) {
   const db = await getDb();
   if (localId != null) {
-    await db.runAsync("DELETE FROM mistakes WHERE id = ?", [localId]);
+    await db.execAsync(`DELETE FROM mistakes WHERE id = ?`, [localId]);
   } else if (serverId) {
-    await db.runAsync("DELETE FROM mistakes WHERE server_id = ?", [serverId]);
+    await db.execAsync(`DELETE FROM mistakes WHERE server_id = ?`, [serverId]);
   }
 }

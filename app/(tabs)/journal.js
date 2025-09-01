@@ -39,10 +39,10 @@ import {
   getNetworkStatus,
   startNetworkMonitoring,
 } from "../../utils/networkUtils";
-import { useDatabaseReady } from "../../hooks/useDatabaseReady";
+// import { useDatabaseReady } from "../../hooks/useDatabaseReady";
 
 export default function JournalScreen() {
-  const { isReady } = useDatabaseReady();
+  // const { isReady } = useDatabaseReady();
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
@@ -116,7 +116,7 @@ export default function JournalScreen() {
   };
 
   useEffect(() => {
-    if (!isReady) return;
+    // if (!isReady) return;
 
     let stopMonitoring;
     let removeListener;
