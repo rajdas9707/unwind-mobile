@@ -40,7 +40,9 @@ export async function getDb() {
 async function createDatabaseConnection() {
   try {
     console.log("Opening database connection...");
-    const db = await SQLite.openDatabaseAsync("unwind.db");
+    const db = await SQLite.openDatabaseAsync('unwind.db', {
+      useNewConnection: true, // Ensure a fresh connection
+    });
     console.log("Database connection opened successfully");
 
     // Test the connection
@@ -49,7 +51,7 @@ async function createDatabaseConnection() {
 
     return db;
   } catch (error) {
-    console.error("Error opening database:", error);
+    console.log("Error opening database:----db.js", error);
     // Reset the promise so we can try again
     dbPromise = null;
     throw error;

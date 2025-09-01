@@ -1,7 +1,7 @@
 import React, { createContext, useEffect, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebaseConfig";
 import { View, ActivityIndicator } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const AuthContext = createContext();
 
@@ -11,12 +11,18 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     (async () => {
+      try {
+        
+     
       await AsyncStorage.getItem("userToken");
 
       const currentUser = await AsyncStorage.getItem("userInfo");
 
       setUser(currentUser);
       setLoading(false);
+       } catch (error) {
+        console.log("error from authprovider useeffect",error.message)
+      }
     })();
   }, []);
 

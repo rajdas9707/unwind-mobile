@@ -7,69 +7,21 @@ import { initJournalDb } from "../storage/journalDb";
 import { initMistakesDb } from "../storage/mistakesDb";
 import { initOverthinkingDb } from "../storage/overthinkingDb";
 import { initTodoDb } from "../storage/todoDb";
+import { getDb } from "../storage/db";
 
 // Create the context
 const DatabaseContext = createContext();
 
-// Database connection management
-let dbPromise = null;
-let isInitializing = false;
-let initializationPromise = null;
 
-async function getDb() {
-  // If we're already initializing, wait for that to complete
-  if (isInitializing && initializationPromise) {
-    return await initializationPromise;
-  }
 
-  // If we have a valid connection, return it
-  if (dbPromise) {
-    try {
-      // Test the connection to make sure it's still valid
-      const db = await dbPromise;
-      await db.execAsync("SELECT 1");
-      return db;
-    } catch (error) {
-      console.log("Database connection test failed, reconnecting...");
-      dbPromise = null;
-    }
-  }
-
-  // Start initialization
-  isInitializing = true;
-  initializationPromise = createDatabaseConnection();
-
-  try {
-    const db = await initializationPromise;
-    return db;
-  } finally {
-    isInitializing = false;
-    initializationPromise = null;
-  }
-}
-
-async function createDatabaseConnection() {
-  try {
-    console.log("Opening database connection...");
-    const db = await SQLite.openDatabaseAsync("unwind.db");
-    console.log("Database connection opened successfully");
-
-    // Test the connection
-    await db.execAsync("SELECT 1");
-    console.log("Database connection test successful");
-
-    return db;
-  } catch (error) {
-    console.error("Error opening database:", error);
-    // Reset the promise so we can try again
-    dbPromise = null;
-    throw error;
-  }
-}
 
 // Initialize all database tables
 async function initializeAllDatabases() {
+
+  
   try {
+
+    
     console.log("Initializing all databases...");
 
     // Initialize each database module
