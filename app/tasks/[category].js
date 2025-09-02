@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,9 @@ import {
   deleteTodoById,
   moveTaskToCarriedOver,
 } from "../../storage/todoDb";
+import { AuthContext } from "../../context/AuthProvider";
+import {checkNetworkStatus} from "../../utils/networkUtils"
+
 
 const TaskItem = ({
   item,
@@ -92,7 +95,8 @@ export default function CategoryTasks() {
   const [newTask, setNewTask] = useState("");
   const [intention, setIntention] = useState("");
   const [editingTaskId, setEditingTaskId] = useState(null);
-
+ const {idToken}=useContext(AuthContext)
+ const isOnline=checkNetworkStatus()
   const categoryColors = {
     "2-Minute": "#10B981",
     Urgent: "#EF4444",
@@ -113,8 +117,8 @@ export default function CategoryTasks() {
       console.log(`Loading tasks for category: ${category}`);
       const categoryTasks = await listTodosByCategory(category);
       // Filter for incomplete tasks
-      const incompleteTasks = categoryTasks.filter((task) => !task.completed);
-      setTasks(incompleteTasks);
+      // const incompleteTasks = categoryTasks.filter((task) => !task.completed);
+      setTasks(categoryTasks);
     } catch (error) {
       console.error("Error loading tasks:", error);
     }
@@ -156,7 +160,7 @@ export default function CategoryTasks() {
       // Try to sync if online
       if (isOnline && task.synced) {
         try {
-          const idToken = await getIdToken();
+        
           if (idToken) {
             await updateTodoAPI({
               idToken,
@@ -174,7 +178,7 @@ export default function CategoryTasks() {
         }
       }
     } catch (error) {
-      console.error("Error toggling task completion:", error);
+      Alert.alert("Error toggling task completion:", error.message);
     }
   };
 
@@ -188,7 +192,7 @@ export default function CategoryTasks() {
       // Try to sync deletion if online and task was synced
       if (isOnline && task.synced) {
         try {
-          const idToken = await getIdToken();
+        idToken
           if (idToken) {
             await deleteTodo({ idToken, id: task.serverId });
           }
