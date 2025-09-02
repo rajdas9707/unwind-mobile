@@ -20,89 +20,112 @@ import {
   deleteOverthinkingById,
   markOverthinkingSynced,
 } from "../../storage/overthinkingDb";
-import {
-  checkNetworkStatus,
-  addNetworkListener,
-  getNetworkStatus,
-  startNetworkMonitoring,
-  useNetworkStatus,
-} from "../../utils/networkUtils";
+import { useNetworkStatus } from "../../utils/networkUtils";
 import { auth } from "../../firebaseConfig";
 import {
   createOverthinkingEntry,
   deleteOverthinkingEntry,
 } from "../../api/client";
 import { getDb } from "../../storage/db";
+import { useDatabaseReady } from "../../hooks/useDatabaseReady";
+import { useFocusEffect } from "expo-router";
 
 export default function OverthinkingScreen() {
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [selectedDate, setSelectedDate] = useState(null);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [newThought, setNewThought] = useState("");
   const [newSolution, setNewSolution] = useState("");
   const [entries, setEntries] = useState([]);
- const isOnline = useNetworkStatus();
+  const isOnline = useNetworkStatus();
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
-  const [dbInitialized, setDbInitialized] = useState(false);
+  // const [dbInitialized, setDbInitialized] = useState(false);
+  const { isReady } = useDatabaseReady();
+  // useEffect(() => {
+  //   let stopMonitoring;
+  //   let removeListener;
+
+  //   (async () => {
+  //     setDbInitialized(true);
+
+  //     // Start network monitoring
+  //     stopMonitoring = startNetworkMonitoring();
+
+  //     // Add network status listener
+  //     removeListener = addNetworkListener((online) => {
+  //       try {
+  //         const wasOffline = !isOnline;
+  //         setIsOnline(online);
+
+  //         if (online && wasOffline) {
+  //           // Network restored - show notification and try to sync pending entries
+  //           Alert.alert(
+  //             "Network Restored",
+  //             "Your internet connection is back. Syncing your overthinking entries...",
+  //             [{ text: "OK" }]
+  //           );
+  //           syncPendingEntries();
+  //         }
+  //       } catch (error) {
+  //         console.log("Error in network listener:", error);
+  //       }
+  //     });
+
+  //     // Initial network status check
+  //     try {
+  //       const initialStatus = await checkNetworkStatus();
+  //       setIsOnline(initialStatus);
+  //     } catch (error) {
+  //       console.log("Error checking initial network status:", error);
+  //       setIsOnline(false); // Assume offline if we can't check
+  //     }
+  //   })();
+
+  //   return () => {
+  //     if (stopMonitoring) stopMonitoring();
+  //     if (removeListener) removeListener();
+  //   };
+  // }, []);
 
   useEffect(() => {
-    let stopMonitoring;
-    let removeListener;
+    if (!isReady) {
+      Alert.alert("Database Not Ready", "Please wait a moment and try again.");
+    }
+  }, [isReady]);
 
+  useEffect(() => {
     (async () => {
-      setDbInitialized(true);
-
-      // Start network monitoring
-      stopMonitoring = startNetworkMonitoring();
-
-      // Add network status listener
-      removeListener = addNetworkListener((online) => {
-        try {
-          const wasOffline = !isOnline;
-          setIsOnline(online);
-
-          if (online && wasOffline) {
-            // Network restored - show notification and try to sync pending entries
-            Alert.alert(
-              "Network Restored",
-              "Your internet connection is back. Syncing your overthinking entries...",
-              [{ text: "OK" }]
-            );
-            syncPendingEntries();
-          }
-        } catch (error) {
-          console.log("Error in network listener:", error);
-        }
-      });
-
-      // Initial network status check
-      try {
-        const initialStatus = await checkNetworkStatus();
-        setIsOnline(initialStatus);
-      } catch (error) {
-        console.log("Error checking initial network status:", error);
-        setIsOnline(false); // Assume offline if we can't check
+      if (selectedDate) {
+        // If a date IS selected, load entries for that date.
+        console.log(
+          "Selected date changed, loading entries for:",
+          selectedDate
+        );
+        await loadEntriesForDate(selectedDate);
+      } else {
+        // If no date is selected (initial load), load the latest entries.
+        console.log("No date selected, loading latest entries.");
+        await loadLatestEntries();
       }
     })();
+  }, [selectedDate]); // Add this new useEffect hook
 
-    return () => {
-      if (stopMonitoring) stopMonitoring();
-      if (removeListener) removeListener();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (dbInitialized) {
-      loadLatestEntries();
-    }
-  }, [dbInitialized]);
+  // Use useFocusEffect for the cleanup logic
+  useFocusEffect(
+    React.useCallback(() => {
+      // This is the cleanup function
+      return () => {
+        console.log("Screen is losing focus, resetting selectedDate to null.");
+        setSelectedDate(null);
+      };
+    }, [])
+  );
 
   const loadLatestEntries = async () => {
     try {
-      if (!dbInitialized) return;
+      if (!isReady) return;
 
       const rows = await listLatestOverthinkingEntries(10);
       const normalized = rows.map((r) => ({
@@ -128,7 +151,7 @@ export default function OverthinkingScreen() {
 
   const loadEntriesForDate = async (date) => {
     try {
-      if (!dbInitialized) return;
+      if (!isReady) return;
 
       const rows = await listOverthinkingEntriesByDate(date);
       const normalized = rows.map((r) => ({
@@ -166,8 +189,8 @@ export default function OverthinkingScreen() {
     if (entry.synced) return;
 
     // Check network status before attempting sync
-    const networkAvailable = await checkNetworkStatus();
-    if (!networkAvailable) {
+    // const networkAvailable = await checkNetworkStatus();
+    if (!isOnline) {
       Alert.alert(
         "No Network Connection",
         "Please check your internet connection and try again.",
@@ -275,7 +298,7 @@ export default function OverthinkingScreen() {
   };
 
   const addEntry = async () => {
-    if (!dbInitialized) {
+    if (!isReady) {
       Alert.alert("Database Not Ready", "Please wait a moment and try again.");
       return;
     }
@@ -286,14 +309,14 @@ export default function OverthinkingScreen() {
     }
 
     // Check network status before saving
-    const networkAvailable = await checkNetworkStatus();
+    // const networkAvailable = await checkNetworkStatus();
 
     const timestamp = new Date().toISOString();
 
     let local;
     try {
       local = await insertLocalOverthinkingEntry({
-        date: selectedDate,
+        date: timestamp.split("T")[0],
         thought: newThought.trim(),
         solution: newSolution.trim(),
         timestamp,
@@ -312,7 +335,7 @@ export default function OverthinkingScreen() {
       localId: local.localId,
       id: `local-${local.localId}`,
       serverId: null,
-      date: selectedDate,
+      date: timestamp.split("T")[0],
       thought: newThought.trim(),
       solution: newSolution.trim(),
       timestamp,
@@ -326,7 +349,7 @@ export default function OverthinkingScreen() {
     setShowAddModal(false);
 
     // Show appropriate alert based on network status
-    if (!networkAvailable) {
+    if (!isOnline) {
       Alert.alert(
         "Entry Saved Offline",
         "Your overthinking entry has been saved locally. When network connectivity restores, it will be automatically synced to the cloud.",
@@ -335,7 +358,7 @@ export default function OverthinkingScreen() {
     }
 
     // Try background sync to backend if network is available
-    if (networkAvailable) {
+    if (isOnline) {
       (async () => {
         try {
           const idToken = await getIdToken();
@@ -344,7 +367,7 @@ export default function OverthinkingScreen() {
             idToken,
             thought: newThought.trim(),
             solution: newSolution.trim(),
-            date: selectedDate,
+            date: timestamp.split("T")[0],
           });
           await markOverthinkingSynced({
             localId: local.localId,
@@ -585,9 +608,9 @@ export default function OverthinkingScreen() {
       </ScrollView>
 
       <TouchableOpacity
-        style={[styles.addButton, !dbInitialized && styles.disabledButton]}
+        style={[styles.addButton, !isReady && styles.disabledButton]}
         onPress={() => setShowAddModal(true)}
-        disabled={!dbInitialized}
+        disabled={!isReady}
       >
         <Ionicons name="add" size={24} color="#FFFFFF" />
       </TouchableOpacity>

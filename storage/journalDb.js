@@ -35,7 +35,7 @@ export async function listEntriesByDate(date) {
       "SELECT id AS localId, server_id AS serverId, date, content, timestamp, synced FROM journal WHERE date = ? ORDER BY datetime(timestamp) ASC",
       [date]
     );
-    console.log("listEntriesByDate result:", res);
+    // console.log("listEntriesByDate result:", res);
     return res;
   } catch (error) {
     console.log("Error in listEntriesByDate:", error);

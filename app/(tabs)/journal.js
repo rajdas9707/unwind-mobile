@@ -33,23 +33,19 @@ import {
   upsertFromServer,
   deleteLocalByIds,
 } from "../../storage/journalDb";
-import {
-
-  useNetworkStatus,
-} from "../../utils/networkUtils";
+import { useNetworkStatus } from "../../utils/networkUtils";
 import { useDatabaseReady } from "../../hooks/useDatabaseReady";
+import { useFocusEffect } from "expo-router";
 
 export default function JournalScreen() {
   const { isReady } = useDatabaseReady();
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [newEntry, setNewEntry] = useState("");
   const [entries, setEntries] = useState([]);
- const isOnline = useNetworkStatus();
+  const isOnline = useNetworkStatus();
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
 
@@ -163,20 +159,42 @@ export default function JournalScreen() {
   //   };
   // }, []);
 
+  // useEffect(() => {
+  //   (async () => {
+  //     // Load latest entries instead of date-specific entries
+
+  //     await loadLatestEntries();
+  //     console.log("Database is ready, loaded latest entries");
+  //   })();
+  // }, []);
+
   useEffect(() => {
     (async () => {
-      // Load latest entries instead of date-specific entries
-      await loadLatestEntries();
+      if (selectedDate) {
+        // If a date IS selected, load entries for that date.
+        console.log(
+          "Selected date changed, loading entries for:",
+          selectedDate
+        );
+        await loadFromDb(selectedDate);
+      } else {
+        // If no date is selected (initial load), load the latest entries.
+        console.log("No date selected, loading latest entries.");
+        await loadLatestEntries();
+      }
     })();
-  }, []);
+  }, [selectedDate]); // Add this new useEffect hook
 
-    useEffect(() => {
-    (async () => {
-      // Load latest entries instead of date-specific entries
-      await loadFromDb(selectedDate);
-    })();
-  }, [selectedDate]);
-
+  // Use useFocusEffect for the cleanup logic
+  useFocusEffect(
+    React.useCallback(() => {
+      // This is the cleanup function
+      return () => {
+        console.log("Screen is losing focus, resetting selectedDate to null.");
+        setSelectedDate(null);
+      };
+    }, [])
+  );
   const loadFromDb = async (date) => {
     try {
       console.log("Loading entries for date:", date);
@@ -239,7 +257,7 @@ export default function JournalScreen() {
     console.log("Starting manual sync for entry:", entry);
 
     // Check network status before attempting sync
-   
+
     if (!isOnline) {
       Alert.alert(
         "No Network Connection",
@@ -357,7 +375,6 @@ export default function JournalScreen() {
       return;
     }
 
-
     // Insert locally first as unsynced
     const localTimestamp = new Date().toISOString();
     const local = await insertLocalEntry({
@@ -370,7 +387,7 @@ export default function JournalScreen() {
       localId: local.localId,
       id: `local-${local.localId}`,
       serverId: null,
-      date: selectedDate,
+      date: new Date().toISOString().split("T")[0],
       content: newEntry.trim(),
       timestamp: localTimestamp,
       synced: false,
@@ -475,7 +492,9 @@ export default function JournalScreen() {
     return marked;
   };
 
-  const todaysEntries = getEntriesForDate(new Date().toISOString().split("T")[0]);
+  const todaysEntries = getEntriesForDate(
+    new Date().toISOString().split("T")[0]
+  );
 
   return (
     <View style={styles.container}>
@@ -524,7 +543,10 @@ export default function JournalScreen() {
       </View>
 
       <View style={styles.dateRow}>
-        <Text style={styles.dateText}>Latest Entries</Text>
+        <Text style={styles.dateText}>
+          {" "}
+          {selectedDate ? selectedDate : "Latest Entries"}
+        </Text>
         <View style={styles.networkStatus}>
           <Ionicons
             name={isOnline ? "wifi" : "wifi-outline"}
@@ -555,17 +577,17 @@ export default function JournalScreen() {
             </Text>
           </View>
         ) : (
-          todaysEntries.map((entry) => (
+          entries.map((entry) => (
             <View key={entry.id} style={styles.entryCard}>
               <View style={styles.entryHeader}>
-          <Text style={styles.entryDate}>
-        {new Date(entry.date).toLocaleDateString("en-US", {
-          weekday: "short",
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })}
-      </Text>
+                <Text style={styles.entryDate}>
+                  {new Date(entry.date).toLocaleDateString("en-US", {
+                    weekday: "short",
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </Text>
                 <Text style={styles.entryTime}>
                   {new Date(entry.timestamp).toLocaleTimeString("en-US", {
                     hour: "2-digit",
@@ -812,10 +834,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   entryDate: {
-  fontSize: 12,
-  color: "#6B7280",
-  marginBottom: 2,
-},
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 2,
+  },
   entryTime: {
     fontSize: 12,
     color: "#6B7280",
