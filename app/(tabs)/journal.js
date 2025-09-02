@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -36,6 +36,7 @@ import {
 import { useNetworkStatus } from "../../utils/networkUtils";
 import { useDatabaseReady } from "../../hooks/useDatabaseReady";
 import { useFocusEffect } from "expo-router";
+import { AuthContext } from "../../context/AuthProvider";
 
 export default function JournalScreen() {
   const { isReady } = useDatabaseReady();
@@ -48,7 +49,7 @@ export default function JournalScreen() {
   const isOnline = useNetworkStatus();
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
-
+  const { idToken } = useContext(AuthContext);
   // Spinning animation for sync icon
   const spinValue = useSharedValue(0);
 
@@ -75,7 +76,6 @@ export default function JournalScreen() {
       const unsyncedEntries = entries.filter((entry) => !entry.synced);
       if (unsyncedEntries.length === 0) return;
 
-      const idToken = await getIdToken();
       if (!idToken) return;
 
       let syncedCount = 0;
@@ -268,7 +268,6 @@ export default function JournalScreen() {
     }
 
     try {
-      const idToken = await getIdToken();
       if (!idToken) {
         Alert.alert(
           "Authentication Required",
@@ -334,19 +333,19 @@ export default function JournalScreen() {
     }
   };
 
-  const getIdToken = async () => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return null;
-      return await currentUser.getIdToken();
-    } catch (e) {
-      return null;
-    }
-  };
+  // const getIdToken = async () => {
+  //   try {
+  //     const currentUser = auth.currentUser;
+  //     if (!currentUser) return null;
+  //     return await currentUser.getIdToken();
+  //   } catch (e) {
+  //     return null;
+  //   }
+  // };
 
   const syncFromBackend = async () => {
     try {
-      const idToken = await getIdToken();
+      // const idToken = await getIdToken();
       if (!idToken) return; // user not logged in
       const data = await listJournalEntries({
         date: undefined,
@@ -374,6 +373,7 @@ export default function JournalScreen() {
       Alert.alert("Error", "Please write something in your journal");
       return;
     }
+    console.log("token from journal-addentry func():", idToken.length);
 
     // Insert locally first as unsynced
     const localTimestamp = new Date().toISOString();
@@ -410,8 +410,11 @@ export default function JournalScreen() {
     if (isOnline) {
       (async () => {
         try {
-          const idToken = await getIdToken();
-          if (!idToken) return;
+          // const idToken = await getIdToken();
+          if (!idToken) {
+            throw new Error("User not authenticated");
+            return;
+          }
           const created = await createJournalEntry({
             idToken,
             content: newEntry.trim(),
@@ -450,7 +453,7 @@ export default function JournalScreen() {
                 localId: entry?.localId ?? null,
                 serverId: entry?.serverId ?? null,
               });
-              const idToken = await getIdToken();
+              // const idToken = await getIdToken();
               if (idToken && entry?.serverId) {
                 await deleteJournalEntry({ idToken, id: entry.serverId });
               }

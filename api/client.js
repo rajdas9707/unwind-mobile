@@ -103,6 +103,10 @@ export async function createJournalEntry({
       idToken
     );
     console.log("createJournalEntry result:", result);
+    if (result.status !== 201) {
+      throw new Error(`Unexpected response status: ${result.status}`);
+    }
+
     return result;
   } catch (error) {
     console.log("createJournalEntry error:", error);
