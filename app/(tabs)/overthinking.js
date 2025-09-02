@@ -25,6 +25,7 @@ import {
   addNetworkListener,
   getNetworkStatus,
   startNetworkMonitoring,
+  useNetworkStatus,
 } from "../../utils/networkUtils";
 import { auth } from "../../firebaseConfig";
 import {
@@ -42,7 +43,7 @@ export default function OverthinkingScreen() {
   const [newThought, setNewThought] = useState("");
   const [newSolution, setNewSolution] = useState("");
   const [entries, setEntries] = useState([]);
-  const [isOnline, setIsOnline] = useState(true);
+ const isOnline = useNetworkStatus();
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
   const [dbInitialized, setDbInitialized] = useState(false);

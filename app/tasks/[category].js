@@ -20,7 +20,7 @@ import {
   moveTaskToCarriedOver,
 } from "../../storage/todoDb";
 import { AuthContext } from "../../context/AuthProvider";
-import {checkNetworkStatus} from "../../utils/networkUtils"
+import {checkNetworkStatus, useNetworkStatus} from "../../utils/networkUtils"
 
 
 const TaskItem = ({
@@ -96,7 +96,7 @@ export default function CategoryTasks() {
   const [intention, setIntention] = useState("");
   const [editingTaskId, setEditingTaskId] = useState(null);
  const {idToken}=useContext(AuthContext)
- const isOnline=checkNetworkStatus()
+ const isOnline=useNetworkStatus()
   const categoryColors = {
     "2-Minute": "#10B981",
     Urgent: "#EF4444",

@@ -34,10 +34,8 @@ import {
   deleteLocalByIds,
 } from "../../storage/journalDb";
 import {
-  checkNetworkStatus,
-  addNetworkListener,
-  getNetworkStatus,
-  startNetworkMonitoring,
+
+  useNetworkStatus,
 } from "../../utils/networkUtils";
 import { useDatabaseReady } from "../../hooks/useDatabaseReady";
 
@@ -46,11 +44,12 @@ export default function JournalScreen() {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [newEntry, setNewEntry] = useState("");
   const [entries, setEntries] = useState([]);
-  const [isOnline, setIsOnline] = useState(true);
+ const isOnline = useNetworkStatus();
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
 
@@ -115,59 +114,66 @@ export default function JournalScreen() {
     }
   };
 
-  useEffect(() => {
-    if (!isReady) return;
+  // useEffect(() => {
+  //   if (!isReady) return;
 
-    let stopMonitoring;
-    let removeListener;
+  //   let stopMonitoring;
+  //   let removeListener;
 
-    (async () => {
-      await loadLatestEntries();
-      await syncFromBackend();
+  //   (async () => {
+  //     await loadLatestEntries();
+  //     await syncFromBackend();
 
-      // Start network monitoring
-      stopMonitoring = startNetworkMonitoring();
+  //     // Start network monitoring
+  //     stopMonitoring = startNetworkMonitoring();
 
-      // Add network status listener
-      removeListener = addNetworkListener((online) => {
-        try {
-          const wasOffline = !isOnline;
-          setIsOnline(online);
+  //     // Add network status listener
+  //     removeListener = addNetworkListener((online) => {
+  //       try {
+  //         const wasOffline = !isOnline;
+  //         setIsOnline(online);
 
-          if (online && wasOffline) {
-            // Network restored - show notification and try to sync pending entries
-            Alert.alert(
-              "Network Restored",
-              "Your internet connection is back. Syncing your journal entries...",
-              [{ text: "OK" }]
-            );
-            syncPendingEntries();
-          }
-        } catch (error) {
-          console.log("Error in network listener:", error);
-        }
-      });
+  //         if (online && wasOffline) {
+  //           // Network restored - show notification and try to sync pending entries
+  //           Alert.alert(
+  //             "Network Restored",
+  //             "Your internet connection is back. Syncing your journal entries...",
+  //             [{ text: "OK" }]
+  //           );
+  //           syncPendingEntries();
+  //         }
+  //       } catch (error) {
+  //         console.log("Error in network listener:", error);
+  //       }
+  //     });
 
-      // Initial network status check
-      try {
-        const initialStatus = await checkNetworkStatus();
-        setIsOnline(initialStatus);
-      } catch (error) {
-        console.log("Error checking initial network status:", error);
-        setIsOnline(false); // Assume offline if we can't check
-      }
-    })();
+  //     // Initial network status check
+  //     try {
+  //       const initialStatus = await checkNetworkStatus();
+  //       setIsOnline(initialStatus);
+  //     } catch (error) {
+  //       console.log("Error checking initial network status:", error);
+  //       setIsOnline(false); // Assume offline if we can't check
+  //     }
+  //   })();
 
-    return () => {
-      if (stopMonitoring) stopMonitoring();
-      if (removeListener) removeListener();
-    };
-  }, []);
+  //   return () => {
+  //     if (stopMonitoring) stopMonitoring();
+  //     if (removeListener) removeListener();
+  //   };
+  // }, []);
 
   useEffect(() => {
     (async () => {
       // Load latest entries instead of date-specific entries
       await loadLatestEntries();
+    })();
+  }, []);
+
+    useEffect(() => {
+    (async () => {
+      // Load latest entries instead of date-specific entries
+      await loadFromDb(selectedDate);
     })();
   }, [selectedDate]);
 
@@ -233,8 +239,8 @@ export default function JournalScreen() {
     console.log("Starting manual sync for entry:", entry);
 
     // Check network status before attempting sync
-    const networkAvailable = await checkNetworkStatus();
-    if (!networkAvailable) {
+   
+    if (!isOnline) {
       Alert.alert(
         "No Network Connection",
         "Please check your internet connection and try again.",
@@ -351,13 +357,11 @@ export default function JournalScreen() {
       return;
     }
 
-    // Check network status before saving
-    const networkAvailable = await checkNetworkStatus();
 
     // Insert locally first as unsynced
     const localTimestamp = new Date().toISOString();
     const local = await insertLocalEntry({
-      date: selectedDate,
+      date: localTimestamp.split("T")[0],
       content: newEntry.trim(),
       timestamp: localTimestamp,
     });
@@ -377,7 +381,7 @@ export default function JournalScreen() {
     setShowAddModal(false);
 
     // Show appropriate alert based on network status
-    if (!networkAvailable) {
+    if (!isOnline) {
       Alert.alert(
         "Entry Saved Offline",
         "Your journal entry has been saved locally. When network connectivity restores, it will be automatically synced to the cloud.",
@@ -386,7 +390,7 @@ export default function JournalScreen() {
     }
 
     // Try background sync to backend if network is available
-    if (networkAvailable) {
+    if (isOnline) {
       (async () => {
         try {
           const idToken = await getIdToken();
@@ -394,7 +398,7 @@ export default function JournalScreen() {
           const created = await createJournalEntry({
             idToken,
             content: newEntry.trim(),
-            date: selectedDate,
+            date: new Date().toISOString().split("T")[0],
           });
           await markSynced({
             localId: local.localId,
@@ -471,7 +475,7 @@ export default function JournalScreen() {
     return marked;
   };
 
-  const todaysEntries = getEntriesForDate(selectedDate);
+  const todaysEntries = getEntriesForDate(new Date().toISOString().split("T")[0]);
 
   return (
     <View style={styles.container}>
@@ -554,6 +558,14 @@ export default function JournalScreen() {
           todaysEntries.map((entry) => (
             <View key={entry.id} style={styles.entryCard}>
               <View style={styles.entryHeader}>
+          <Text style={styles.entryDate}>
+        {new Date(entry.date).toLocaleDateString("en-US", {
+          weekday: "short",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })}
+      </Text>
                 <Text style={styles.entryTime}>
                   {new Date(entry.timestamp).toLocaleTimeString("en-US", {
                     hour: "2-digit",
@@ -799,6 +811,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
+  entryDate: {
+  fontSize: 12,
+  color: "#6B7280",
+  marginBottom: 2,
+},
   entryTime: {
     fontSize: 12,
     color: "#6B7280",

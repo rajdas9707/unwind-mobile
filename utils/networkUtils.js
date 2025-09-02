@@ -1,44 +1,45 @@
+import { useState, useEffect } from "react";
 import * as Network from "expo-network";
 
-let isOnline = true;
-let networkListeners = [];
+/**
+ * Custom hook to monitor network status
+ * Returns a boolean: true if online, false if offline
+ */
+export const useNetworkStatus = () => {
+  const [isOnline, setIsOnline] = useState(true);
 
-export const checkNetworkStatus = async () => {
-  try {
-    const networkState = await Network.getNetworkStateAsync();
-    const wasOnline = isOnline;
-    isOnline = networkState.isConnected && networkState.isInternetReachable;
+  useEffect(() => {
+    let isMounted = true;
 
-    // Notify listeners if status changed
-    if (wasOnline !== isOnline) {
-      networkListeners.forEach((listener) => listener(isOnline));
-    }
+    // Function to check network status
+    const checkStatus = async () => {
+      try {
+        const networkState = await Network.getNetworkStateAsync();
+        if (isMounted) {
+          setIsOnline(networkState.isConnected && networkState.isInternetReachable);
+        }
+      } catch (error) {
+        console.log("Error checking network status:", error);
+        if (isMounted) setIsOnline(false);
+      }
+    };
 
-    return isOnline;
-  } catch (error) {
-    console.log("Error checking network status:", error);
-    return false;
-  }
-};
+    // Initial check
+    checkStatus();
 
-export const addNetworkListener = (listener) => {
-  networkListeners.push(listener);
-  return () => {
-    const index = networkListeners.indexOf(listener);
-    if (index > -1) {
-      networkListeners.splice(index, 1);
-    }
-  };
-};
+    // Subscribe to network changes
+    const subscription = Network.addNetworkStateListener((networkState) => {
+      if (isMounted) {
+        setIsOnline(networkState.isConnected && networkState.isInternetReachable);
+      }
+    });
 
-export const getNetworkStatus = () => isOnline;
+    // Cleanup
+    return () => {
+      isMounted = false;
+      subscription?.remove();
+    };
+  }, []);
 
-export const startNetworkMonitoring = () => {
-  // Check network status every 5 seconds
-  const interval = setInterval(checkNetworkStatus, 5000);
-
-  // Initial check
-  checkNetworkStatus();
-
-  return () => clearInterval(interval);
+  return isOnline;
 };
