@@ -54,7 +54,7 @@ export async function authorizedFetch(path, options = {}, idToken) {
       data,
       params: options.params,
     });
-    return response.data;
+    return { data: response.data, status: response.status };
   } catch (error) {
     const status = error?.response?.status;
     const payload = error?.response?.data;
@@ -82,7 +82,11 @@ export async function listJournalEntries({
   const qs = params.toString() ? `?${params.toString()}` : "";
   console.log("qs", qs);
 
-  return authorizedFetch(`/api/journal${qs}`, { method: "GET" }, idToken);
+  const result = authorizedFetch(
+    `/api/journal${qs}`,
+    { method: "GET" },
+    idToken
+  );
 }
 
 export async function createJournalEntry({
@@ -107,7 +111,7 @@ export async function createJournalEntry({
       throw new Error(`Unexpected response status: ${result.status}`);
     }
 
-    return result;
+    return result.data;
   } catch (error) {
     console.log("createJournalEntry error:", error);
     throw error;
@@ -140,11 +144,28 @@ export async function createOverthinkingEntry({
   date,
 }) {
   const body = JSON.stringify({ thought, solution, date });
-  return authorizedFetch(
-    `/api/overthinking`,
-    { method: "POST", body },
-    idToken
-  );
+  console.log("createOverthinkingEntry called with: client.js ", {
+    thought,
+    solution,
+    date,
+  });
+  try {
+    const result = await authorizedFetch(
+      `/api/overthinking`,
+      { method: "POST", body },
+      idToken
+    );
+
+    console.log("createoverthinking result:", result);
+    if (result.status !== 201) {
+      throw new Error(`Unexpected response status: ${result.status}`);
+    }
+
+    return result.data;
+  } catch (error) {
+    console.log("createJournalEntry error:", error);
+    throw error;
+  }
 }
 
 export async function deleteOverthinkingEntry({ idToken, id }) {
@@ -178,7 +199,23 @@ export async function createMistakeEntry({
   date,
 }) {
   const body = JSON.stringify({ mistake, solution, category, date });
-  return authorizedFetch(`/api/mistakes`, { method: "POST", body }, idToken);
+  try {
+    const result = await authorizedFetch(
+      `/api/mistakes`,
+      { method: "POST", body },
+      idToken
+    );
+    console.log("createMistakeEntry result:", result);
+
+    if (result.status !== 201) {
+      throw new Error(`Unexpected response status: ${result.status}`);
+    }
+
+    return result.data;
+  } catch (error) {
+    console.log("createmistakeEntry error:", error);
+    throw error;
+  }
 }
 
 export async function deleteMistakeEntry({ idToken, id }) {

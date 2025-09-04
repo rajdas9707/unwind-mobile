@@ -369,11 +369,15 @@ export default function JournalScreen() {
   };
 
   const addEntry = async () => {
+    if (!isReady) {
+      Alert.alert("Database Not Ready", "Please wait a moment and try again.");
+      return;
+    }
     if (!newEntry.trim()) {
       Alert.alert("Error", "Please write something in your journal");
       return;
     }
-    console.log("token from journal-addentry func():", idToken.length);
+    // console.log("token from journal-addentry func():", typeof idToken);
 
     // Insert locally first as unsynced
     const localTimestamp = new Date().toISOString();
@@ -420,6 +424,7 @@ export default function JournalScreen() {
             content: newEntry.trim(),
             date: new Date().toISOString().split("T")[0],
           });
+          console.log("Created entry on server-JOURNAL ADDENTRY:", created);
           await markSynced({
             localId: local.localId,
             serverId: created._id,

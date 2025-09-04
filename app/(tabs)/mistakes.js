@@ -369,8 +369,7 @@ export default function MistakesScreen() {
     if (isOnline) {
       (async () => {
         try {
-          const idToken = await getIdToken();
-          if (!idToken) return;
+          if (!idToken) throw new Error("User not authenticated");
           const created = await createMistakeEntry({
             idToken,
             mistake: newMistake.trim(),

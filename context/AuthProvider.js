@@ -13,16 +13,15 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     (async () => {
       try {
-        
-     
-      const token =await AsyncStorage.getItem("userToken");
-setIdToken(token)
-      const currentUser = await AsyncStorage.getItem("userInfo");
+        const token = await AsyncStorage.getItem("userToken");
+        console.log("token from authprovider", typeof token);
+        setIdToken(token);
+        const currentUser = await AsyncStorage.getItem("userInfo");
 
-      setUser(currentUser);
-      setLoading(false);
-       } catch (error) {
-        console.log("error from authprovider useeffect",error.message)
+        setUser(currentUser);
+        setLoading(false);
+      } catch (error) {
+        console.log("error from authprovider useeffect", error.message);
       }
     })();
   }, []);
@@ -36,6 +35,8 @@ setIdToken(token)
   }
 
   return (
-    <AuthContext.Provider value={{ user,idToken }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, idToken }}>
+      {children}
+    </AuthContext.Provider>
   );
 };

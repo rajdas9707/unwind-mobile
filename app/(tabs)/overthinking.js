@@ -350,6 +350,9 @@ export default function OverthinkingScreen() {
 
     // Show appropriate alert based on network status
     if (!isOnline) {
+      console.log(
+        "Offline, entry saved locally only--overthinkimg.js add entry()"
+      );
       Alert.alert(
         "Entry Saved Offline",
         "Your overthinking entry has been saved locally. When network connectivity restores, it will be automatically synced to the cloud.",
@@ -359,16 +362,27 @@ export default function OverthinkingScreen() {
 
     // Try background sync to backend if network is available
     if (isOnline) {
+      console.log("i am hitting isOnline");
       (async () => {
         try {
-          const idToken = await getIdToken();
-          if (!idToken) return;
+          if (!idToken) {
+            throw new Error("User not authenticated");
+            return;
+          }
+
+          console.log("i am hitting createOverthinkingEntry");
           const created = await createOverthinkingEntry({
             idToken,
             thought: newThought.trim(),
             solution: newSolution.trim(),
             date: timestamp.split("T")[0],
           });
+
+          console.log(
+            "Created entry on server-overthinking ADDENTRY:",
+            created
+          );
+
           await markOverthinkingSynced({
             localId: local.localId,
             serverId: created._id,
