@@ -6,18 +6,17 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
-  FlatList,
-  Pressable,
   Animated,
   ImageBackground,
   Modal,
+  Image,
 } from "react-native";
 import { Audio } from "expo-av";
 import { AntDesign, FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Svg, { Circle, Path } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import * as SQLite from "expo-sqlite";
+import { useDatabase } from "../context/DatabaseProvider";
 
 export default function MeditationScreen() {
   const [timeLeft, setTimeLeft] = useState(300); // Default 5 mins
@@ -33,6 +32,9 @@ export default function MeditationScreen() {
   const [customTime, setCustomTime] = useState("5"); // Time input in minutes
   const [isMuted, setIsMuted] = useState(false);
   const [selectedFeeling, setSelectedFeeling] = useState("");
+  const [tracks, setTracks] = useState([]);
+  const [loadingTracks, setLoadingTracks] = useState(false);
+  const [errorTracks, setErrorTracks] = useState(null);
   const feelings = [
     "Calm",
     "Happy",
@@ -42,7 +44,7 @@ export default function MeditationScreen() {
     "Energized",
     "Neutral",
   ];
-  const [db, setDb] = useState(null);
+  const { getDb } = useDatabase();
   const THEMES = {
     Day: { bg: "#e6f0ff", fg: "#0f172a", accent: "#2563eb", soft: "#c7d2fe" },
     Night: { bg: "#0b1220", fg: "#e5e7eb", accent: "#60a5fa", soft: "#1f2a44" },
@@ -57,16 +59,11 @@ export default function MeditationScreen() {
   const borderColor = isDay ? "rgba(15,23,42,0.2)" : "rgba(255,255,255,0.12)";
   const inputBg = isDay ? "rgba(15,23,42,0.06)" : "rgba(255,255,255,0.08)";
 
-  // SQLite: open DB (async or legacy) and create table
+  // Create meditation_sessions table if not exists
   useEffect(() => {
-    let isMounted = true;
-    (async () => {
+    const initTable = async () => {
       try {
-        const opened = SQLite.openDatabaseAsync
-          ? await SQLite.openDatabaseAsync("unwind.db")
-          : SQLite.openDatabase("unwind.db");
-        if (!isMounted) return;
-        setDb(opened);
+        const db = await getDb();
         const createSQL = `CREATE TABLE IF NOT EXISTS meditation_sessions (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           created_at TEXT NOT NULL,
@@ -75,17 +72,57 @@ export default function MeditationScreen() {
           notes TEXT,
           duration_seconds INTEGER
         );`;
-        if (opened.execAsync) {
-          await opened.execAsync(createSQL);
-        } else {
-          opened.transaction((tx) => tx.executeSql(createSQL));
-        }
-      } catch (_) {}
-    })();
-    return () => {
-      isMounted = false;
+        await db.execAsync(createSQL);
+      } catch (error) {
+        console.error("Failed to create meditation_sessions table:", error);
+      }
     };
-  }, []);
+    initTable();
+  }, [getDb]);
+
+  // Fetch tracks from SoundCloud API
+  // useEffect(() => {
+  //   const fetchTracks = async () => {
+  //     setLoadingTracks(true);
+  //     setErrorTracks(null);
+  //     try {
+  //       const clientId = process.env.EXPO_PUBLIC_SOUNDCLOUD_CLIENT_ID;
+  //       const baseUrl = process.env.EXPO_PUBLIC_MUSIC_API_BASE_URL;
+        
+  //       if (!clientId || clientId === 'your_soundcloud_client_id_here') {
+  //         throw new Error('SoundCloud client ID not configured. Please set EXPO_PUBLIC_SOUNDCLOUD_CLIENT_ID in your .env file');
+  //       }
+
+  //       // Search for meditation/ambient tracks on SoundCloud
+  //       const response = await fetch(
+  //         `${baseUrl}/tracks?client_id=${clientId}&q=meditation%20ambient&limit=10&streamable=true`
+  //       );
+        
+  //       if (!response.ok) {
+  //         throw new Error(`Failed to fetch tracks: ${response.status} ${response.statusText}`);
+  //       }
+        
+  //       const data = await response.json();
+  //       // Map SoundCloud track data to expected format
+  //       const formattedTracks = data.map(track => ({
+  //         id: track.id,
+  //         title: track.title || 'Untitled Track',
+  //         user: track.user?.username || 'Unknown Artist',
+  //         duration: track.duration || 0,
+  //         stream_url: track.stream_url ? `${track.stream_url}?client_id=${clientId}` : null,
+  //         artwork_url: track.artwork_url || null
+  //       }));
+  //       setTracks(formattedTracks);
+  //     } catch (error) {
+  //       setErrorTracks(error.message);
+  //       console.error("Failed to fetch tracks:", error);
+  //     } finally {
+  //       setLoadingTracks(false);
+  //     }
+  //   };
+
+  //   fetchTracks();
+  // }, []);
 
   const toggleMute = async () => {
     setIsMuted((prev) => !prev);
@@ -95,7 +132,9 @@ export default function MeditationScreen() {
       } else {
         await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
       }
-    } catch (e) {}
+    } catch (error) {
+      console.error("Failed to toggle mute:", error);
+    }
   };
 
   const resetTimer = async () => {
@@ -104,7 +143,9 @@ export default function MeditationScreen() {
     if (sound) {
       try {
         await sound.stopAsync();
-      } catch (e) {}
+      } catch (error) {
+        console.error("Failed to stop sound:", error);
+      }
     }
   };
 
@@ -253,18 +294,14 @@ export default function MeditationScreen() {
 
     // Save session to SQLite
     try {
-      if (!db) throw new Error("db not ready");
+      const db = await getDb();
       const createdAt = new Date().toISOString();
       const duration = parseInt(customTime) * 60 || 300;
       const sql = `INSERT INTO meditation_sessions (created_at, mood, feeling, notes, duration_seconds) VALUES (?, ?, ?, ?, ?)`;
       const params = [createdAt, mood, selectedFeeling, sessionNotes, duration];
-      if (db.runAsync) {
-        await db.runAsync(sql, params);
-      } else {
-        db.transaction((tx) => tx.executeSql(sql, params));
-      }
-    } catch (_) {
-      // ignore
+      await db.runAsync(sql, params);
+    } catch (error) {
+      console.error("Failed to save meditation session:", error);
     }
 
     // Fallback: also persist to AsyncStorage list for History
@@ -283,16 +320,20 @@ export default function MeditationScreen() {
         duration_seconds: duration,
       });
       await AsyncStorage.setItem(fallbackKey, JSON.stringify(arr));
-    } catch (_) {}
+    } catch (error) {
+      console.error("Failed to save session to AsyncStorage:", error);
+    }
   };
 
-  // Set custom time
+  // Set custom time with validation
   const setTime = () => {
     const minutes = parseInt(customTime);
-    if (minutes > 0) {
+    if (minutes > 0 && minutes <= 60) {
       setTimeLeft(minutes * 60);
       setIsRunning(false);
       if (sound) sound.stopAsync();
+    } else {
+      console.warn("Invalid time: must be between 1 and 60 minutes");
     }
   };
 
@@ -404,71 +445,7 @@ export default function MeditationScreen() {
         Pause. Reset. Start.
       </Text>
 
-      {/* Mood Selection Scroll */}
-      <ScrollView
-        horizontal
-        style={[styles.moodScroll, { backgroundColor: scrollBg }]}
-        contentContainerStyle={styles.moodScrollContent}
-        showsHorizontalScrollIndicator={false}
-        decelerationRate="fast"
-      >
-        {moods.map((m) => (
-          <TouchableOpacity
-            key={m}
-            activeOpacity={0.8}
-            style={[
-              styles.moodItem,
-              { backgroundColor: chipBg, borderColor },
-              mood === m && {
-                borderColor: moodThemes[mood].accent,
-                backgroundColor: chipBg,
-              },
-            ]}
-            onPress={() => {
-              setMood(m);
-              if (isRunning) playSound(m);
-            }}
-          >
-            <Text style={[styles.moodText, { color: theme.fg }]}>{m}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Music Selection Scroll */}
-      <ScrollView
-        horizontal
-        style={[styles.musicScroll, { backgroundColor: scrollBg }]}
-        contentContainerStyle={styles.musicScrollContent}
-        showsHorizontalScrollIndicator={false}
-        decelerationRate="fast"
-      >
-        {moods.map((m) => (
-          <TouchableOpacity
-            key={m}
-            activeOpacity={0.8}
-            style={[
-              styles.musicItem,
-              { backgroundColor: chipBg, borderColor },
-              selectedSound === m && {
-                borderColor: moodThemes[mood].accent,
-                backgroundColor: chipBg,
-              },
-            ]}
-            onPress={() => playSound(m)}
-          >
-            <Text style={[styles.musicText, { color: theme.fg }]}>
-              {m} Sound
-            </Text>
-            {selectedSound === m && isRunning && (
-              <AntDesign name="pause" size={20} color={theme.fg} />
-            )}
-            {selectedSound === m && !isRunning && (
-              <AntDesign name="play" size={20} color={theme.fg} />
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
+ 
       {/* Streak Display */}
       <View style={styles.streakContainer}>
         <Text style={[styles.streakText, { color: theme.fg }]}>
@@ -518,6 +495,17 @@ export default function MeditationScreen() {
             Duration (min)
           </Text>
           <View style={styles.timeRow}>
+            <TouchableOpacity
+              style={[styles.timeButton, { backgroundColor: theme.accent }]}
+              onPress={() => {
+                const newTime = Math.max(1, parseInt(customTime || "5") - 1);
+                setCustomTime(newTime.toString());
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Decrease time by 1 minute"
+            >
+              <Text style={[styles.timeButtonText, { color: "#fff" }]}>-</Text>
+            </TouchableOpacity>
             <TextInput
               style={[
                 styles.timeInput,
@@ -535,8 +523,21 @@ export default function MeditationScreen() {
               placeholderTextColor={themeMode === "Night" ? "#889" : "#445"}
             />
             <TouchableOpacity
+              style={[styles.timeButton, { backgroundColor: theme.accent }]}
+              onPress={() => {
+                const newTime = Math.min(60, parseInt(customTime || "5") + 1);
+                setCustomTime(newTime.toString());
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Increase time by 1 minute"
+            >
+              <Text style={[styles.timeButtonText, { color: "#fff" }]}>+</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.setTimeBtn, { backgroundColor: theme.accent }]}
               onPress={setTime}
+              accessibilityRole="button"
+              accessibilityLabel="Apply custom time"
             >
               <Text style={[styles.setTimeText, { color: "#fff" }]}>Apply</Text>
             </TouchableOpacity>
@@ -544,20 +545,8 @@ export default function MeditationScreen() {
         </View>
       </View>
 
-      {/* Controls: Mute and Reset */}
+      {/* Controls: Mute, Reset, and Theme Toggle */}
       <View style={styles.controlsRow}>
-        <TouchableOpacity
-          style={[
-            styles.controlButton,
-            { backgroundColor: controlBg, borderColor },
-          ]}
-          onPress={() => setThemeMode(themeMode === "Night" ? "Day" : "Night")}
-        >
-          <AntDesign name="bulb1" size={18} color={theme.fg} />
-          <Text style={[styles.controlText, { color: theme.fg }]}>
-            {themeMode === "Night" ? "Day" : "Night"}
-          </Text>
-        </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.controlButton,
@@ -565,6 +554,9 @@ export default function MeditationScreen() {
             isMuted && { borderColor: moodThemes[mood].accent },
           ]}
           onPress={toggleMute}
+          accessibilityRole="button"
+          accessibilityLabel={isMuted ? "Unmute sound" : "Mute sound"}
+          accessibilityState={{ checked: isMuted }}
         >
           <AntDesign
             name={isMuted ? "sound" : "sound"}
@@ -581,9 +573,25 @@ export default function MeditationScreen() {
             { backgroundColor: controlBg, borderColor },
           ]}
           onPress={resetTimer}
+          accessibilityRole="button"
+          accessibilityLabel="Reset timer"
         >
           <AntDesign name="reload1" size={18} color={theme.fg} />
           <Text style={[styles.controlText, { color: theme.fg }]}>Reset</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.controlButton,
+            { backgroundColor: controlBg, borderColor },
+          ]}
+          onPress={() => setThemeMode(themeMode === "Night" ? "Day" : "Night")}
+          accessibilityRole="button"
+          accessibilityLabel={`Switch to ${themeMode === "Night" ? "Day" : "Night"} mode`}
+        >
+          <AntDesign name="bulb1" size={18} color={theme.fg} />
+          <Text style={[styles.controlText, { color: theme.fg }]}>
+            {themeMode === "Night" ? "Day" : "Night"}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -594,6 +602,9 @@ export default function MeditationScreen() {
           setIsRunning(!isRunning);
           if (!isRunning && timeLeft > 0) playSound(mood);
         }}
+        accessibilityRole="button"
+        accessibilityLabel={isRunning ? "Pause meditation" : "Start meditation"}
+        accessibilityState={{ checked: isRunning }}
       >
         <AntDesign
           name={isRunning ? "pause" : "play"}
@@ -601,6 +612,130 @@ export default function MeditationScreen() {
           color={theme.fg}
         />
       </TouchableOpacity>
+
+           {/* Mood Selection Scroll */}
+      <ScrollView
+        horizontal
+        // style={[styles.moodScroll]}
+        contentContainerStyle={styles.moodScrollContent}
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+      >
+        {moods.map((m) => (
+          <TouchableOpacity
+            key={m}
+            activeOpacity={0.8}
+            style={[
+              styles.moodItem,
+              { backgroundColor: chipBg, borderColor },
+              mood === m && {
+                borderColor: moodThemes[mood].accent,
+                backgroundColor: chipBg,
+              },
+            ]}
+            onPress={() => {
+              setMood(m);
+              if (isRunning) playSound(m);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Select ${m} mood`}
+            accessibilityState={{ selected: mood === m }}
+          >
+            <Text style={[styles.moodText, { color: theme.fg }]}>{m}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Music Selection Scroll */}
+      <ScrollView
+        horizontal
+        style={[styles.musicScroll]}
+        contentContainerStyle={styles.musicScrollContent}
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+      >
+        {moods.map((m) => (
+          <TouchableOpacity
+            key={m}
+            activeOpacity={0.8}
+            style={[
+              styles.musicItem,
+              { backgroundColor: chipBg, borderColor },
+              selectedSound === m && {
+                borderColor: moodThemes[mood].accent,
+                backgroundColor: chipBg,
+              },
+            ]}
+            onPress={() => playSound(m)}
+            accessibilityRole="button"
+            accessibilityLabel={`Play ${m} sound`}
+            accessibilityState={{ selected: selectedSound === m }}
+          >
+            <Text style={[styles.musicText, { color: theme.fg }]}>
+              {m} Sound
+            </Text>
+            {selectedSound === m && isRunning && (
+              <AntDesign name="pause" size={20} color={theme.fg} />
+            )}
+            {selectedSound === m && !isRunning && (
+              <AntDesign name="play" size={20} color={theme.fg} />
+            )}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Tracks from API */}
+      {/* <View style={styles.tracksContainer}>
+        <Text style={[styles.tracksTitle, { color: theme.fg }]}>Meditation Tracks</Text>
+        {loadingTracks && <Text style={[styles.tracksText, { color: theme.fg }]}>Loading tracks...</Text>}
+        {errorTracks && (
+          <View style={styles.errorContainer}>
+            <Text style={[styles.errorText, { color: '#ff6b6b' }]}>Error loading tracks</Text>
+            <Text style={[styles.errorSubtext, { color: theme.fg }]}>{errorTracks}</Text>
+          </View>
+        )}
+        {!loadingTracks && !errorTracks && (
+          <ScrollView
+            horizontal
+            style={[styles.tracksScroll, { backgroundColor: scrollBg }]}
+            contentContainerStyle={styles.tracksScrollContent}
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+          >
+            {tracks.map((track) => (
+              <TouchableOpacity
+                key={track.id}
+                activeOpacity={0.8}
+                style={[styles.trackItem, { backgroundColor: chipBg, borderColor }]}
+                onPress={() => console.log('Track selected:', track.title)}
+                accessibilityRole="button"
+                accessibilityLabel={`Play track: ${track.title} by ${track.user}`}
+              >
+                {track.artwork_url ? (
+                  <Image
+                    source={{ uri: track.artwork_url }}
+                    style={styles.trackImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.trackImagePlaceholder, { backgroundColor: theme.accent }]}>
+                    <FontAwesome5 name="music" size={20} color={theme.fg} />
+                  </View>
+                )}
+                <View style={styles.trackInfo}>
+                  <Text style={[styles.trackTitle, { color: theme.fg }]} numberOfLines={1}>
+                    {track.title}
+                  </Text>
+                  <Text style={[styles.trackArtist, { color: theme.fg }]} numberOfLines={1}>
+                    {track.user}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </View> */}
+
 
       {/* Completion Modal */}
       <Modal
@@ -642,6 +777,9 @@ export default function MeditationScreen() {
                   backgroundColor:
                     selectedFeeling === f ? moodThemes[mood].accent : chipBg,
                 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Select ${f} feeling`}
+                accessibilityState={{ selected: selectedFeeling === f }}
               >
                 <Text
                   style={{ color: selectedFeeling === f ? "#fff" : theme.fg }}
@@ -682,6 +820,8 @@ export default function MeditationScreen() {
               { backgroundColor: moodThemes[mood].accent, borderRadius: 14 },
             ]}
             onPress={completeMeditation}
+            accessibilityRole="button"
+            accessibilityLabel="Save reflection and complete meditation"
           >
             <Text style={[styles.completeText, { color: "#fff" }]}>
               Save Reflection
@@ -697,33 +837,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
+    paddingTop: 20,
+    // marginTop
   },
   moodScroll: {
-    position: "absolute",
-    top: 50,
-    height: 56,
-    backgroundColor: "rgba(0,0,0,0.25)",
-    borderRadius: 16,
+   
+ 
+    // height: 56,
+    // backgroundColor: "rgba(0,0,0,0.25)",
+    // borderRadius: 16,
   },
   moodScrollContent: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    // paddingVertical: 6,
     alignItems: "center",
+    // backgroundColor:"red"
   },
   moodItem: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     marginHorizontal: 6,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    // backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "transparent",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    // elevation: 3,
+    // shadowColor: "#000",
+    // shadowOffset: { width: 0, height: 2 },
+    // shadowOpacity: 0.15,
+    // shadowRadius: 4,
   },
   moodText: {
     fontSize: 16,
@@ -731,11 +874,11 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   musicScroll: {
-    position: "absolute",
-    top: 110,
-    height: 60,
-    backgroundColor: "rgba(0,0,0,0.25)",
-    borderRadius: 16,
+    // position: "absolute",
+    // top: 460,
+    // height: 60,
+    // backgroundColor: "rgba(0,0,0,0.25)",
+    // borderRadius: 16,
   },
   musicScrollContent: {
     paddingHorizontal: 12,
@@ -746,7 +889,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginHorizontal: 6,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    //  backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "transparent",
@@ -764,22 +907,24 @@ const styles = StyleSheet.create({
     marginRight: 5,
   },
   streakContainer: {
-    position: "absolute",
-    top: 170,
+    
+   
   },
   streakText: {
     fontSize: 24,
     color: "#fff",
   },
   timerContainer: {
-    marginVertical: 20,
+    marginTop: 10,
+    marginBottom: 10,
   },
   timerText: {
     fontSize: 48,
     fontWeight: "bold",
   },
   breathingContainer: {
-    marginVertical: 20,
+    marginTop: 10,
+    marginBottom: 10,
   },
   breathingText: {
     fontSize: 20,
@@ -787,7 +932,8 @@ const styles = StyleSheet.create({
   },
   timeInputContainer: {
     flexDirection: "row",
-    marginVertical: 10,
+    marginTop: 5,
+    marginBottom: 5,
     width: "90%",
     justifyContent: "center",
     alignItems: "center",
@@ -813,6 +959,7 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
   },
   timeInput: {
     color: "#fff",
@@ -820,9 +967,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginRight: 10,
-    width: 90,
+    width: 60,
     textAlign: "center",
+  },
+  timeButton: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    minWidth: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeButtonText: {
+    color: "#4A90E2",
+    fontSize: 18,
+    fontWeight: "bold",
   },
   setTimeBtn: {
     backgroundColor: "#fff",
@@ -863,10 +1023,10 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   punchline: {
-    position: "absolute",
-    top: 20,
-    left: 0,
-    right: 0,
+    // position: "absolute",
+    // top: 20,
+    // left: 0,
+    // right: 0,
     textAlign: "center",
     color: "#fff",
     fontSize: 18,
@@ -886,7 +1046,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 10,
+    marginTop: 5,
     gap: 12,
   },
   controlButton: {
@@ -906,5 +1066,80 @@ const styles = StyleSheet.create({
   controlText: {
     color: "#fff",
     marginLeft: 6,
+  },
+  // Track list styles
+  tracksContainer: {
+    // position: "absolute",
+    // top: 580,
+    width: "100%",
+    paddingHorizontal: 20,
+  },
+  tracksTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  tracksText: {
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 10,
+  },
+  errorContainer: {
+    alignItems: "center",
+    marginTop: 10,
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  errorSubtext: {
+    fontSize: 12,
+    textAlign: "center",
+  },
+  tracksScroll: {
+    height: 120,
+    borderRadius: 16,
+  },
+  tracksScrollContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  trackItem: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    marginHorizontal: 8,
+    padding: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  trackImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
+  trackImagePlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  trackInfo: {
+    marginTop: 5,
+    alignItems: "center",
+  },
+  trackTitle: {
+    fontSize: 12,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  trackArtist: {
+    fontSize: 10,
+    textAlign: "center",
+    opacity: 0.8,
   },
 });
