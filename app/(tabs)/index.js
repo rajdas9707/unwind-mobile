@@ -80,7 +80,7 @@ export default function HomeScreen() {
       subtitle: "Organize your day",
       icon: "checkmark-circle",
       color: "#10B981",
-      click: () => router.push("/tasks/2-Minute"),
+      click: () => router.push("/reminder"),
     },
     {
       id: 3,

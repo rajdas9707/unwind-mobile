@@ -16,6 +16,7 @@ export default function RootLayout() {
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="auth" />
             <Stack.Screen name="meditation" options={{ title: "Meditation" }} />
+            <Stack.Screen name="reminder" options={{ title: "Reminder" }} />
             <Stack.Screen
               name="tasks/[category]"
               options={{ title: "Tasks" }}
