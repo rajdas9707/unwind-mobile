@@ -91,10 +91,11 @@ export default function HomeScreen() {
     },
     {
       id: 4,
-      title: "Gratitude Practice",
-      subtitle: "Appreciate the moment",
-      icon: "sunny",
+      title: "Set Reminder",
+      subtitle: "Schedule reminders easily",
+      icon: "notifications-circle",
       color: "#F59E0B",
+      click: () => router.push("/reminder"),
     },
   ];
 
