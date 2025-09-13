@@ -23,9 +23,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
-// Open database
-const db = SQLite.openDatabase("remindertask.db");
-
 // ✅ Configure notifications (important for Android)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -49,15 +46,32 @@ export default function ReminderScreen() {
   const [editingId, setEditingId] = useState(null);
   const modalAnimation = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef();
+  const modalScrollRef = useRef();
+  const dbRef = useRef(null);
+
+  // Get database connection
+  const getDatabase = async () => {
+    if (!dbRef.current) {
+      dbRef.current = await SQLite.openDatabaseAsync('remindertask.db');
+    }
+    return dbRef.current;
+  };
 
   // Create table on first load
   useEffect(() => {
-    db.transaction((tx) => {
-      tx.executeSql(
-        "CREATE TABLE IF NOT EXISTS reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, datetime TEXT);"
-      );
-    });
-    fetchReminders();
+    const initDatabase = async () => {
+      try {
+        const db = await getDatabase();
+        await db.execAsync(
+          'CREATE TABLE IF NOT EXISTS reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, datetime TEXT);'
+        );
+        await fetchReminders();
+      } catch (error) {
+        console.error('Database initialization error:', error);
+      }
+    };
+    
+    initDatabase();
     initializeDefaults();
 
     // Android Notification Channel
@@ -75,22 +89,25 @@ export default function ReminderScreen() {
   };
 
   // Fetch all reminders
-  const fetchReminders = () => {
-    db.transaction((tx) => {
-      tx.executeSql("SELECT * FROM reminders ORDER BY datetime ASC;", [], (_, { rows }) => {
-        setReminders(rows._array);
-      });
-    });
+  const fetchReminders = async () => {
+    try {
+      const db = await getDatabase();
+      const result = await db.getAllAsync('SELECT * FROM reminders ORDER BY datetime ASC');
+      setReminders(result);
+    } catch (error) {
+      console.error('Error fetching reminders:', error);
+    }
   };
 
   // Modal animation helpers
   const openModal = () => {
     console.log('Opening modal...');
     setModalVisible(true);
+    modalAnimation.setValue(0);
     Animated.timing(modalAnimation, {
       toValue: 1,
       duration: 300,
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start();
   };
 
@@ -98,7 +115,7 @@ export default function ReminderScreen() {
     Animated.timing(modalAnimation, {
       toValue: 0,
       duration: 250,
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start(() => {
       setModalVisible(false);
       resetForm();
@@ -125,41 +142,38 @@ export default function ReminderScreen() {
     const datetime = `${selectedDate}T${hour}:${minute}:00`;
     const reminderDate = new Date(datetime);
 
-    if (isEditing && editingId) {
-      // Update existing reminder
-      db.transaction((tx) => {
-        tx.executeSql(
-          "UPDATE reminders SET name = ?, description = ?, datetime = ? WHERE id = ?;",
-          [taskName, taskDesc, reminderDate.toISOString(), editingId],
-          () => {
-            fetchReminders();
-            closeModal();
-          }
+    try {
+      const db = await getDatabase();
+      
+      if (isEditing && editingId) {
+        // Update existing reminder
+        await db.runAsync(
+          'UPDATE reminders SET name = ?, description = ?, datetime = ? WHERE id = ?',
+          [taskName, taskDesc, reminderDate.toISOString(), editingId]
         );
-      });
-    } else {
-      // Add new reminder
-      db.transaction((tx) => {
-        tx.executeSql(
-          "INSERT INTO reminders (name, description, datetime) values (?, ?, ?);",
-          [taskName, taskDesc, reminderDate.toISOString()],
-          () => {
-            fetchReminders();
-            closeModal();
-          }
+      } else {
+        // Add new reminder
+        await db.runAsync(
+          'INSERT INTO reminders (name, description, datetime) VALUES (?, ?, ?)',
+          [taskName, taskDesc, reminderDate.toISOString()]
         );
-      });
 
-      // Schedule local notification
-      if (reminderDate > new Date()) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: taskName,
-            body: taskDesc || "Reminder!",
-          },
-          trigger: reminderDate,
-        });
+        // Schedule local notification
+        if (reminderDate > new Date()) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: taskName,
+              body: taskDesc || "Reminder!",
+            },
+            trigger: reminderDate,
+          });
+        }
       }
+      
+      await fetchReminders();
+      closeModal();
+    } catch (error) {
+      console.error('Error adding/updating reminder:', error);
     }
   };
 
@@ -178,12 +192,14 @@ export default function ReminderScreen() {
   };
 
   // Delete reminder
-  const deleteReminder = (id) => {
-    db.transaction((tx) => {
-      tx.executeSql("DELETE FROM reminders WHERE id = ?;", [id], () => {
-        fetchReminders();
-      });
-    });
+  const deleteReminder = async (id) => {
+    try {
+      const db = await getDatabase();
+      await db.runAsync('DELETE FROM reminders WHERE id = ?', [id]);
+      await fetchReminders();
+    } catch (error) {
+      console.error('Error deleting reminder:', error);
+    }
   };
 
   // Helper functions
@@ -366,310 +382,283 @@ export default function ReminderScreen() {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Enhanced Modal */}
+      {/* Simple Modal */}
       <Modal 
         visible={modalVisible} 
         animationType="slide" 
-        transparent={true}
+        transparent={false}
         onRequestClose={closeModal}
       >
-        <View style={styles.modalOverlay}>
-          <BlurView intensity={20} style={styles.modalOverlay}>
-            <Animated.View 
-              style={[
-                styles.modalContainer,
-                {
-                  transform: [{
-                    translateY: modalAnimation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [height, 0],
-                    })
-                  }]
-                }
-              ]}
+        <View style={styles.simpleModalContainer}>
+          {/* Modal Header */}
+          <View style={styles.simpleModalHeader}>
+            <Text style={styles.simpleModalTitle}>
+              {isEditing ? 'Edit Reminder' : 'New Reminder'}
+            </Text>
+            <TouchableOpacity 
+              style={styles.simpleCloseButton}
+              onPress={closeModal}
             >
-              <LinearGradient
-                colors={['rgba(255,255,255,0.95)', 'rgba(240,248,255,0.95)']}
-                style={styles.modalGradient}
-              >
-                {/* Modal Header */}
-                <View style={styles.modalHeader}>
-                  <LinearGradient
-                    colors={['#667eea', '#764ba2']}
-                    style={styles.modalHeaderGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.modalTitle}>
-                      {isEditing ? 'Edit Reminder' : 'New Reminder'}
-                    </Text>
-                    <TouchableOpacity 
-                      style={styles.closeButton}
-                      onPress={closeModal}
-                    >
-                      <Ionicons name="close" size={24} color="white" />
-                    </TouchableOpacity>
-                  </LinearGradient>
-                </View>
+              <Ionicons name="close" size={24} color="#667eea" />
+            </TouchableOpacity>
+          </View>
 
-                <ScrollView 
-                  ref={scrollViewRef}
-                  style={styles.modalScrollView}
-                  contentContainerStyle={styles.modalContent}
-                  showsVerticalScrollIndicator={false}
+          <ScrollView 
+            ref={modalScrollRef}
+            style={styles.simpleModalContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Task Details Section */}
+            <View style={styles.simpleFormSection}>
+              <Text style={styles.simpleSectionTitle}>Task Details</Text>
+              
+              <View style={styles.simpleInputGroup}>
+                <Text style={styles.simpleInputLabel}>Task Name *</Text>
+                <TextInput
+                  style={styles.simpleInput}
+                  placeholder="Enter task name..."
+                  placeholderTextColor="#999"
+                  value={taskName}
+                  onChangeText={setTaskName}
+                />
+              </View>
+              
+              <View style={styles.simpleInputGroup}>
+                <Text style={styles.simpleInputLabel}>Description (Optional)</Text>
+                <TextInput
+                  style={[styles.simpleInput, styles.simpleTextArea]}
+                  placeholder="Add more details..."
+                  placeholderTextColor="#999"
+                  value={taskDesc}
+                  onChangeText={setTaskDesc}
+                  multiline
+                  textAlignVertical="top"
+                />
+              </View>
+            </View>
+
+            {/* Date & Time Section */}
+            <View style={styles.simpleFormSection}>
+              <Text style={styles.simpleSectionTitle}>Date & Time</Text>
+              
+              {/* Date Selector */}
+              <View style={styles.simpleInputGroup}>
+                <Text style={styles.simpleInputLabel}>Select Date *</Text>
+                <TouchableOpacity 
+                  style={styles.simpleDateButton}
+                  onPress={() => {
+                    setShowCalendar(!showCalendar);
+                    if (!showCalendar) {
+                      setTimeout(() => modalScrollRef.current?.scrollToEnd({animated: true}), 100);
+                    }
+                  }}
                 >
-                  {/* Task Details Section */}
-                  <View style={styles.formSection}>
-                    <LinearGradient
-                      colors={['rgba(102, 126, 234, 0.1)', 'rgba(240, 147, 251, 0.1)']}
-                      style={styles.formCard}
-                    >
-                      <Text style={styles.sectionTitle}>What do you need to remember?</Text>
+                  <Ionicons name="calendar" size={20} color="#667eea" />
+                  <Text style={styles.simpleDateText}>
+                    {selectedDate ? 
+                      new Date(selectedDate).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      }) : 
+                      'Choose a date'
+                    }
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              
+              {/* Time Selector */}
+              <View style={styles.simpleInputGroup}>
+                <Text style={styles.simpleInputLabel}>Select Time</Text>
+                <TouchableOpacity 
+                  style={styles.simpleDateButton}
+                  onPress={() => {
+                    setShowTimePicker(!showTimePicker);
+                    if (!showTimePicker) {
+                      setTimeout(() => modalScrollRef.current?.scrollToEnd({animated: true}), 100);
+                    }
+                  }}
+
+>
+                  <Ionicons name="time" size={20} color="#667eea" />
+                  <Text style={styles.simpleDateText}>
+                    {new Date(`2000-01-01T${hour}:${minute}:00`).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              
+              {/* Calendar Picker */}
+              {showCalendar && (
+                <View style={styles.simpleCalendarContainer}>
+                  <Calendar
+                    onDayPress={(day) => {
+                      setSelectedDate(day.dateString);
+                      setShowCalendar(false);
+                    }}
+                    markedDates={{ 
+                      [selectedDate]: { 
+                        selected: true, 
+                        selectedColor: "#667eea",
+                        selectedTextColor: "white"
+                      } 
+                    }}
+                    theme={{
+                      backgroundColor: 'white',
+                      calendarBackground: 'white',
+                      textSectionTitleColor: '#667eea',
+                      selectedDayBackgroundColor: '#667eea',
+                      selectedDayTextColor: '#ffffff',
+                      todayTextColor: '#f093fb',
+                      dayTextColor: '#2d4150',
+                      textDisabledColor: '#d9e1e8',
+                      arrowColor: '#667eea',
+                      monthTextColor: '#667eea',
+                      indicatorColor: '#667eea',
+                    }}
+                  />
+                </View>
+              )}
+              
+              {/* Clock Style Time Picker */}
+              {showTimePicker && (
+                <View style={styles.clockContainer}>
+                  <Text style={styles.clockTitle}>🕐 Set Time</Text>
+                  
+                  {/* Clock Face */}
+                  <View style={styles.clockFace}>
+                    <View style={styles.clockCircle}>
+                      {/* Hour Numbers */}
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const hourNum = i === 0 ? 12 : i;
+                        const angle = (i * 30) - 90; // -90 to start at 12 o'clock
+                        const radian = (angle * Math.PI) / 180;
+                        const radius = 80;
+                        const x = Math.cos(radian) * radius;
+                        const y = Math.sin(radian) * radius;
+                        const currentHour = parseInt(hour) % 12 || 12;
+                        const isSelected = currentHour === hourNum;
+                        
+                        return (
+                          <TouchableOpacity
+                            key={i}
+                            style={[
+                              styles.clockNumber,
+                              {
+                                transform: [{ translateX: x }, { translateY: y }]
+                              },
+                              isSelected && styles.clockNumberSelected
+                            ]}
+                            onPress={() => {
+                              const newHour = hourNum === 12 ? 
+                                (parseInt(hour) >= 12 ? '12' : '00') :
+                                (parseInt(hour) >= 12 ? (hourNum + 12).toString().padStart(2, '0') : hourNum.toString().padStart(2, '0'));
+                              setHour(newHour);
+                            }}
+                          >
+                            <Text style={[styles.clockNumberText, isSelected && styles.clockNumberTextSelected]}>
+                              {hourNum}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                       
-                      <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Task Name *</Text>
-                        <TextInput
-                          style={[styles.input, !taskName.trim() && styles.inputError]}
-                          placeholder="Enter task name..."
-                          placeholderTextColor="#999"
-                          value={taskName}
-                          onChangeText={setTaskName}
-                        />
-                      </View>
-                      
-                      <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Description (Optional)</Text>
-                        <TextInput
-                          style={[styles.input, styles.textArea]}
-                          placeholder="Add more details..."
-                          placeholderTextColor="#999"
-                          value={taskDesc}
-                          onChangeText={setTaskDesc}
-                          multiline
-                          textAlignVertical="top"
-                        />
-                      </View>
-                    </LinearGradient>
+                      {/* Center Dot */}
+                      <View style={styles.clockCenter} />
+                    </View>
                   </View>
-
-                  {/* Date & Time Section */}
-                  <View style={styles.formSection}>
-                    <LinearGradient
-                      colors={['rgba(240, 147, 251, 0.1)', 'rgba(255, 154, 86, 0.1)']}
-                      style={styles.formCard}
+                  
+                  {/* AM/PM Toggle */}
+                  <View style={styles.ampmContainer}>
+                    <TouchableOpacity
+                      style={[styles.ampmButton, parseInt(hour) < 12 && styles.ampmButtonSelected]}
+                      onPress={() => {
+                        const currentHour = parseInt(hour) % 12;
+                        setHour(currentHour.toString().padStart(2, '0'));
+                      }}
                     >
-                      <Text style={styles.sectionTitle}>When should we remind you?</Text>
-                      
-                      {/* Date Selector */}
-                      <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Select Date *</Text>
-                        <TouchableOpacity 
-                          style={styles.dateTimeInput}
-                          onPress={() => {
-                            setShowCalendar(!showCalendar);
-                            if (scrollViewRef.current) {
-                              setTimeout(() => scrollViewRef.current.scrollToEnd({ animated: true }), 100);
-                            }
-                          }}
-                        >
-                          <LinearGradient
-                            colors={['rgba(102, 126, 234, 0.15)', 'rgba(240, 147, 251, 0.15)']}
-                            style={styles.dateTimeGradient}
-                          >
-                            <View style={styles.dateTimeIcon}>
-                              <Ionicons name="calendar" size={24} color="#667eea" />
-                            </View>
-                            <View style={styles.dateTimeTextContainer}>
-                              <Text style={[styles.dateTimeLabel, !selectedDate && styles.placeholder]}>
-                                {selectedDate ? 
-                                  new Date(selectedDate).toLocaleDateString('en-US', { 
-                                    weekday: 'long',
-                                    month: 'long', 
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                  }) : 
-                                  'Choose a date'
-                                }
-                              </Text>
-                            </View>
-                            <View style={styles.chevronIcon}>
-                              <Ionicons 
-                                name={showCalendar ? "chevron-up" : "chevron-down"} 
-                                size={20} 
-                                color="#667eea" 
-                              />
-                            </View>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Time Selector */}
-                      <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Select Time</Text>
-                        <TouchableOpacity 
-                          style={styles.dateTimeInput}
-                          onPress={() => {
-                            setShowTimePicker(!showTimePicker);
-                            if (scrollViewRef.current) {
-                              setTimeout(() => scrollViewRef.current.scrollToEnd({ animated: true }), 100);
-                            }
-                          }}
-                        >
-                          <LinearGradient
-                            colors={['rgba(240, 147, 251, 0.15)', 'rgba(255, 154, 86, 0.15)']}
-                            style={styles.dateTimeGradient}
-                          >
-                            <View style={styles.dateTimeIcon}>
-                              <Ionicons name="time" size={24} color="#f093fb" />
-                            </View>
-                            <View style={styles.dateTimeTextContainer}>
-                              <Text style={styles.dateTimeLabel}>
-                                {new Date(`2000-01-01T${hour}:${minute}:00`).toLocaleTimeString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true
-                                })}
-                              </Text>
-                            </View>
-                            <View style={styles.chevronIcon}>
-                              <Ionicons 
-                                name={showTimePicker ? "chevron-up" : "chevron-down"} 
-                                size={20} 
-                                color="#f093fb" 
-                              />
-                            </View>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      </View>
-                      
-                      {/* Calendar Picker */}
-                      {showCalendar && (
-                        <View style={styles.calendarContainer}>
-                          <LinearGradient
-                            colors={['rgba(255,255,255,0.95)', 'rgba(240,248,255,0.95)']}
-                            style={styles.calendarGradient}
-                          >
-                            <Calendar
-                              onDayPress={(day) => {
-                                setSelectedDate(day.dateString);
-                                setShowCalendar(false);
-                              }}
-                              markedDates={{ 
-                                [selectedDate]: { 
-                                  selected: true, 
-                                  selectedColor: "#667eea",
-                                  selectedTextColor: "white"
-                                } 
-                              }}
-                              theme={{
-                                backgroundColor: 'transparent',
-                                calendarBackground: 'transparent',
-                                textSectionTitleColor: '#667eea',
-                                selectedDayBackgroundColor: '#667eea',
-                                selectedDayTextColor: '#ffffff',
-                                todayTextColor: '#f093fb',
-                                dayTextColor: '#2d4150',
-                                textDisabledColor: '#d9e1e8',
-                                arrowColor: '#667eea',
-                                monthTextColor: '#667eea',
-                                indicatorColor: '#667eea',
-                              }}
-                            />
-                          </LinearGradient>
-                        </View>
-                      )}
-
-                      {/* Time Picker */}
-                      {showTimePicker && (
-                        <View style={styles.timePickerContainer}>
-                          <LinearGradient
-                            colors={['rgba(240, 147, 251, 0.1)', 'rgba(255, 154, 86, 0.1)']}
-                            style={styles.timePickerGradient}
-                          >
-                            <Text style={styles.timePickerTitle}>Choose Time</Text>
-                            <View style={styles.timePickerRow}>
-                              <View style={styles.timePickerSection}>
-                                <Text style={styles.timePickerLabel}>Hour</Text>
-                                <View style={styles.pickerWrapper}>
-                                  <Picker 
-                                    selectedValue={hour} 
-                                    style={styles.picker} 
-                                    onValueChange={(val) => setHour(val)}
-                                  >
-                                    {Array.from({ length: 24 }, (_, i) => {
-                                      const hourStr = i.toString().padStart(2, "0");
-                                      return (
-                                        <Picker.Item key={i} label={hourStr} value={hourStr} />
-                                      );
-                                    })}
-                                  </Picker>
-                                </View>
-                              </View>
-                              
-                              <View style={styles.timePickerSection}>
-                                <Text style={styles.timePickerLabel}>Minute</Text>
-                                <View style={styles.pickerWrapper}>
-                                  <Picker 
-                                    selectedValue={minute} 
-                                    style={styles.picker} 
-                                    onValueChange={(val) => setMinute(val)}
-                                  >
-                                    {["00", "15", "30", "45"].map((m) => (
-                                      <Picker.Item key={m} label={m} value={m} />
-                                    ))}
-                                  </Picker>
-                                </View>
-                              </View>
-                            </View>
-                            
-                            <TouchableOpacity 
-                              style={styles.doneButton}
-                              onPress={() => setShowTimePicker(false)}
-                            >
-                              <LinearGradient
-                                colors={['#667eea', '#764ba2']}
-                                style={styles.doneButtonGradient}
-                              >
-                                <Text style={styles.doneButtonText}>Done</Text>
-                              </LinearGradient>
-                            </TouchableOpacity>
-                          </LinearGradient>
-                        </View>
-                      )}
-                    </LinearGradient>
+                      <Text style={[styles.ampmText, parseInt(hour) < 12 && styles.ampmTextSelected]}>AM</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.ampmButton, parseInt(hour) >= 12 && styles.ampmButtonSelected]}
+                      onPress={() => {
+                        const currentHour = parseInt(hour) % 12;
+                        const newHour = currentHour === 0 ? 12 : currentHour + 12;
+                        setHour(newHour.toString().padStart(2, '0'));
+                      }}
+                    >
+                      <Text style={[styles.ampmText, parseInt(hour) >= 12 && styles.ampmTextSelected]}>PM</Text>
+                    </TouchableOpacity>
                   </View>
-                </ScrollView>
-
-                {/* Action Buttons */}
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity 
-                    style={styles.cancelButton}
-                    onPress={closeModal}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
+                  
+                  {/* Minutes */}
+                  <View style={styles.minutesContainer}>
+                    <Text style={styles.minutesLabel}>Minutes</Text>
+                    <View style={styles.minuteControls}>
+                      <TouchableOpacity
+                        style={styles.minuteArrow}
+                        onPress={() => {
+                          const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55']
+;
+                          const currentIndex = minutes.indexOf(minute);
+                          const newIndex = currentIndex > 0 ? currentIndex - 1 : minutes.length - 1;
+                          setMinute(minutes[newIndex]);
+                        }}
+                      >
+                        <Ionicons name="chevron-up" size={20} color="#667eea" />
+                      </TouchableOpacity>
+                      
+                      <View style={styles.minuteDisplay}>
+                        <Text style={styles.minuteDisplayText}>:{minute}</Text>
+                      </View>
+                      
+                      <TouchableOpacity
+                        style={styles.minuteArrow}
+                        onPress={() => {
+                          const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55']
+;
+                          const currentIndex = minutes.indexOf(minute);
+                          const newIndex = currentIndex < minutes.length - 1 ? currentIndex + 1 : 0;
+                          setMinute(minutes[newIndex]);
+                        }}
+                      >
+                        <Ionicons name="chevron-down" size={20} color="#667eea" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                   
                   <TouchableOpacity 
-                    style={[styles.saveButton, (!taskName.trim() || !selectedDate) && styles.disabledButton]} 
-                    onPress={addReminder}
-                    disabled={!taskName.trim() || !selectedDate}
+                    style={styles.clockDoneButton}
+                    onPress={() => setShowTimePicker(false)}
                   >
-                    <LinearGradient
-                      colors={(!taskName.trim() || !selectedDate) ? 
-                        ['#cccccc', '#aaaaaa'] : 
-                        ['#667eea', '#764ba2']
-                      }
-                      style={styles.saveButtonGradient}
-                    >
-                      <Text style={styles.saveButtonText}>
-                        {isEditing ? 'Update' : 'Save'}
-                      </Text>
-                    </LinearGradient>
+                    <Text style={styles.clockDoneText}>Done</Text>
                   </TouchableOpacity>
                 </View>
-              </LinearGradient>
-            </Animated.View>
-          </BlurView>
+              )}
+            </View>
+          </ScrollView>
+
+          {/* Action Buttons */}
+          <View style={styles.simpleButtonContainer}>
+            <TouchableOpacity 
+              style={styles.simpleCancelButton}
+              onPress={closeModal}
+            >
+              <Text style={styles.simpleCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.simpleSaveButton}
+              onPress={addReminder}
+            >
+              <Text style={styles.simpleSaveButtonText}>
+                {isEditing ? 'Update' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </View>
@@ -881,18 +870,19 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContainer: {
     width: '100%',
     maxHeight: height * 0.9,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    overflow: 'hidden',
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   modalGradient: {
     flex: 1,
+    backgroundColor: 'white',
   },
   modalHeader: {
     overflow: 'hidden',
@@ -923,7 +913,8 @@ const styles = StyleSheet.create({
   },
   modalScrollView: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
+    backgroundColor: 'white',
   },
   modalContent: {
     paddingVertical: 20,
@@ -934,13 +925,10 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   formCard: {
-    padding: 24,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: 'rgba(248, 250, 252, 0.8)',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
@@ -959,25 +947,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderWidth: 2,
-    borderColor: 'rgba(102, 126, 234, 0.2)',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16,
-    color: '#1d1d1f',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    color: '#333',
+    minHeight: 50,
   },
   inputError: {
     borderColor: '#ff6b6b',
   },
   textArea: {
-    height: 100,
+    height: 80,
     textAlignVertical: 'top',
   },
   
@@ -1159,5 +1143,259 @@ const styles = StyleSheet.create({
   disabledButton: {
     shadowOpacity: 0.1,
     elevation: 2,
+  },
+  
+  // Simple Modal Styles
+  simpleModalContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  simpleModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  simpleModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  simpleCloseButton: {
+    padding: 5,
+  },
+  simpleModalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  simpleFormSection: {
+    marginBottom: 30,
+  },
+  simpleSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 15,
+  },
+  simpleInputGroup: {
+    marginBottom: 20,
+  },
+  simpleInputLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#555',
+    marginBottom: 8,
+  },
+  simpleInput: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#333',
+  },
+  simpleTextArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  simpleDateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  simpleDateText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  simpleButtonContainer: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  simpleCancelButton: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  simpleCancelButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  simpleSaveButton: {
+    flex: 1,
+    backgroundColor: '#667eea',
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  simpleSaveButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '600',
+  },
+  
+  // Simple Calendar Styles
+  simpleCalendarContainer: {
+    marginTop: 10,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 10,
+  },
+  
+  // Clock Style Time Picker
+  clockContainer: {
+    marginTop: 15,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  clockTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 20,
+  },
+  clockFace: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 25,
+  },
+  clockCircle: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clockNumber: {
+    position: 'absolute',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  clockNumberSelected: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  clockNumberText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  clockNumberTextSelected: {
+    color: 'white',
+  },
+  clockCenter: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#667eea',
+  },
+  ampmContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  ampmButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  ampmButtonSelected: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  ampmText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  ampmTextSelected: {
+    color: 'white',
+  },
+  minutesContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  minutesLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 12,
+  },
+  minuteControls: {
+    // flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  minuteArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  minuteDisplay: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#667eea',
+    borderRadius: 12,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  minuteDisplayText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: 'white',
+  },
+  clockDoneButton: {
+    backgroundColor: '#667eea',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  clockDoneText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
