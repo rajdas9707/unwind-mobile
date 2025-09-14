@@ -76,11 +76,11 @@ export default function HomeScreen() {
     },
     {
       id: 2,
-      title: "Mindful Tasks",
+      title: "My documents",
       subtitle: "Organize your day",
       icon: "checkmark-circle",
       color: "#10B981",
-      click: () => router.push("/reminder"),
+      click: () => router.push("/document"),
     },
     {
       id: 3,
