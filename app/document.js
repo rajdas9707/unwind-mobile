@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -56,12 +56,14 @@ const sampleDocs = [
   },
 ];
 
-export default function App() {
+export default function Document() {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const [fabOpen, setFabOpen] = useState(false);
   const[modalVisible,setModalVisible]=useState(false)
   const fabAnim = useRef(new Animated.Value(0)).current;
+
+ 
 
   const toggleFab = () => {
     const toValue = fabOpen ? 0 : 1;
@@ -95,7 +97,14 @@ export default function App() {
     ],
     opacity: fabAnim,
   };
+   useEffect(() => {
+    loadDocs();
+  }, []);
 
+  const loadDocs = async () => {
+    const data = await getDocuments();
+    setDocs(data);
+  };
  
 
   return (

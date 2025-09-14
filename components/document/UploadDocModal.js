@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
+import { saveDocument } from "../../storage/document/storage";
 
 const TAGS = ["Bank", "Work", "Personal", "ID", "Miscellaneous"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -16,7 +17,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const UploadDocModal = ({ visible, onClose }) => {
   const [files, setFiles] = useState([]);
   const [selectedTag, setSelectedTag] = useState(null);
-  const [note, setNote] = useState("");
+   const [docName, setDocName] = useState("");
 
   const pickFiles = async () => {
     try {
@@ -50,7 +51,7 @@ const UploadDocModal = ({ visible, onClose }) => {
   const removeFile = (index) =>
     setFiles((prev) => prev.filter((_, i) => i !== index));
 
-  const handleSubmit = () => {
+  const handleSubmit = async() => {
     console.log("Submitting files:", files, "Selected tag:", selectedTag, "Note:", note);
 
     if (!selectedTag) {
@@ -64,15 +65,34 @@ const UploadDocModal = ({ visible, onClose }) => {
     }
 
     // 👉 Here you can save files, send to backend, etc.
-    files.forEach((file) => {
-      console.log("Saving file:", file.name, file.uri, selectedTag, note);
-    });
+  
+  try {
+    
+ 
+    const timestamp = Date.now();
+    const fileEntryName = `${docName.trim()}_${timestamp}`;
 
+    await saveDocument(
+      docName.trim(),       // base doc name
+      files.uri,       // file URI
+      fileEntryName,        // unique file name inside array
+      selectedTag,
+      category
+    );
+
+    console.log("saved");
+    
     // Reset modal state
     setFiles([]);
     setSelectedTag(null);
-    setNote("");
+    setDocName("");
     onClose();
+
+
+     } catch (error) {
+    console.log("error from savedoc of uploadDocModal",error);
+    
+  }
   };
 
   return (
@@ -119,8 +139,8 @@ const UploadDocModal = ({ visible, onClose }) => {
               marginBottom: 16,
               fontSize: 16,
             }}
-            value={note}
-            onChangeText={setNote}
+            value={docName}
+            onChangeText={setDocName}
             placeholder="Enter a note"
           />
 
