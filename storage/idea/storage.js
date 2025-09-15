@@ -1,32 +1,32 @@
 import * as FileSystem from "expo-file-system";
 
-const appDocsDir = `${FileSystem.documentDirectory}docs/`;
+const appFilesDir = `${FileSystem.documentDirectory}files/`;
 
-export const ensureDocsDir = async () => {
+export const ensureFilesDir = async () => {
   try {
-    await FileSystem.makeDirectoryAsync(appDocsDir, { intermediates: true });
+    await FileSystem.makeDirectoryAsync(appFilesDir, { intermediates: true });
   } catch (error) {
     // directory may already exist; ignore specific EEXIST-like errors
   }
 };
 
-export const saveFiles = async ({ files = [], fileLabel = "doc", docId }) => {
+export const saveFiles = async ({ files = [], fileLabel = "file", ideaId }) => {
   try {
-    await ensureDocsDir();
+    await ensureFilesDir();
     const saved = [];
     for (const file of files) {
       const uri = file.uri || file.fileCopyUri || file.localUri || "";
       if (!uri) continue;
       const extIdx = uri.lastIndexOf(".");
       const ext = extIdx !== -1 ? uri.substring(extIdx) : ".jpg";
-      const uniqueName = `${fileLabel}_${docId || "tmp"}_${Date.now()}${ext}`;
-      const dest = `${appDocsDir}${uniqueName}`;
+      const uniqueName = `${fileLabel}_${ideaId || "tmp"}_${Date.now()}${ext}`;
+      const dest = `${appFilesDir}${uniqueName}`;
       await FileSystem.copyAsync({ from: uri, to: dest });
       saved.push(dest);
     }
     return saved;
   } catch (error) {
-    console.log("error from saveFiles of storage/document/storage.js", error);
+    console.log("error from saveFiles of storage.js", error);
   }
 };
 
@@ -37,6 +37,6 @@ export const deleteFile = async (fileUri) => {
       await FileSystem.deleteAsync(fileUri, { idempotent: true });
     }
   } catch (error) {
-    console.log("error from deleteFile of storage/document/storage.js", error);
+    console.log("error from deleteFile of storage.js", error);
   }
 };

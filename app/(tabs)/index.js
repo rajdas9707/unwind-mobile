@@ -14,7 +14,7 @@ import { router } from "expo-router";
 
 const { width } = Dimensions.get("window");
 
-export default function HomeScreen() {
+export default function IdeaScreen() {
   const capitalize = (str) => {
     if (!str) return "";
     return str.charAt(0).toUpperCase() + str.slice(1);
@@ -84,11 +84,15 @@ export default function HomeScreen() {
     },
     {
       id: 3,
-      title: "Daily Reflection",
+      title: "My ideas",
       subtitle: "Review your progress",
       icon: "trending-up",
       color: "#8B5CF6",
-      click: () => router.push("/idea"),
+      click: () => {
+        console.log("clicked idea");
+
+        router.push("/idea");
+      },
     },
     {
       id: 4,

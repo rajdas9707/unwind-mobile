@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,70 +10,204 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import * as SpeechRecognizer from "expo-speech-recognition";
+import * as DocumentPicker from "expo-document-picker";
+import { Alert, FlatList } from "react-native";
+import { saveFiles } from "../../storage/idea/storage";
+import { insertIdea, updateIdea } from "../../storage/idea/db";
+// import * as SpeechRecognizer from "expo-speech-recognition";
 
-export default function NewIdeaModal({ visible, onClose, onSave }) {
-  const [newIdea, setNewIdea] = useState("");
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+export default function NewIdeaModal({
+  visible,
+  onClose,
+  onSave,
+  ideaId,
+  initialIdea,
+}) {
+  const [newIdea, setNewIdea] = useState(initialIdea?.idea || "");
+  const [urls, setUrls] = useState(initialIdea?.urls || []);
   const [newUrl, setNewUrl] = useState("");
-  const [selectedTag, setSelectedTag] = useState("Work");
-  const [photo, setPhoto] = useState(null);
-  const [isListening, setIsListening] = useState(false);
+  const [selectedTag, setSelectedTag] = useState(
+    initialIdea?.tag || "miscellaneous"
+  );
+  const [files, setFiles] = useState(
+    initialIdea?.files?.map((uri) => ({ uri })) || []
+  );
+  // const [isListening, setIsListening] = useState(false);
 
+  useEffect(() => {
+    if (visible) {
+      setNewIdea(initialIdea?.idea || "");
+      setUrls(initialIdea?.urls || []);
+      setNewUrl("");
+      setSelectedTag(initialIdea?.tag || "miscellaneous");
+      setFiles(initialIdea?.files?.map((uri) => ({ uri })) || []);
+    }
+  }, [visible]);
 
-   const startListening = async () => {
-    const available = await SpeechRecognizer.isAvailableAsync();
-    if (!available) {
-      alert("Speech recognition not available on this device. please contact developer");
+  // const startListening = async () => {
+  //   const available = await SpeechRecognizer.isAvailableAsync();
+  //   if (!available) {
+  //     alert(
+  //       "Speech recognition not available on this device. please contact developer"
+  //     );
+  //     return;
+  //   }
+
+  //   setIsListening(true);
+  //   await SpeechRecognizer.startAsync({
+  //     onResult: (event) => {
+  //       setNewIdea(event.transcription.text);
+  //     },
+  //     onDone: () => {
+  //       setIsListening(false);
+  //     },
+  //   });
+  // };
+
+  // const stopListening = async () => {
+  //   await SpeechRecognizer.stopAsync();
+  //   setIsListening(false);
+  // };
+
+  const tags = ["miscellaneous", "Work", "Personal", "Startup"];
+
+  const pickFiles = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*"],
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const validFiles = result.assets.filter((file) => {
+          if (file.size && file.size > MAX_FILE_SIZE) {
+            Alert.alert(
+              "File Too Large",
+              `${file.name || "A file"} exceeds 10 MB and was skipped.`
+            );
+            return false;
+          }
+          return true;
+        });
+
+        if (validFiles.length > 0) {
+          setFiles((prev) => [...prev, ...validFiles]);
+          console.log("Files picked:", validFiles);
+        }
+      }
+    } catch (error) {
+      console.log("Error picking files/newideaMODAL:", error);
+    }
+  };
+
+  const removeFile = (index) =>
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+
+  const takePhoto = async () => {
+    try {
+      const { status: cameraStatus } =
+        await ImagePicker.requestCameraPermissionsAsync();
+      if (cameraStatus !== "granted") {
+        Alert.alert("Permission required", "Camera permission is required.");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        allowsMultipleSelection: true, // Enable multiple photo selection
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const validPhotos = result.assets.filter((photo) => {
+          if (photo.size && photo.size > MAX_FILE_SIZE) {
+            Alert.alert(
+              "Photo Too Large",
+              `A photo exceeds 10 MB and was skipped.`
+            );
+            return false;
+          }
+          return true;
+        });
+
+        if (validPhotos.length > 0) {
+          setFiles((prev) => [...prev, ...validPhotos]);
+          console.log("Photos taken:", validPhotos);
+        }
+      }
+    } catch (error) {
+      console.log("Error taking photos in IdeaModal:", error);
+    }
+  };
+
+  const addUrl = () => {
+    if (!newUrl.trim()) return;
+    setUrls((prev) => [...prev, newUrl.trim()]);
+    setNewUrl("");
+  };
+
+  const removeUrl = (index) => {
+    setUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSave = async () => {
+    if (!newIdea.trim()) {
+      Alert.alert("Error", "Idea cannot be empty");
       return;
     }
 
-    setIsListening(true);
-    await SpeechRecognizer.startAsync({
-      onResult: (event) => {
-        setNewIdea(event.transcription.text);
-      },
-      onDone: () => {
-        setIsListening(false);
-      },
-    });
-  };
+    try {
+      // Ensure we have an id
+      let id = ideaId;
+      if (!id) {
+        id = await insertIdea({
+          idea: newIdea.trim(),
+          urls,
+          files: [],
+          tag: selectedTag,
+        });
+      }
 
-  const stopListening = async () => {
-    await SpeechRecognizer.stopAsync();
-    setIsListening(false);
-  };
+      // Save files with unique names bound to idea id
+      const savedUris = await saveFiles({
+        files,
+        fileLabel: "idea",
+        ideaId: id,
+      });
 
-  const tags = ["Work", "Personal", "Startup"];
+      // Merge existing files if editing
+      const existingUris = (initialIdea?.files || []).filter(Boolean);
+      const finalFiles = ideaId ? [...existingUris, ...savedUris] : savedUris;
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-    if (!result.canceled) {
-      setPhoto(result.assets[0].uri);
+      await updateIdea({
+        id,
+        idea: newIdea.trim(),
+        urls,
+        files: finalFiles,
+        tag: selectedTag,
+      });
+
+      onSave &&
+        onSave({
+          id,
+          idea: newIdea.trim(),
+          urls,
+          files: finalFiles,
+          tag: selectedTag,
+        });
+
+      // Reset state
+      setNewIdea("");
+      setNewUrl("");
+      setUrls([]);
+      setSelectedTag("miscellaneous");
+      setFiles([]);
+      onClose && onClose();
+    } catch (error) {
+      console.log("Error saving idea in IdeaModal:", error);
+      Alert.alert("Error", "Failed to save idea");
     }
-  };
-
-  const takePhoto = async () => {
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.7,
-    });
-    if (!result.canceled) {
-      setPhoto(result.assets[0].uri);
-    }
-  };
-
-  const handleSave = () => {
-    if (!newIdea.trim()) return;
-    onSave(newIdea, newUrl, selectedTag, photo);
-    setNewIdea("");
-    setNewUrl("");
-    setSelectedTag("Work");
-    setPhoto(null);
-    onClose();
   };
 
   return (
@@ -91,26 +225,56 @@ export default function NewIdeaModal({ visible, onClose, onSave }) {
               onChangeText={setNewIdea}
               multiline
             />
-           <TouchableOpacity onPress={isListening ? stopListening : startListening}>
+            {/* <TouchableOpacity
+              onPress={isListening ? stopListening : startListening}
+            >
               <Ionicons
                 name={isListening ? "mic" : "mic-outline"}
                 size={26}
                 color={isListening ? "red" : "gray"}
               />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
 
-          {/* URL input */}
-          <TextInput
-            style={styles.urlInput}
-            placeholder="Paste URL here..."
-            value={newUrl}
-            onChangeText={setNewUrl}
-          />
+          {/* URL input and list */}
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TextInput
+              style={[styles.urlInput, { flex: 1 }]}
+              placeholder="Paste URL here... (optional)"
+              value={newUrl}
+              onChangeText={setNewUrl}
+            />
+            <TouchableOpacity onPress={addUrl} style={{ marginLeft: 8 }}>
+              <Ionicons name="add-circle" size={28} color="#2563EB" />
+            </TouchableOpacity>
+          </View>
+          {urls.length > 0 && (
+            <FlatList
+              data={urls}
+              keyExtractor={(item, index) => `${item}-${index}`}
+              renderItem={({ item, index }) => (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 6,
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text numberOfLines={1} style={{ flex: 1, color: "#374151" }}>
+                    {item}
+                  </Text>
+                  <TouchableOpacity onPress={() => removeUrl(index)}>
+                    <Text style={{ color: "red" }}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+          )}
 
           {/* Photo Upload Options */}
           <View style={styles.photoRow}>
-            <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
+            <TouchableOpacity style={styles.photoButton} onPress={pickFiles}>
               <Ionicons name="images-outline" size={22} color="#2563EB" />
               <Text style={styles.photoText}>Upload</Text>
             </TouchableOpacity>
@@ -120,8 +284,58 @@ export default function NewIdeaModal({ visible, onClose, onSave }) {
             </TouchableOpacity>
           </View>
 
-          {/* Preview selected photo */}
-          {photo && <Image source={{ uri: photo }} style={styles.previewImage} />}
+          {/* Files list with remove and edit */}
+          {files.length > 0 && (
+            <FlatList
+              data={files}
+              keyExtractor={(_, index) => `file-${index}`}
+              renderItem={({ item, index }) => {
+                const uri = item.uri || item.fileCopyUri || item.localUri;
+                const isPdf =
+                  typeof uri === "string" && uri.toLowerCase().endsWith(".pdf");
+                const isImage =
+                  !isPdf &&
+                  (uri.includes("image") ||
+                    uri.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i));
+                return (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    {isPdf ? (
+                      <Ionicons
+                        name="document-text-outline"
+                        size={28}
+                        color="#6B7280"
+                      />
+                    ) : (
+                      <Image
+                        source={{ uri }}
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 8,
+                          backgroundColor: "#eee",
+                        }}
+                      />
+                    )}
+                    <Text
+                      numberOfLines={1}
+                      style={{ flex: 1, marginLeft: 10, color: "#374151" }}
+                    >
+                      {uri}
+                    </Text>
+                    <TouchableOpacity onPress={() => removeFile(index)}>
+                      <Text style={{ color: "red" }}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }}
+            />
+          )}
 
           {/* Tags */}
           <View style={styles.tagsRow}>

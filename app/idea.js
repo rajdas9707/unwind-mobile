@@ -1,54 +1,44 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
   View,
   Text,
   FlatList,
-  Image,
   TouchableOpacity,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import NewIdeaModal from "../components/idea/NewIdeaModal";
+import { getIdeas } from "../storage/idea/db";
+import { useRouter } from "expo-router";
 
-const initialIdeas = [
-  {
-    id: "1",
-    title: "Develop a sustainable urban farming initiative",
-    source: "futurecities.org",
-    time: "2h ago",
-    thumbnail: "https://picsum.photos/200/300?random=1",
-  },
-  {
-    id: "2",
-    title: "Gamified language learning for kids",
-    source: "edtech.com",
-    time: "1d ago",
-    thumbnail: "https://picsum.photos/200/300?random=2",
-  },
-];
+const initialIdeas = [];
 
-export default function Idea() {
+export default function IdeaScreen() {
   const [ideas, setIdeas] = useState(initialIdeas);
   const [modalVisible, setModalVisible] = useState(false);
+  const router = useRouter();
 
-  const addIdea = (idea, url, tag, photo) => {
-    const newEntry = {
-      id: Date.now().toString(),
-      title: idea,
-      source: url || "myideas.com",
-      time: "Just now",
-      thumbnail:
-        photo ||
-        "https://picsum.photos/200/300?random=" + Math.floor(Math.random() * 100),
-      tag,
-    };
+  const loadIdeas = async () => {
+    try {
+      const rows = await getIdeas();
+      setIdeas(rows);
+    } catch (error) {
+      console.log("error loading ideas", error);
+    }
+  };
 
-    setIdeas([newEntry, ...ideas]);
+  useEffect(() => {
+    loadIdeas();
+  }, []);
+
+  const addIdea = () => {
+    setModalVisible(false);
+    loadIdeas();
   };
 
   const renderItem = ({ item }) => (
-    <View
+    <TouchableOpacity
       style={{
         backgroundColor: "#fff",
         padding: 16,
@@ -59,49 +49,35 @@ export default function Idea() {
         shadowRadius: 6,
         elevation: 4,
       }}
+      onPress={() => router.push({ pathname: "/idea/[id]", params: { id: item.id } })}
     >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Image
-          source={{ uri: item.thumbnail }}
-          style={{
-            width: 55,
-            height: 55,
-            borderRadius: 12,
-            backgroundColor: "#eee",
-          }}
-        />
-        <View style={{ flex: 1, marginLeft: 12 }}>
+        <View style={{ flex: 1 }}>
           <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "600",
-              color: "#111827",
-            }}
+            style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}
+            numberOfLines={2}
           >
-            {item.title}
+            {item.idea}
           </Text>
-          <Text
-            style={{
-              fontSize: 13,
-              color: "#6B7280",
-              marginTop: 4,
-            }}
-          >
-            {item.source}
-          </Text>
+          <View style={{ flexDirection: "row", marginTop: 6 }}>
+            <Text style={{ fontSize: 12, color: "#6B7280", marginRight: 12 }}>
+              {item.tag || "miscellaneous"}
+            </Text>
+            <Text style={{ fontSize: 12, color: "#6B7280", marginRight: 12 }}>
+              {(item.files || []).length} files
+            </Text>
+            <Text style={{ fontSize: 12, color: "#6B7280" }}>
+              {(item.urls || []).length} URLs
+            </Text>
+          </View>
         </View>
       </View>
       <Text
-        style={{
-          fontSize: 12,
-          color: "#9CA3AF",
-          marginTop: 8,
-          alignSelf: "flex-end",
-        }}
+        style={{ fontSize: 12, color: "#9CA3AF", marginTop: 8, alignSelf: "flex-end" }}
       >
         {item.time}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 
   return (

@@ -6,7 +6,6 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
-  
   Dimensions,
   StatusBar,
   Platform,
@@ -18,52 +17,24 @@ import {
   Ionicons,
   FontAwesome5,
 } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import DocCardList from "../components/document/docCard";
 import UploadDocModal from "../components/document/UploadDocModal";
+import { getDocuments } from "../storage/document/db";
 
 const { width } = Dimensions.get("window");
 const CARD_MARGIN = 12;
 const CARD_SIZE = (width - CARD_MARGIN * 3 - 40) / 2;
 
-const sampleDocs = [
-  {
-    id: "1",
-    title: "PAN Card",
-    tag: "IDS",
-    meta: "Last opened: 2 days ago",
-    icon: { lib: Feather, name: "id-card", color: "#0B5FFF" },
-  },
-  {
-    id: "2",
-    title: "Passport",
-    tag: "IDS",
-    meta: "Expires: 12/25",
-    icon: { lib: FontAwesome5, name: "passport", color: "#0B5FFF" },
-  },
-  {
-    id: "3",
-    title: "Bank Statement",
-    tag: "Bank",
-    meta: "Last opened: 3 month ago",
-    icon: { lib: Ionicons, name: "card-outline", color: "#0B5FFF" },
-  },
-  {
-    id: "4",
-    title: "Work Contract",
-    tag: "IDS",
-    meta: "Last opened: 3 weeks ago",
-    icon: { lib: MaterialIcons, name: "work-outline", color: "#0B5FFF" },
-  },
-];
-
 export default function Document() {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const [fabOpen, setFabOpen] = useState(false);
-  const[modalVisible,setModalVisible]=useState(false)
+  const [modalVisible, setModalVisible] = useState(false);
+  const [docs, setDocs] = useState([]);
+  const [filteredDocs, setFilteredDocs] = useState([]);
   const fabAnim = useRef(new Animated.Value(0)).current;
-
- 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const toggleFab = () => {
     const toValue = fabOpen ? 0 : 1;
@@ -97,121 +68,153 @@ export default function Document() {
     ],
     opacity: fabAnim,
   };
-   useEffect(() => {
+  useEffect(() => {
     loadDocs();
   }, []);
 
   const loadDocs = async () => {
-    const data = await getDocuments();
-    setDocs(data);
+    try {
+      const data = await getDocuments();
+      setDocs(data || []);
+      setFilteredDocs(data || []);
+
+      // Animate fade in
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+    } catch (error) {
+      console.log("error loading documents", error);
+    }
   };
- 
+
+  const filterDocs = (tab) => {
+    setActiveTab(tab);
+    if (tab === "All") {
+      setFilteredDocs(docs);
+    } else {
+      const filtered = docs.filter((doc) => doc.tag === tab);
+      setFilteredDocs(filtered);
+    }
+  };
+
+  const handleSaveDocument = () => {
+    setModalVisible(false);
+    loadDocs();
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f6f7f8" />
-      <View style={styles.container}>
-        <View style={styles.leftPane}>
-          {/* Header */}
-          <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>My Documents</Text>
-            <View style={styles.lockWrap}>
-              <Feather name="lock" size={18} color="#667085" />
+      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+      <LinearGradient
+        colors={["#667eea", "#764ba2"]}
+        style={styles.gradientBackground}
+      >
+        <View style={styles.container}>
+          <View style={styles.leftPane}>
+            {/* Header */}
+            <View style={styles.headerRow}>
+              <Text style={styles.headerTitle}>My Documents</Text>
+              <View style={styles.lockWrap}>
+                <Feather name="lock" size={18} color="#667085" />
+              </View>
             </View>
-          </View>
 
-          {/* Search */}
-          <View style={styles.searchWrap}>
-            <Feather
-              name="search"
-              size={18}
-              color="#9AA4B2"
-              style={{ marginLeft: 12 }}
-            />
-            <TextInput
-              placeholder="Search documents..."
-              placeholderTextColor="#9AA4B2"
-              value={query}
-              onChangeText={setQuery}
-              style={styles.searchInput}
-            />
-            <TouchableOpacity style={styles.filterBtn}>
-              <Feather name="sliders" size={18} color="#9AA4B2" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Tabs */}
-          <View style={styles.tabs}>
-            {["All", "Bank", "Work", "Personal", "Expiring Soon"].map((t) => {
-              const active = activeTab === t;
-              return (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.tabItem, active && styles.tabActive]}
-                  onPress={() => setActiveTab(t)}
-                >
-                  <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Cards */}
-        <DocCardList  data={sampleDocs}/>
-        </View>
-
-        {/* Floating Action Button */}
-        <View style={styles.fabWrap}>
-          <Animated.View style={[styles.smallFab, fab2Style]}>
-            <TouchableOpacity style={styles.smallFabBtn}>
-              <Ionicons name="camera" size={18} color="#0B5FFF" />
-              <Text style={styles.smallFabLabel}>Camera</Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-          <Animated.View style={[styles.smallFab, fab1Style]}>
-            <TouchableOpacity style={styles.smallFabBtn} onPress={()=>setModalVisible(true)}>
-              <Ionicons name="cloud-upload-outline" size={18} color="#0B5FFF" />
-              <Text style={styles.smallFabLabel}>Upload </Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={toggleFab}
-            activeOpacity={0.9}
-          >
-            <View style={styles.plusCircle}>
-              <Feather name={fabOpen ? "x" : "plus"} size={26} color="#fff" />
+            {/* Search */}
+            <View style={styles.searchWrap}>
+              <Feather
+                name="search"
+                size={18}
+                color="#9AA4B2"
+                style={{ marginLeft: 12 }}
+              />
+              <TextInput
+                placeholder="Search documents..."
+                placeholderTextColor="#9AA4B2"
+                value={query}
+                onChangeText={setQuery}
+                style={styles.searchInput}
+              />
+              <TouchableOpacity style={styles.filterBtn}>
+                <Feather name="sliders" size={18} color="#9AA4B2" />
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+
+            {/* Tabs */}
+            <View style={styles.tabs}>
+              {["All", "Bank", "Work", "Personal", "ID"].map((t) => {
+                const active = activeTab === t;
+                return (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.tabItem, active && styles.tabActive]}
+                    onPress={() => filterDocs(t)}
+                  >
+                    <Text
+                      style={[styles.tabText, active && styles.tabTextActive]}
+                    >
+                      {t}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Cards */}
+            <Animated.View style={{ opacity: fadeAnim }}>
+              <DocCardList data={filteredDocs} />
+            </Animated.View>
+          </View>
+
+          {/* Floating Action Button */}
+          <View style={styles.fabWrap}>
+            <TouchableOpacity
+              style={styles.fab}
+              onPress={() => {
+                setModalVisible(true);
+              }}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={["#667eea", "#764ba2"]}
+                style={styles.plusCircle}
+              >
+                <Feather name={fabOpen ? "x" : "plus"} size={26} color="#fff" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {/* {modal for upload} */}
+
+          <UploadDocModal
+            visible={modalVisible}
+            onClose={() => setModalVisible(false)}
+            onSave={handleSaveDocument}
+          />
         </View>
-
-        {/* {modal for upload} */}
-
-        <UploadDocModal visible={modalVisible} onClose={()=>setModalVisible(false)}/>
-      </View>
+      </LinearGradient>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f6f7f8" },
-  container: { flex: 1, paddingVertical:10},
+  safe: { flex: 1, backgroundColor: "#667eea" },
+  gradientBackground: { flex: 1 },
+  container: { flex: 1, paddingVertical: 20, paddingHorizontal: 16 },
   leftPane: {
     flex: 1,
     backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 24,
+    padding: 24,
+    marginHorizontal: 4,
     ...Platform.select({
-      android: { elevation: 6 },
+      android: { elevation: 8 },
       ios: {
-        shadowColor: "#cfd8e3",
-        shadowOffset: { width: -4, height: -4 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
       },
     }),
   },
@@ -219,23 +222,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 20,
   },
-  headerTitle: { fontSize: 26, fontWeight: "700", color: "#0F1724" },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#0F1724",
+    letterSpacing: 0.5,
+  },
   lockWrap: {
     backgroundColor: "#F3F4F6",
-    padding: 8,
-    borderRadius: 10,
+    padding: 10,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   searchWrap: {
-    height: 48,
-    backgroundColor: "#f6f7f9",
-    borderRadius: 12,
+    height: 52,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 20,
+    paddingHorizontal: 4,
   },
   searchInput: { flex: 1, marginLeft: 8, fontSize: 15, color: "#0F1724" },
   filterBtn: {
@@ -246,19 +255,24 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 12,
     borderBottomRightRadius: 12,
   },
-  tabs: { flexDirection: "row", marginVertical: 12, alignItems: "center" },
+  tabs: {
+    flexDirection: "row",
+    marginVertical: 16,
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
   tabItem: {
-    marginRight: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    marginRight: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 12,
+    backgroundColor: "#f8f9fa",
   },
   tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: "#0B5FFF",
+    backgroundColor: "#667eea",
   },
-  tabText: { color: "#8C98A9", fontSize: 14 },
-  tabTextActive: { color: "#0B5FFF", fontWeight: "600" },
+  tabText: { color: "#8C98A9", fontSize: 14, fontWeight: "500" },
+  tabTextActive: { color: "#fff", fontWeight: "600" },
   grid: { paddingBottom: 120 },
   card: {
     width: CARD_SIZE,
@@ -282,7 +296,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafcff",
   },
   cardBody: { padding: 12 },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: "#0F1724", marginBottom: 8 },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F1724",
+    marginBottom: 8,
+  },
   cardMetaRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -297,7 +316,12 @@ const styles = StyleSheet.create({
   tagText: { color: "#0B5FFF", fontWeight: "700", fontSize: 11 },
   cardMeta: { fontSize: 12, color: "#9AA4B2", flex: 1, textAlign: "right" },
 
-  fabWrap: { position: "absolute", right: 36, bottom: 34, alignItems: "center" },
+  fabWrap: {
+    position: "absolute",
+    right: 36,
+    bottom: 34,
+    alignItems: "center",
+  },
   fab: {
     width: 62,
     height: 62,

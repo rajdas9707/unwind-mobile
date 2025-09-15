@@ -91,7 +91,7 @@ export default function MeditationScreen() {
   //     try {
   //       const clientId = process.env.EXPO_PUBLIC_SOUNDCLOUD_CLIENT_ID;
   //       const baseUrl = process.env.EXPO_PUBLIC_MUSIC_API_BASE_URL;
-        
+
   //       if (!clientId || clientId === 'your_soundcloud_client_id_here') {
   //         throw new Error('SoundCloud client ID not configured. Please set EXPO_PUBLIC_SOUNDCLOUD_CLIENT_ID in your .env file');
   //       }
@@ -100,11 +100,11 @@ export default function MeditationScreen() {
   //       const response = await fetch(
   //         `${baseUrl}/tracks?client_id=${clientId}&q=meditation%20ambient&limit=10&streamable=true`
   //       );
-        
+
   //       if (!response.ok) {
   //         throw new Error(`Failed to fetch tracks: ${response.status} ${response.statusText}`);
   //       }
-        
+
   //       const data = await response.json();
   //       // Map SoundCloud track data to expected format
   //       const formattedTracks = data.map(track => ({
@@ -198,7 +198,7 @@ export default function MeditationScreen() {
     let timer;
     if (isRunning && timeLeft > 0) {
       timer = setInterval(() => {
-        setTimeLeft(prev => {
+        setTimeLeft((prev) => {
           if (prev <= 0) {
             clearInterval(timer);
             setIsRunning(false);
@@ -210,7 +210,7 @@ export default function MeditationScreen() {
         });
       }, 1000);
     }
-    
+
     // Cleanup function to clear the interval when component unmounts or dependencies change
     return () => {
       if (timer) clearInterval(timer);
@@ -232,7 +232,7 @@ export default function MeditationScreen() {
           useNativeDriver: true,
         }),
       ]);
-      
+
       Animated.loop(breatheCycle).start();
     } else {
       breatheAnim.stopAnimation();
@@ -271,10 +271,6 @@ export default function MeditationScreen() {
     };
   }, [isRunning]);
 
-  
-
-
-
   // Play sound based on selected mood
   const playSound = async (moodKey) => {
     try {
@@ -290,27 +286,27 @@ export default function MeditationScreen() {
           setSound(null);
         }
       }
-      
+
       // Load and play the new sound
       const soundSource = moodSounds[moodKey];
       if (!soundSource) {
         throw new Error(`Sound not found for mood: ${moodKey}`);
       }
-      
+
       // Create and load the sound with looping enabled
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        soundSource,
-        { shouldPlay: true, isLooping: true }
-      );
-      
+      const { sound: newSound } = await Audio.Sound.createAsync(soundSource, {
+        shouldPlay: true,
+        isLooping: true,
+      });
+
       // Set the sound state
       setSound(newSound);
-      
+
       // Apply mute setting if needed
       if (isMuted) {
         await newSound.setIsMutedAsync(true);
       }
-      
+
       setSelectedSound(moodKey);
     } catch (error) {
       console.error("Error playing sound:", error);
@@ -498,7 +494,7 @@ export default function MeditationScreen() {
         {/* Streak Display */}
         <View style={styles.streakContainer}>
           <Text style={[styles.streakText, { color: theme.fg }]}>
-            🔥 Streak: {streak} Days 
+            🔥 Streak: {streak} Days
           </Text>
         </View>
       </View>
@@ -511,51 +507,47 @@ export default function MeditationScreen() {
             size={220}
             strokeWidth={8}
             color={moodThemes[mood].accent}
-            backgroundColor={isDay ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.2)"}
+            backgroundColor={
+              isDay ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.2)"
+            }
             imageSource={moodThemes[mood].backgroundImage}
           />
-        </View>
-        <View style={styles.timerOverlay}>
-          <Text style={[styles.timerLabel, { color: theme.fg }]}>Time Remaining</Text>
+          <View style={styles.breathingContainer}>
+            <View
+              style={[
+                styles.buttonOuter,
+                {
+                  borderColor: moodThemes[mood].accent,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={[styles.breathingPlayButton]}
+                onPress={() => {
+                  try {
+                    setIsRunning(!isRunning);
+                  } catch (error) {
+                    console.error("Error toggling timer:", error);
+                    setIsRunning(false);
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={isRunning ? "Stop timer" : "Start timer"}
+                accessibilityState={{ checked: isRunning }}
+              >
+                <AntDesign
+                  name={isRunning ? "pause" : "play"}
+                  size={28}
+                  color={isRunning ? "#fff" : moodThemes[mood].accent}
+                  // style={{ marginLeft: isRunning ? 0 : 3 }}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </View>
 
       {/* Elegant Timer Control Button */}
-      <View style={styles.breathingContainer}>
-        <View
-          style={[
-            styles.buttonOuter,
-            {
-              borderColor: moodThemes[mood].accent,
-            },
-          ]}
-        >
-          <TouchableOpacity
-            style={[
-              styles.breathingPlayButton,
-             
-            ]}
-            onPress={() => {
-              try {
-                setIsRunning(!isRunning);
-              } catch (error) {
-                console.error("Error toggling timer:", error);
-                setIsRunning(false);
-              }
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={isRunning ? "Stop timer" : "Start timer"}
-            accessibilityState={{ checked: isRunning }}
-          >
-            <AntDesign
-              name={isRunning ? "pause" : "play"}
-              size={28}
-              color={isRunning ? "#fff" : moodThemes[mood].accent}
-              // style={{ marginLeft: isRunning ? 0 : 3 }}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
 
       {/* Time Input */}
       <View style={styles.timeInputContainer}>
@@ -657,7 +649,9 @@ export default function MeditationScreen() {
           ]}
           onPress={() => setThemeMode(themeMode === "Night" ? "Day" : "Night")}
           accessibilityRole="button"
-          accessibilityLabel={`Switch to ${themeMode === "Night" ? "Day" : "Night"} mode`}
+          accessibilityLabel={`Switch to ${
+            themeMode === "Night" ? "Day" : "Night"
+          } mode`}
         >
           <AntDesign name="bulb1" size={18} color={theme.fg} />
           <Text style={[styles.controlText, { color: theme.fg }]}>
@@ -668,7 +662,7 @@ export default function MeditationScreen() {
 
       {/* Play/Pause Button moved to breathing container */}
 
-           <View style={styles.scrollsContainer}>
+      <View style={styles.scrollsContainer}>
         {/* Mood Selection Scroll */}
         <ScrollView
           horizontal
@@ -677,137 +671,351 @@ export default function MeditationScreen() {
           showsHorizontalScrollIndicator={false}
           decelerationRate="fast"
         >
-        {moods.map((m) => (
-          <TouchableOpacity
-            key={m}
-            activeOpacity={0.8}
-            style={[
-              styles.moodItem,
-              { backgroundColor: chipBg, borderColor },
-              mood === m && {
-                borderColor: moodThemes[mood].accent,
-                backgroundColor: chipBg,
-              },
-            ]}
-            onPress={() => {
-              setMood(m);
-              if (isTrackPlaying) playSound(m);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={`Select ${m} mood`}
-            accessibilityState={{ selected: mood === m }}
-          >
-            <Text style={[styles.moodText, { color: theme.fg }]}>{m}</Text>
-          </TouchableOpacity>
-        ))}
-        </ScrollView>
-      </View>
-
-   
-
-      {/* Meditation Posters with Play/Pause Buttons */}
-      <View style={styles.tracksContainer}>
-        <Text style={[styles.tracksTitle, { color: theme.fg }]}>🎵 Meditation Collection</Text>
-        <ScrollView
-          horizontal
-          style={[styles.tracksScroll, { backgroundColor: scrollBg }]}
-          contentContainerStyle={styles.tracksScrollContent}
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-        >
-          {[
-            { id: 1, title: "Calm Waters", artist: "Nature Sounds", mood: "Calm", duration: "8:30" },
-            { id: 2, title: "Forest Meditation", artist: "Zen Master", mood: "Relaxed", duration: "12:15" },
-            { id: 3, title: "Mountain Peace", artist: "Mindfulness", mood: "Focused", duration: "6:45" },
-            { id: 4, title: "Ocean Waves", artist: "Deep Relax", mood: "Calm", duration: "10:20" },
-            { id: 5, title: "Energy Flow", artist: "Cosmic Sounds", mood: "Energized", duration: "9:10" },
-          ].map((poster) => (
+          {moods.map((m) => (
             <TouchableOpacity
-              key={poster.id}
-              activeOpacity={0.9}
+              key={m}
+              activeOpacity={0.8}
               style={[
-                styles.posterItem, 
-                { 
-                  backgroundColor: chipBg, 
-                  borderColor: isDay ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.15)',
-                  shadowColor: isDay ? '#000' : '#fff',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: isDay ? 0.15 : 0.1,
-                  shadowRadius: 8,
-                  elevation: 6,
-                }
+                styles.moodItem,
+                { backgroundColor: chipBg, borderColor },
+                mood === m && {
+                  borderColor: moodThemes[mood].accent,
+                  backgroundColor: chipBg,
+                },
               ]}
+              onPress={() => {
+                setMood(m);
+                if (isTrackPlaying) playSound(m);
+              }}
               accessibilityRole="button"
-              accessibilityLabel={`Play track: ${poster.title} by ${poster.artist}`}
+              accessibilityLabel={`Select ${m} mood`}
+              accessibilityState={{ selected: mood === m }}
             >
-              <View style={[styles.posterImageContainer, { backgroundColor: moodThemes[poster.mood].backgroundColor }]}>
-                <Image
-                  source={moodThemes[poster.mood].backgroundImage}
-                  style={styles.posterImage}
-                  resizeMode="cover"
-                />
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.7)']}
-                  style={styles.posterGradient}
-                />
-                <View style={styles.posterDuration}>
-                  <Text style={styles.posterDurationText}>{poster.duration}</Text>
-                </View>
-                <TouchableOpacity 
-                  style={[
-                    styles.posterPlayButton,
-                    {
-                      backgroundColor: isTrackPlaying && currentTrack === poster.id 
-                        ? 'rgba(255,255,255,0.9)' 
-                        : moodThemes[poster.mood].accent,
-                      shadowColor: moodThemes[poster.mood].accent,
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.4,
-                      shadowRadius: 4,
-                      elevation: 4,
-                    }
-                  ]}
-                  onPress={() => {
-                    try {
-                      if (isTrackPlaying && currentTrack === poster.id) {
-                        // Stop current track
-                        if (sound) {
-                          sound.pauseAsync();
-                        }
-                        setIsTrackPlaying(false);
-                        setCurrentTrack(null);
-                      } else {
-                        // Start new track
-                        setMood(poster.mood);
-                        setCurrentTrack(poster.id);
-                        setIsTrackPlaying(true);
-                        playSound(poster.mood);
-                      }
-                    } catch (error) {
-                      console.error("Error toggling track:", error);
-                      setIsTrackPlaying(false);
-                      setCurrentTrack(null);
-                    }
-                  }}
-                >
-                  <AntDesign 
-                    name={isTrackPlaying && currentTrack === poster.id ? "pause" : "play"} 
-                    size={14} 
-                    color={isTrackPlaying && currentTrack === poster.id ? moodThemes[poster.mood].accent : "white"}
-                  />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.posterInfo}>
-                <Text style={[styles.posterTitle, { color: theme.fg }]} numberOfLines={1}>
-                  {poster.title}
-                </Text>
-               
-              </View>
+              <Text style={[styles.moodText, { color: theme.fg }]}>{m}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
+      <ScrollView
+        style={[styles.tracksScroll, { backgroundColor: scrollBg }]}
+        contentContainerStyle={styles.tracksScrollContent}
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+      >
+        {/* {offline collection} */}
+        <View style={styles.tracksContainer}>
+          <Text style={[styles.tracksTitle, { color: theme.fg }]}>
+            🎵 Offline Collection
+          </Text>
+          <ScrollView
+            horizontal
+            style={[styles.tracksScroll, { backgroundColor: scrollBg }]}
+            contentContainerStyle={styles.tracksScrollContent}
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+          >
+            {[
+              {
+                id: 1,
+                title: "Calm Waters",
+                artist: "Nature Sounds",
+                mood: "Calm",
+                duration: "8:30",
+              },
+              {
+                id: 2,
+                title: "Forest Meditation",
+                artist: "Zen Master",
+                mood: "Relaxed",
+                duration: "12:15",
+              },
+              {
+                id: 3,
+                title: "Mountain Peace",
+                artist: "Mindfulness",
+                mood: "Focused",
+                duration: "6:45",
+              },
+              {
+                id: 4,
+                title: "Ocean Waves",
+                artist: "Deep Relax",
+                mood: "Calm",
+                duration: "10:20",
+              },
+              {
+                id: 5,
+                title: "Energy Flow",
+                artist: "Cosmic Sounds",
+                mood: "Energized",
+                duration: "9:10",
+              },
+            ].map((poster) => (
+              <TouchableOpacity
+                key={poster.id}
+                activeOpacity={0.9}
+                style={[
+                  styles.posterItem,
+                  {
+                    backgroundColor: chipBg,
+                    borderColor: isDay
+                      ? "rgba(0,0,0,0.1)"
+                      : "rgba(255,255,255,0.15)",
+                    shadowColor: isDay ? "#000" : "#fff",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: isDay ? 0.15 : 0.1,
+                    shadowRadius: 8,
+                    elevation: 6,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Play track: ${poster.title} by ${poster.artist}`}
+              >
+                <View
+                  style={[
+                    styles.posterImageContainer,
+                    {
+                      backgroundColor: moodThemes[poster.mood].backgroundColor,
+                    },
+                  ]}
+                >
+                  <Image
+                    source={moodThemes[poster.mood].backgroundImage}
+                    style={styles.posterImage}
+                    resizeMode="cover"
+                  />
+                  <LinearGradient
+                    colors={["transparent", "rgba(0,0,0,0.7)"]}
+                    style={styles.posterGradient}
+                  />
+                  <View style={styles.posterDuration}>
+                    <Text style={styles.posterDurationText}>
+                      {poster.duration}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.posterPlayButton,
+                      {
+                        backgroundColor:
+                          isTrackPlaying && currentTrack === poster.id
+                            ? "rgba(255,255,255,0.9)"
+                            : moodThemes[poster.mood].accent,
+                        shadowColor: moodThemes[poster.mood].accent,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.4,
+                        shadowRadius: 4,
+                        elevation: 4,
+                      },
+                    ]}
+                    onPress={() => {
+                      try {
+                        if (isTrackPlaying && currentTrack === poster.id) {
+                          // Stop current track
+                          if (sound) {
+                            sound.pauseAsync();
+                          }
+                          setIsTrackPlaying(false);
+                          setCurrentTrack(null);
+                        } else {
+                          // Start new track
+                          setMood(poster.mood);
+                          setCurrentTrack(poster.id);
+                          setIsTrackPlaying(true);
+                          playSound(poster.mood);
+                        }
+                      } catch (error) {
+                        console.error("Error toggling track:", error);
+                        setIsTrackPlaying(false);
+                        setCurrentTrack(null);
+                      }
+                    }}
+                  >
+                    <AntDesign
+                      name={
+                        isTrackPlaying && currentTrack === poster.id
+                          ? "pause"
+                          : "play"
+                      }
+                      size={14}
+                      color={
+                        isTrackPlaying && currentTrack === poster.id
+                          ? moodThemes[poster.mood].accent
+                          : "white"
+                      }
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.posterInfo}>
+                  <Text
+                    style={[styles.posterTitle, { color: theme.fg }]}
+                    numberOfLines={1}
+                  >
+                    {poster.title}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
+        {/* Meditation Posters with Play/Pause Buttons */}
+        <View style={styles.tracksContainer}>
+          <Text style={[styles.tracksTitle, { color: theme.fg }]}>
+            🎵 Meditation Collection
+          </Text>
+          <ScrollView
+            horizontal
+            style={[styles.tracksScroll, { backgroundColor: scrollBg }]}
+            contentContainerStyle={styles.tracksScrollContent}
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+          >
+            {[
+              {
+                id: 1,
+                title: "Calm Waters",
+                artist: "Nature Sounds",
+                mood: "Calm",
+                duration: "8:30",
+              },
+              {
+                id: 2,
+                title: "Forest Meditation",
+                artist: "Zen Master",
+                mood: "Relaxed",
+                duration: "12:15",
+              },
+              {
+                id: 3,
+                title: "Mountain Peace",
+                artist: "Mindfulness",
+                mood: "Focused",
+                duration: "6:45",
+              },
+              {
+                id: 4,
+                title: "Ocean Waves",
+                artist: "Deep Relax",
+                mood: "Calm",
+                duration: "10:20",
+              },
+              {
+                id: 5,
+                title: "Energy Flow",
+                artist: "Cosmic Sounds",
+                mood: "Energized",
+                duration: "9:10",
+              },
+            ].map((poster) => (
+              <TouchableOpacity
+                key={poster.id}
+                activeOpacity={0.9}
+                style={[
+                  styles.posterItem,
+                  {
+                    backgroundColor: chipBg,
+                    borderColor: isDay
+                      ? "rgba(0,0,0,0.1)"
+                      : "rgba(255,255,255,0.15)",
+                    shadowColor: isDay ? "#000" : "#fff",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: isDay ? 0.15 : 0.1,
+                    shadowRadius: 8,
+                    elevation: 6,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Play track: ${poster.title} by ${poster.artist}`}
+              >
+                <View
+                  style={[
+                    styles.posterImageContainer,
+                    {
+                      backgroundColor: moodThemes[poster.mood].backgroundColor,
+                    },
+                  ]}
+                >
+                  <Image
+                    source={moodThemes[poster.mood].backgroundImage}
+                    style={styles.posterImage}
+                    resizeMode="cover"
+                  />
+                  <LinearGradient
+                    colors={["transparent", "rgba(0,0,0,0.7)"]}
+                    style={styles.posterGradient}
+                  />
+                  <View style={styles.posterDuration}>
+                    <Text style={styles.posterDurationText}>
+                      {poster.duration}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.posterPlayButton,
+                      {
+                        backgroundColor:
+                          isTrackPlaying && currentTrack === poster.id
+                            ? "rgba(255,255,255,0.9)"
+                            : moodThemes[poster.mood].accent,
+                        shadowColor: moodThemes[poster.mood].accent,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.4,
+                        shadowRadius: 4,
+                        elevation: 4,
+                      },
+                    ]}
+                    onPress={() => {
+                      try {
+                        if (isTrackPlaying && currentTrack === poster.id) {
+                          // Stop current track
+                          if (sound) {
+                            sound.pauseAsync();
+                          }
+                          setIsTrackPlaying(false);
+                          setCurrentTrack(null);
+                        } else {
+                          // Start new track
+                          setMood(poster.mood);
+                          setCurrentTrack(poster.id);
+                          setIsTrackPlaying(true);
+                          playSound(poster.mood);
+                        }
+                      } catch (error) {
+                        console.error("Error toggling track:", error);
+                        setIsTrackPlaying(false);
+                        setCurrentTrack(null);
+                      }
+                    }}
+                  >
+                    <AntDesign
+                      name={
+                        isTrackPlaying && currentTrack === poster.id
+                          ? "pause"
+                          : "play"
+                      }
+                      size={14}
+                      color={
+                        isTrackPlaying && currentTrack === poster.id
+                          ? moodThemes[poster.mood].accent
+                          : "white"
+                      }
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.posterInfo}>
+                  <Text
+                    style={[styles.posterTitle, { color: theme.fg }]}
+                    numberOfLines={1}
+                  >
+                    {poster.title}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </ScrollView>
 
       {/* Completion Modal */}
       <Modal
@@ -910,9 +1118,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
+    justifyContent: "center",
     // backgroundColor:"red",
-    alignItems: 'center',
+    alignItems: "center",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -920,33 +1128,33 @@ const styles = StyleSheet.create({
   },
 
   buttonOuter: {
-    marginTop:10,
+    marginTop: 10,
     width: 50,
     height: 50,
     borderRadius: 35,
     borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
   },
   timerShadow: {
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 10,
   },
   timerOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -30,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   timerLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     opacity: 0.7,
     letterSpacing: 1,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   container: {
     flex: 1,
@@ -1029,7 +1237,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginBottom: 15,
     alignItems: "center",
-    position: 'relative',
+    position: "relative",
   },
   timerText: {
     fontSize: 48,
@@ -1039,7 +1247,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 15,
     alignItems: "center",
-    position: 'relative',
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
   },
   breathingText: {
     fontSize: 20,
@@ -1217,7 +1429,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   tracksScroll: {
-    height: 180,
+    height: 140,
     borderRadius: 12,
   },
   tracksScrollContent: {
@@ -1262,50 +1474,50 @@ const styles = StyleSheet.create({
   },
   // Poster styles
   posterItem: {
-    width: 130,
-    height: 160,
+    width: 100,
+    height: 120,
     borderRadius: 12,
     marginHorizontal: 6,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
   posterImageContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
+    width: "100%",
+    height: "100%",
+    position: "relative",
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   posterImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     opacity: 0.8,
   },
   posterGradient: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     height: 60,
   },
   posterDuration: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 8,
     left: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: "rgba(0,0,0,0.7)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
   },
   posterDurationText: {
-    color: 'white',
+    color: "white",
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   posterInfo: {
-  position:'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -1327,24 +1539,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   moodBadgeText: {
-    color: 'white',
+    color: "white",
     fontSize: 8,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    textTransform: "uppercase",
     letterSpacing: 0.3,
   },
   posterPlayButton: {
-    position: 'absolute',
+    position: "absolute",
     right: 8,
     top: 8,
     width: 28,
     height: 28,
     borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
-

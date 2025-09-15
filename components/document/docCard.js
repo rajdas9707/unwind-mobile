@@ -6,13 +6,29 @@ import {
   TouchableOpacity,
   Dimensions,
 } from "react-native";
+import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window"); // Screen width
 const CARD_WIDTH = width * 0.9; // 90% of screen
 const CARD_HEIGHT = 160; // fixed height for uniformity
 
 const DocCard = ({ item }) => {
-  const IconComp = item.icon.lib;
+  const router = useRouter();
+  const iconColor = "#0B5FFF";
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "Never opened";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) return "Opened today";
+    if (diffDays === 2) return "Opened yesterday";
+    if (diffDays <= 7) return `Opened ${diffDays} days ago`;
+    return `Opened ${date.toLocaleDateString()}`;
+  };
 
   return (
     <TouchableOpacity
@@ -31,8 +47,11 @@ const DocCard = ({ item }) => {
         shadowRadius: 10,
         elevation: 6,
         borderLeftWidth: 6,
-        borderLeftColor: item.icon.color,
+        borderLeftColor: iconColor,
       }}
+      onPress={() =>
+        router.push({ pathname: "/document/[id]", params: { id: item.id } })
+      }
     >
       {/* Top Row */}
       <View
@@ -47,13 +66,13 @@ const DocCard = ({ item }) => {
             width: 70,
             height: 70,
             borderRadius: 35,
-            backgroundColor: `${item.icon.color}20`,
+            backgroundColor: `${iconColor}20`,
             alignItems: "center",
             justifyContent: "center",
             marginRight: 16,
           }}
         >
-          <IconComp name={item.icon.name} size={36} color={item.icon.color} />
+          <Text style={{ fontSize: 24, color: iconColor }}>📄</Text>
         </View>
 
         <View style={{ flex: 1 }}>
@@ -66,10 +85,16 @@ const DocCard = ({ item }) => {
             }}
             numberOfLines={1}
           >
-            {item.title}
+            {item.docName}
           </Text>
           <Text style={{ fontSize: 14, color: "#666" }} numberOfLines={1}>
-            {item.meta}
+            {(item.files || []).length} files
+          </Text>
+          <Text
+            style={{ fontSize: 12, color: "#999", marginTop: 2 }}
+            numberOfLines={1}
+          >
+            {formatDate(item.lastOpenedAt)}
           </Text>
         </View>
       </View>
@@ -78,16 +103,14 @@ const DocCard = ({ item }) => {
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
         <View
           style={{
-            backgroundColor: `${item.icon.color}15`,
+            backgroundColor: `${iconColor}15`,
             borderRadius: 14,
             paddingVertical: 6,
             paddingHorizontal: 14,
           }}
         >
-          <Text
-            style={{ fontSize: 13, fontWeight: "600", color: item.icon.color }}
-          >
-            {item.tag}
+          <Text style={{ fontSize: 13, fontWeight: "600", color: iconColor }}>
+            {item.tag || "miscellaneous"}
           </Text>
         </View>
 
