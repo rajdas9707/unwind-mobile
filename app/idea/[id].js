@@ -14,11 +14,14 @@ import { getIdeaById, updateIdea, deleteIdea } from "../../storage/idea/db";
 import { deleteFile as deleteStoredFile } from "../../storage/idea/storage";
 import { Ionicons } from "@expo/vector-icons";
 import NewIdeaModal from "../../components/idea/NewIdeaModal";
+import FileViewer from "../../components/shared/FileViewer";
 
 export default function IdeaDetail() {
   const { id } = useLocalSearchParams();
   const [idea, setIdea] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
   const router = useRouter();
 
   const load = async () => {
@@ -90,6 +93,11 @@ export default function IdeaDetail() {
         },
       ]
     );
+  };
+
+  const handleFilePress = (index) => {
+    setViewerIndex(index);
+    setViewerVisible(true);
   };
 
   if (!idea) return null;
@@ -181,19 +189,40 @@ export default function IdeaDetail() {
                 (uri.includes("image") ||
                   uri.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i));
               return (
-                <View
+                <TouchableOpacity
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
-                    marginBottom: 8,
+                    marginBottom: 12,
+                    padding: 12,
+                    backgroundColor: "#fff",
+                    borderRadius: 12,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 3,
                   }}
+                  onPress={() => handleFilePress(index)}
+                  activeOpacity={0.7}
                 >
                   {isPdf ? (
-                    <Ionicons
-                      name="document-text-outline"
-                      size={28}
-                      color="#6B7280"
-                    />
+                    <View
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 8,
+                        backgroundColor: "#f3f4f6",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons
+                        name="document-text-outline"
+                        size={32}
+                        color="#667eea"
+                      />
+                    </View>
                   ) : (
                     <Image
                       source={{ uri }}
@@ -214,7 +243,7 @@ export default function IdeaDetail() {
                   <TouchableOpacity onPress={() => removeFile(index)}>
                     <Text style={{ color: "red" }}>Remove</Text>
                   </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               );
             }}
           />
@@ -228,6 +257,13 @@ export default function IdeaDetail() {
         onSave={handleSaveEdit}
         ideaId={idea.id}
         initialIdea={idea}
+      />
+
+      <FileViewer
+        visible={viewerVisible}
+        onClose={() => setViewerVisible(false)}
+        files={idea.files?.map((uri) => ({ uri })) || []}
+        currentIndex={viewerIndex}
       />
     </SafeAreaView>
   );

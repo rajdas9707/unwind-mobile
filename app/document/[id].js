@@ -18,11 +18,14 @@ import {
 import { deleteFile as deleteStoredFile } from "../../storage/document/storage";
 import { Ionicons } from "@expo/vector-icons";
 import UploadDocModal from "../../components/document/UploadDocModal";
+import FileViewer from "../../components/shared/FileViewer";
 
 export default function DocumentDetail() {
   const { id } = useLocalSearchParams();
   const [document, setDocument] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
   const router = useRouter();
 
   const load = async () => {
@@ -100,6 +103,11 @@ export default function DocumentDetail() {
     );
   };
 
+  const handleFilePress = (index) => {
+    setViewerIndex(index);
+    setViewerVisible(true);
+  };
+
   if (!document) return null;
 
   return (
@@ -165,19 +173,40 @@ export default function DocumentDetail() {
               const isPdf =
                 typeof uri === "string" && uri.toLowerCase().endsWith(".pdf");
               return (
-                <View
+                <TouchableOpacity
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
-                    marginBottom: 8,
+                    marginBottom: 12,
+                    padding: 12,
+                    backgroundColor: "#fff",
+                    borderRadius: 12,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 3,
                   }}
+                  onPress={() => handleFilePress(index)}
+                  activeOpacity={0.7}
                 >
                   {isPdf ? (
-                    <Ionicons
-                      name="document-text-outline"
-                      size={28}
-                      color="#6B7280"
-                    />
+                    <View
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 8,
+                        backgroundColor: "#f3f4f6",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons
+                        name="document-text-outline"
+                        size={32}
+                        color="#667eea"
+                      />
+                    </View>
                   ) : (
                     <Image
                       source={{ uri }}
@@ -198,7 +227,7 @@ export default function DocumentDetail() {
                   <TouchableOpacity onPress={() => removeFile(index)}>
                     <Text style={{ color: "red" }}>Remove</Text>
                   </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               );
             }}
           />
@@ -212,6 +241,13 @@ export default function DocumentDetail() {
         onSave={handleSaveEdit}
         docId={document.id}
         initialDoc={document}
+      />
+
+      <FileViewer
+        visible={viewerVisible}
+        onClose={() => setViewerVisible(false)}
+        files={document.files?.map((uri) => ({ uri })) || []}
+        currentIndex={viewerIndex}
       />
     </SafeAreaView>
   );
