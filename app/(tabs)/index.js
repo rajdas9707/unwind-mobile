@@ -88,6 +88,7 @@ export default function HomeScreen() {
       subtitle: "Review your progress",
       icon: "trending-up",
       color: "#8B5CF6",
+      click: () => router.push("/idea"),
     },
     {
       id: 4,
