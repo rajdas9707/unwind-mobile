@@ -10,12 +10,38 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as SpeechRecognizer from "expo-speech-recognition";
 
 export default function NewIdeaModal({ visible, onClose, onSave }) {
   const [newIdea, setNewIdea] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [selectedTag, setSelectedTag] = useState("Work");
   const [photo, setPhoto] = useState(null);
+  const [isListening, setIsListening] = useState(false);
+
+
+   const startListening = async () => {
+    const available = await SpeechRecognizer.isAvailableAsync();
+    if (!available) {
+      alert("Speech recognition not available on this device. please contact developer");
+      return;
+    }
+
+    setIsListening(true);
+    await SpeechRecognizer.startAsync({
+      onResult: (event) => {
+        setNewIdea(event.transcription.text);
+      },
+      onDone: () => {
+        setIsListening(false);
+      },
+    });
+  };
+
+  const stopListening = async () => {
+    await SpeechRecognizer.stopAsync();
+    setIsListening(false);
+  };
 
   const tags = ["Work", "Personal", "Startup"];
 
@@ -54,7 +80,7 @@ export default function NewIdeaModal({ visible, onClose, onSave }) {
     <Modal animationType="slide" transparent visible={visible}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalHeader}>New Idea</Text>
+          <Text style={styles.modalHeader}>New Idea </Text>
 
           {/* Idea input with mic button */}
           <View style={styles.inputRow}>
@@ -63,8 +89,15 @@ export default function NewIdeaModal({ visible, onClose, onSave }) {
               placeholder="Write or speak your idea..."
               value={newIdea}
               onChangeText={setNewIdea}
+              multiline
             />
-            <Ionicons name="mic-outline" size={22} color="gray" style={{ marginLeft: 6 }} />
+           <TouchableOpacity onPress={isListening ? stopListening : startListening}>
+              <Ionicons
+                name={isListening ? "mic" : "mic-outline"}
+                size={26}
+                color={isListening ? "red" : "gray"}
+              />
+            </TouchableOpacity>
           </View>
 
           {/* URL input */}
