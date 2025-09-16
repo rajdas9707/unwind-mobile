@@ -25,32 +25,35 @@ import { useNetworkStatus } from "../../utils/networkUtils";
 import { useDatabaseReady } from "../../hooks/useDatabaseReady";
 import { AuthContext } from "../../context/AuthProvider";
 
-// Import our new storage layer
+// Import new storage layer
 import {
-  fetchRecentJournalEntries,
-  fetchJournalsByDate,
-  createJournalEntryLocal,
-  syncJournalEntryToServer,
-  syncAllJournalEntries,
-  deleteJournalEntryLocal,
-  getUnsyncedCount,
-  canCreateEntryToday,
-  canSyncToday
-} from "../../storage/journal/storage";
+  fetchRecentMistakesEntries,
+  fetchMistakesByDate,
+  createMistakeEntryLocal,
+  syncMistakeEntryToServer,
+  syncAllMistakesEntries,
+  deleteMistakeEntryLocal,
+  getUnsyncedMistakesCount,
+  canCreateMistakeEntryToday,
+  canSyncMistakesToday,
+  getMistakeCategories,
+  getCategoryColor,
+  getCategoryEmoji
+} from "../../storage/mistakes/storage";
 
 // Import database health check
-import { checkJournalDatabaseHealth } from "../../storage/journal/db";
-import { testJournalDatabase } from "../../storage/journal/test";
+import { checkMistakesDatabaseHealth } from "../../storage/mistakes/db";
 
-export default function JournalScreen() {
+export default function MistakesScreen() {
   const { isReady } = useDatabaseReady();
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [newEntry, setNewEntry] = useState("");
-  const [newEntryTitle, setNewEntryTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newLesson, setNewLesson] = useState("");
+  const [newCategory, setNewCategory] = useState("Other");
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const isOnline = useNetworkStatus();
@@ -79,116 +82,6 @@ export default function JournalScreen() {
       spinValue.value = withTiming(0, { duration: 0 });
     }
   }, [syncingEntries.size, isSyncingAll]);
-
-  // Sync all pending entries
-  const syncPendingEntries = async () => {
-    try {
-      // Check if online
-      if (!isOnline) {
-        Alert.alert(
-          "No Internet Connection",
-          "Please check your connection and try again.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-      
-      // Check if authenticated
-      if (!idToken) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in to sync your entries.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-      
-      // Start syncing
-      setIsSyncingAll(true);
-      
-      try {
-        const result = await syncAllJournalEntries({ idToken });
-        
-        if (result.syncedCount > 0 || result.failedCount > 0) {
-          Alert.alert(
-            "Sync Complete",
-            `Successfully synced ${result.syncedCount} entries. ${result.failedCount > 0 ? `Failed to sync ${result.failedCount} entries.` : ''}`
-          );
-        } else {
-          Alert.alert("No Entries to Sync", "All your entries are already synced.");
-        }
-        
-        // Refresh the list
-        loadEntries();
-      } catch (error) {
-        console.error("Error syncing all entries:", error);
-        Alert.alert("Sync Failed", error.message || "Failed to sync entries. Please try again later.");
-      } finally {
-        setIsSyncingAll(false);
-      }
-    } catch (e) {
-      console.error("Error in syncPendingEntries:", e);
-      setIsSyncingAll(false);
-    }
-  };
-
-  // useEffect(() => {
-  //   if (!isReady) return;
-
-  //   let stopMonitoring;
-  //   let removeListener;
-
-  //   (async () => {
-  //     await loadLatestEntries();
-  //     await syncFromBackend();
-
-  //     // Start network monitoring
-  //     stopMonitoring = startNetworkMonitoring();
-
-  //     // Add network status listener
-  //     removeListener = addNetworkListener((online) => {
-  //       try {
-  //         const wasOffline = !isOnline;
-  //         setIsOnline(online);
-
-  //         if (online && wasOffline) {
-  //           // Network restored - show notification and try to sync pending entries
-  //           Alert.alert(
-  //             "Network Restored",
-  //             "Your internet connection is back. Syncing your journal entries...",
-  //             [{ text: "OK" }]
-  //           );
-  //           syncPendingEntries();
-  //         }
-  //       } catch (error) {
-  //         console.log("Error in network listener:", error);
-  //       }
-  //     });
-
-  //     // Initial network status check
-  //     try {
-  //       const initialStatus = await checkNetworkStatus();
-  //       setIsOnline(initialStatus);
-  //     } catch (error) {
-  //       console.log("Error checking initial network status:", error);
-  //       setIsOnline(false); // Assume offline if we can't check
-  //     }
-  //   })();
-
-  //   return () => {
-  //     if (stopMonitoring) stopMonitoring();
-  //     if (removeListener) removeListener();
-  //   };
-  // }, []);
-
-  // useEffect(() => {
-  //   (async () => {
-  //     // Load latest entries instead of date-specific entries
-
-  //     await loadLatestEntries();
-  //     console.log("Database is ready, loaded latest entries");
-  //   })();
-  // }, []);
 
   // Load entries when the component mounts or when selectedDate changes
   useEffect(() => {
@@ -223,18 +116,19 @@ export default function JournalScreen() {
     
     return () => clearInterval(interval);
   }, [isReady]);
+
   // Load entries based on whether a date is selected or not
   const loadEntries = async () => {
     try {
       setLoading(true);
       
       // Check database health first
-      const healthCheck = await checkJournalDatabaseHealth();
+      const healthCheck = await checkMistakesDatabaseHealth();
       if (!healthCheck.healthy) {
         console.error("Database health check failed:", healthCheck);
         Alert.alert(
           "Database Error", 
-          "There's an issue with the journal database. Please restart the app.",
+          "There's an issue with the mistakes database. Please restart the app.",
           [{ text: "OK" }]
         );
         return;
@@ -243,20 +137,20 @@ export default function JournalScreen() {
       let loadedEntries;
       
       if (selectedDate) {
-        console.log("Loading entries for date:", selectedDate);
-        loadedEntries = await fetchJournalsByDate(selectedDate);
+        console.log("Loading mistakes entries for date:", selectedDate);
+        loadedEntries = await fetchMistakesByDate(selectedDate);
       } else {
-        console.log("Loading recent entries");
-        loadedEntries = await fetchRecentJournalEntries(10);
+        console.log("Loading recent mistakes entries");
+        loadedEntries = await fetchRecentMistakesEntries(10);
       }
       
-      console.log("Loaded entries:", loadedEntries);
+      console.log("Loaded mistakes entries:", loadedEntries);
       setEntries(loadedEntries || []);
       
       // Update unsynced count
       updateUnsyncedCount();
     } catch (error) {
-      console.error("Error loading entries:", error);
+      console.error("Error loading mistakes entries:", error);
       
       // Check if it's a database lock error
       if (error.message && error.message.includes('database is locked')) {
@@ -266,7 +160,7 @@ export default function JournalScreen() {
           [{ text: "Retry", onPress: () => setTimeout(() => loadEntries(), 1000) }]
         );
       } else {
-        Alert.alert("Error", "Failed to load journal entries: " + (error.message || "Unknown error"));
+        Alert.alert("Error", "Failed to load mistakes entries: " + (error.message || "Unknown error"));
       }
     } finally {
       setLoading(false);
@@ -276,10 +170,62 @@ export default function JournalScreen() {
   // Update the count of unsynced entries
   const updateUnsyncedCount = async () => {
     try {
-      const count = await getUnsyncedCount();
+      const count = await getUnsyncedMistakesCount();
       setPendingSyncCount(count);
     } catch (error) {
-      console.error("Error updating unsynced count:", error);
+      console.error("Error updating unsynced mistakes count:", error);
+    }
+  };
+
+  // Sync all pending entries
+  const syncPendingEntries = async () => {
+    try {
+      // Check if online
+      if (!isOnline) {
+        Alert.alert(
+          "No Internet Connection",
+          "Please check your connection and try again.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      
+      // Check if authenticated
+      if (!idToken) {
+        Alert.alert(
+          "Authentication Required",
+          "Please log in to sync your entries.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      
+      // Start syncing
+      setIsSyncingAll(true);
+      
+      try {
+        const result = await syncAllMistakesEntries({ idToken });
+        
+        if (result.syncedCount > 0 || result.failedCount > 0) {
+          Alert.alert(
+            "Sync Complete",
+            `Successfully synced ${result.syncedCount} entries. ${result.failedCount > 0 ? `Failed to sync ${result.failedCount} entries.` : ''}`
+          );
+        } else {
+          Alert.alert("No Entries to Sync", "All your entries are already synced.");
+        }
+        
+        // Refresh the list
+        loadEntries();
+      } catch (error) {
+        console.error("Error syncing all entries:", error);
+        Alert.alert("Sync Failed", error.message || "Failed to sync entries. Please try again later.");
+      } finally {
+        setIsSyncingAll(false);
+      }
+    } catch (e) {
+      console.error("Error in syncPendingEntries:", e);
+      setIsSyncingAll(false);
     }
   };
 
@@ -287,7 +233,7 @@ export default function JournalScreen() {
   const manualSync = async (entry) => {
     if (entry.synced) return;
 
-    console.log("Starting manual sync for entry:", entry);
+    console.log("Starting manual sync for mistakes entry:", entry);
 
     // Check network status before attempting sync
     if (!isOnline) {
@@ -310,7 +256,7 @@ export default function JournalScreen() {
       }
 
       // Check daily sync limit
-      const canSync = await canSyncToday();
+      const canSync = await canSyncMistakesToday();
       if (!canSync) {
         Alert.alert(
           "Sync Limit Reached",
@@ -324,7 +270,7 @@ export default function JournalScreen() {
       setSyncingEntries((prev) => new Set(prev).add(entry.id));
 
       // Use the new sync function
-      await syncJournalEntryToServer({ entry, idToken });
+      await syncMistakeEntryToServer({ entry, idToken });
       
       // Refresh the entries list
       await loadEntries();
@@ -332,7 +278,7 @@ export default function JournalScreen() {
       // Show success message
       Alert.alert(
         "Sync Successful",
-        "Your journal entry has been saved to the cloud!",
+        "Your mistake entry has been saved to the cloud!",
         [{ text: "OK" }]
       );
     } catch (error) {
@@ -352,22 +298,12 @@ export default function JournalScreen() {
     }
   };
   
-  // Navigate to journal detail screen
-  const viewJournalEntry = (entry) => {
-    router.push(`/journal/${entry.id}`);
+  // Navigate to mistake detail screen
+  const viewMistakeEntry = (entry) => {
+    router.push(`/mistakes/${entry.id}`);
   };
 
-  // const getIdToken = async () => {
-  //   try {
-  //     const currentUser = auth.currentUser;
-  //     if (!currentUser) return null;
-  //     return await currentUser.getIdToken();
-  //   } catch (e) {
-  //     return null;
-  //   }
-  // };
-
-  // Add a new journal entry
+  // Add a new mistake entry
   const addEntry = async () => {
     try {
       if (!isReady) {
@@ -375,21 +311,23 @@ export default function JournalScreen() {
         return;
       }
       
-      if (!newEntry.trim()) {
-        Alert.alert("Error", "Please write something in your journal");
+      if (!newDescription.trim()) {
+        Alert.alert("Error", "Please describe what happened");
         return;
       }
       
       // Create entry locally
-      const entry = await createJournalEntryLocal({
-        title: newEntryTitle.trim(),
-        content: newEntry.trim(),
+      const entry = await createMistakeEntryLocal({
+        description: newDescription.trim(),
+        lesson: newLesson.trim(),
+        category: newCategory,
         idToken
       });
       
       // Reset form and close modal
-      setNewEntry("");
-      setNewEntryTitle("");
+      setNewDescription("");
+      setNewLesson("");
+      setNewCategory("Other");
       setShowAddModal(false);
       
       // Add to current entries list
@@ -402,7 +340,7 @@ export default function JournalScreen() {
       if (!isOnline) {
         Alert.alert(
           "Entry Saved Offline",
-          "Your journal entry has been saved locally. It will be synced when you're back online.",
+          "Your mistake entry has been saved locally. It will be synced when you're back online.",
           [{ text: "OK" }]
         );
         return;
@@ -412,7 +350,7 @@ export default function JournalScreen() {
       if (isOnline && idToken) {
         try {
           setSyncingEntries((prev) => new Set(prev).add(entry.id));
-          await syncJournalEntryToServer({ entry, idToken });
+          await syncMistakeEntryToServer({ entry, idToken });
           await loadEntries(); // Refresh the list
         } catch (syncError) {
           console.error("Failed to sync new entry:", syncError);
@@ -431,11 +369,11 @@ export default function JournalScreen() {
       }
     } catch (error) {
       console.error("Error adding entry:", error);
-      Alert.alert("Error", error.message || "Failed to create journal entry");
+      Alert.alert("Error", error.message || "Failed to create mistake entry");
     }
   };
 
-  // Delete a journal entry
+  // Delete a mistake entry
   const deleteEntry = (entry) => {
     Alert.alert("Delete Entry", "Are you sure you want to delete this entry?", [
       { text: "Cancel", style: "cancel" },
@@ -448,7 +386,7 @@ export default function JournalScreen() {
             setEntries(entries.filter((e) => e.id !== entry.id));
             
             // Delete from storage
-            await deleteJournalEntryLocal({ entry, idToken });
+            await deleteMistakeEntryLocal({ entry, idToken });
             
             // Update unsynced count
             updateUnsyncedCount();
@@ -461,10 +399,6 @@ export default function JournalScreen() {
         },
       },
     ]);
-  };
-
-  const getEntriesForDate = (date) => {
-    return entries.filter((entry) => entry.date === date);
   };
 
   const formatDate = (dateString) => {
@@ -480,30 +414,53 @@ export default function JournalScreen() {
   const getMarkedDates = () => {
     const marked = {};
     entries.forEach((entry) => {
-      marked[entry.date] = {
+      const date = entry.created_at.split('T')[0];
+      marked[date] = {
         marked: true,
-        dotColor: "#3B82F6",
-        selectedColor: "#3B82F6",
+        dotColor: "#F59E0B",
+        selectedColor: "#F59E0B",
       };
     });
-    marked[selectedDate] = {
-      ...marked[selectedDate],
-      selected: true,
-      selectedColor: "#3B82F6",
-    };
+    if (selectedDate) {
+      marked[selectedDate] = {
+        ...marked[selectedDate],
+        selected: true,
+        selectedColor: "#F59E0B",
+      };
+    }
     return marked;
   };
 
-  const todaysEntries = getEntriesForDate(
-    new Date().toISOString().split("T")[0]
-  );
+  const renderCategoryPicker = () => {
+    const categories = getMistakeCategories();
+    return (
+      <View style={styles.categoryPicker}>
+        {categories.map((category) => (
+          <TouchableOpacity
+            key={category}
+            style={[
+              styles.categoryOption,
+              { backgroundColor: getCategoryColor(category) },
+              newCategory === category && styles.selectedCategory,
+            ]}
+            onPress={() => setNewCategory(category)}
+          >
+            <Text style={styles.categoryEmoji}>{getCategoryEmoji(category)}</Text>
+            <Text style={styles.categoryText}>
+              {category.charAt(0).toUpperCase() + category.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Journal</Text>
+        <Text style={styles.title}>Mistakes</Text>
         <View style={styles.headerActions}>
           {pendingSyncCount > 0 && (
             <TouchableOpacity
@@ -525,32 +482,14 @@ export default function JournalScreen() {
             style={styles.calendarButton}
             onPress={() => setShowCalendar(true)}
           >
-            <Ionicons name="calendar" size={20} color="#3B82F6" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.calendarButton, { marginLeft: 8 }]}
-            onPress={async () => {
-              console.log("🧪 Running database test...");
-              const result = await testJournalDatabase();
-              Alert.alert(
-                result.success ? "Test Passed" : "Test Failed",
-                result.message + (result.error ? `\n\nError: ${result.error}` : ''),
-                [{ text: "OK" }]
-              );
-              if (result.success) {
-                loadEntries(); // Refresh entries to show test entry
-              }
-            }}
-          >
-            <Ionicons name="flask" size={16} color="#8B5CF6" />
+            <Ionicons name="calendar" size={20} color="#F59E0B" />
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.dateRow}>
         <Text style={styles.dateText}>
-          {selectedDate ? selectedDate : "Latest Entries"}
+          {selectedDate ? formatDate(selectedDate) : "Latest Entries"}
         </Text>
         <View style={styles.networkStatus}>
           <Ionicons
@@ -571,7 +510,7 @@ export default function JournalScreen() {
       
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3B82F6" />
+          <ActivityIndicator size="large" color="#F59E0B" />
           <Text style={styles.loadingText}>Loading entries...</Text>
         </View>
       ) : (
@@ -581,10 +520,12 @@ export default function JournalScreen() {
         >
           {entries.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="book-outline" size={48} color="#9CA3AF" />
-              <Text style={styles.emptyStateText}>No journal entries yet</Text>
+              <Ionicons name="shield-checkmark-outline" size={48} color="#9CA3AF" />
+              <Text style={styles.emptyStateText}>
+                No mistake entries yet
+              </Text>
               <Text style={styles.emptyStateSubtext}>
-                Start writing to capture your thoughts
+                Learn and grow from your experiences
               </Text>
             </View>
           ) : (
@@ -592,7 +533,7 @@ export default function JournalScreen() {
               <TouchableOpacity
                 key={entry.id}
                 style={styles.entryCard}
-                onPress={() => viewJournalEntry(entry)}
+                onPress={() => viewMistakeEntry(entry)}
                 activeOpacity={0.7}
               >
                 <View style={styles.entryHeader}>
@@ -637,7 +578,7 @@ export default function JournalScreen() {
                           <Ionicons
                             name={syncingEntries.has(entry.id) ? "sync" : "cloud-upload-outline"}
                             size={18}
-                            color={syncingEntries.has(entry.id) ? "#9CA3AF" : "#3B82F6"}
+                            color={syncingEntries.has(entry.id) ? "#9CA3AF" : "#F59E0B"}
                           />
                         </Animated.View>
                       </TouchableOpacity>
@@ -645,28 +586,47 @@ export default function JournalScreen() {
                   </View>
                 </View>
                 
-                {entry.title ? (
-                  <Text style={styles.entryTitle}>{entry.title}</Text>
-                ) : null}
-                
-                <View style={styles.contentRow}>
-                  <Text style={styles.sentimentEmoji}>{entry.sentiment}</Text>
-                  <Text style={styles.entryContent}>{entry.truncatedContent}</Text>
+                <View style={styles.categoryRow}>
+                  <View style={[
+                    styles.categoryBadge,
+                    { backgroundColor: getCategoryColor(entry.category) }
+                  ]}>
+                    <Text style={styles.categoryBadgeEmoji}>
+                      {getCategoryEmoji(entry.category)}
+                    </Text>
+                    <Text style={styles.categoryBadgeText}>
+                      {entry.category.charAt(0).toUpperCase() + entry.category.slice(1)}
+                    </Text>
+                  </View>
                 </View>
                 
+                <View style={styles.contentSection}>
+                  <Text style={styles.contentLabel}>What happened:</Text>
+                  <Text style={styles.contentText}>{entry.description}</Text>
+                </View>
+
+                {entry.lesson && (
+                  <View style={styles.lessonSection}>
+                    <Text style={styles.lessonLabel}>Lesson learned:</Text>
+                    <Text style={styles.lessonText}>{entry.lesson}</Text>
+                  </View>
+                )}
+
                 <View style={styles.entryFooter}>
-                  {!entry.synced && (
-                    <View style={styles.syncStatus}>
-                      <Ionicons name="time-outline" size={14} color="#F59E0B" />
-                      <Text style={styles.unsyncedText}>Pending sync</Text>
-                    </View>
-                  )}
-                  {entry.synced && (
-                    <View style={styles.syncStatus}>
-                      <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                      <Text style={styles.syncedText}>Synced</Text>
-                    </View>
-                  )}
+                  <View style={styles.syncStatusContainer}>
+                    {!entry.synced && (
+                      <View style={styles.syncStatus}>
+                        <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                        <Text style={styles.unsyncedText}>Pending sync</Text>
+                      </View>
+                    )}
+                    {entry.synced && (
+                      <View style={styles.syncStatus}>
+                        <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                        <Text style={styles.syncedText}>Synced</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </TouchableOpacity>
             ))
@@ -696,32 +656,51 @@ export default function JournalScreen() {
             >
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>New Journal Entry</Text>
+            <Text style={styles.modalTitle}>Log Mistake</Text>
             <TouchableOpacity onPress={addEntry} style={styles.saveButton}>
               <Text style={styles.saveButtonText}>Save</Text>
             </TouchableOpacity>
           </View>
-          
-          <TextInput
-            style={styles.titleInput}
-            placeholder="Title (optional)"
-            placeholderTextColor="#9CA3AF"
-            value={newEntryTitle}
-            onChangeText={setNewEntryTitle}
-            maxLength={200}
-          />
 
-          <TextInput
-            style={styles.textInput}
-            placeholder="What's on your mind today?"
-            placeholderTextColor="#9CA3AF"
-            multiline
-            numberOfLines={10}
-            value={newEntry}
-            onChangeText={setNewEntry}
-            textAlignVertical="top"
-            autoFocus
-          />
+          <ScrollView style={styles.modalScrollView}>
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>Category</Text>
+              {renderCategoryPicker()}
+            </View>
+
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>
+                What happened?
+              </Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Describe what went wrong..."
+                placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={6}
+                value={newDescription}
+                onChangeText={setNewDescription}
+                textAlignVertical="top"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>
+                What did you learn? (Optional)
+              </Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="What will you do differently next time?"
+                placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={4}
+                value={newLesson}
+                onChangeText={setNewLesson}
+                textAlignVertical="top"
+              />
+            </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -754,22 +733,16 @@ export default function JournalScreen() {
               backgroundColor: "#FFFFFF",
               calendarBackground: "#FFFFFF",
               textSectionTitleColor: "#6B7280",
-              selectedDayBackgroundColor: "#3B82F6",
+              selectedDayBackgroundColor: "#F59E0B",
               selectedDayTextColor: "#FFFFFF",
-              todayTextColor: "#3B82F6",
+              todayTextColor: "#F59E0B",
               dayTextColor: "#2D3748",
               textDisabledColor: "#CBD5E0",
-              dotColor: "#3B82F6",
+              dotColor: "#F59E0B",
               selectedDotColor: "#FFFFFF",
-              arrowColor: "#3B82F6",
+              arrowColor: "#F59E0B",
               monthTextColor: "#2D3748",
-              indicatorColor: "#3B82F6",
-              textDayFontWeight: "300",
-              textMonthFontWeight: "bold",
-              textDayHeaderFontWeight: "300",
-              textDayFontSize: 16,
-              textMonthFontSize: 16,
-              textDayHeaderFontSize: 13,
+              indicatorColor: "#F59E0B",
             }}
           />
         </View>
@@ -807,7 +780,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#F59E0B",
     gap: 4,
   },
   syncAllText: {
@@ -818,7 +791,7 @@ const styles = StyleSheet.create({
   calendarButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: "#EBF4FF",
+    backgroundColor: "#FEF3C7",
   },
   dateRow: {
     flexDirection: "row",
@@ -907,33 +880,62 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 6,
   },
-  entryTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 8,
+  categoryRow: {
+    marginBottom: 12,
   },
-  contentRow: {
+  categoryBadge: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 8,
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: "flex-start",
   },
-  sentimentEmoji: {
-    fontSize: 22,
-    marginRight: 8,
-    marginTop: 2,
+  categoryBadgeEmoji: {
+    fontSize: 16,
+    marginRight: 6,
   },
-  entryContent: {
-    flex: 1,
+  categoryBadgeText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  contentSection: {
+    marginBottom: 12,
+  },
+  contentLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#F59E0B",
+    marginBottom: 4,
+  },
+  contentText: {
+    fontSize: 16,
+    color: "#374151",
+    lineHeight: 24,
+  },
+  lessonSection: {
+    marginBottom: 12,
+  },
+  lessonLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#10B981",
+    marginBottom: 4,
+  },
+  lessonText: {
     fontSize: 16,
     color: "#374151",
     lineHeight: 24,
   },
   entryFooter: {
     flexDirection: "row",
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
     alignItems: "center",
     marginTop: 8,
+  },
+  syncStatusContainer: {
+    alignItems: "flex-end",
   },
   syncStatus: {
     flexDirection: "row",
@@ -957,7 +959,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#F59E0B",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -991,7 +993,7 @@ const styles = StyleSheet.create({
   saveButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#F59E0B",
     borderRadius: 8,
   },
   saveButtonText: {
@@ -1001,19 +1003,54 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 40,
   },
-  titleInput: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 18,
-    color: "#111827",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  textInput: {
+  modalScrollView: {
     flex: 1,
     padding: 16,
+  },
+  inputSection: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  categoryPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  categoryOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  selectedCategory: {
+    borderWidth: 2,
+    borderColor: "#374151",
+  },
+  categoryEmoji: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  categoryText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 8,
+    padding: 12,
     fontSize: 16,
     color: "#374151",
-    lineHeight: 24,
+    backgroundColor: "#FFFFFF",
+    minHeight: 100,
+    textAlignVertical: "top",
   },
 });

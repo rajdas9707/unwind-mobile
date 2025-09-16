@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -8,41 +8,78 @@ import {
   TextInput,
   Modal,
   Alert,
+  ActivityIndicator,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Calendar } from "react-native-calendars";
-import {
-  listLatestOverthinkingEntries,
-  listOverthinkingEntriesByDate,
-  insertLocalOverthinkingEntry,
-  toggleOverthinkingDumped,
-  deleteOverthinkingById,
-  markOverthinkingSynced,
-} from "../../storage/overthinkingDb";
 import { useNetworkStatus } from "../../utils/networkUtils";
-import { auth } from "../../firebaseConfig";
-import {
-  createOverthinkingEntry,
-  deleteOverthinkingEntry,
-} from "../../api/client";
-import { getDb } from "../../storage/db";
 import { useDatabaseReady } from "../../hooks/useDatabaseReady";
-import { useFocusEffect } from "expo-router";
+import { AuthContext } from "../../context/AuthProvider";
+
+// Import new storage layer
+import {
+  fetchRecentOverthinkingEntries,
+  fetchOverthinkingByDate,
+  createOverthinkingEntryLocal,
+  syncOverthinkingEntryToServer,
+  syncAllOverthinkingEntries,
+  deleteOverthinkingEntryLocal,
+  toggleOverthinkingDumpedLocal,
+  getUnsyncedOverthinkingCount,
+  canCreateOverthinkingEntryToday,
+  canSyncOverthinkingToday
+} from "../../storage/overthinking/storage";
+
+// Import database health check
+import { checkOverthinkingDatabaseHealth } from "../../storage/overthinking/db";
 
 export default function OverthinkingScreen() {
+  const { isReady } = useDatabaseReady();
+  const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [newThought, setNewThought] = useState("");
   const [newSolution, setNewSolution] = useState("");
+  const [newTitle, setNewTitle] = useState("");
   const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
   const isOnline = useNetworkStatus();
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
-  // const [dbInitialized, setDbInitialized] = useState(false);
-  const { isReady } = useDatabaseReady();
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const { idToken } = useContext(AuthContext);
+  
+  // Spinning animation for sync icon
+  const spinValue = useSharedValue(0);
+
+  const spinStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate: `${spinValue.value}deg` }],
+    };
+  });
+
+  // Start spinning animation when syncing
+  useEffect(() => {
+    if (syncingEntries.size > 0 || isSyncingAll) {
+      spinValue.value = withRepeat(
+        withTiming(360, { duration: 1000, easing: Easing.linear }),
+        -1
+      );
+    } else {
+      spinValue.value = withTiming(0, { duration: 0 });
+    }
+  }, [syncingEntries.size, isSyncingAll]);
   // useEffect(() => {
   //   let stopMonitoring;
   //   let removeListener;
@@ -89,89 +126,97 @@ export default function OverthinkingScreen() {
   //   };
   // }, []);
 
+  // Load entries when the component mounts or when selectedDate changes
   useEffect(() => {
-    if (!isReady) {
-      Alert.alert("Database Not Ready", "Please wait a moment and try again.");
+    if (isReady) {
+      loadEntries();
     }
-  }, [isReady]);
-
-  useEffect(() => {
-    (async () => {
-      if (selectedDate) {
-        // If a date IS selected, load entries for that date.
-        console.log(
-          "Selected date changed, loading entries for:",
-          selectedDate
-        );
-        await loadEntriesForDate(selectedDate);
-      } else {
-        // If no date is selected (initial load), load the latest entries.
-        console.log("No date selected, loading latest entries.");
-        await loadLatestEntries();
-      }
-    })();
-  }, [selectedDate]); // Add this new useEffect hook
-
-  // Use useFocusEffect for the cleanup logic
+  }, [isReady, selectedDate]);
+  
+  // Refresh data when the screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      // This is the cleanup function
+      if (isReady) {
+        loadEntries();
+        updateUnsyncedCount();
+      }
+      
+      // Cleanup function
       return () => {
         console.log("Screen is losing focus, resetting selectedDate to null.");
         setSelectedDate(null);
       };
-    }, [])
+    }, [isReady])
   );
+  
+  // Update unsynced count periodically
+  useEffect(() => {
+    if (!isReady) return;
+    
+    const interval = setInterval(() => {
+      updateUnsyncedCount();
+    }, 10000); // Check every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, [isReady]);
 
-  const loadLatestEntries = async () => {
+  // Load entries based on whether a date is selected or not
+  const loadEntries = async () => {
     try {
-      if (!isReady) return;
-
-      const rows = await listLatestOverthinkingEntries(10);
-      const normalized = rows.map((r) => ({
-        localId: r.localId,
-        id: r.serverId || `local-${r.localId}`,
-        serverId: r.serverId || null,
-        date: r.date,
-        thought: r.thought,
-        solution: r.solution,
-        timestamp: r.timestamp,
-        dumped: r.dumped === 1,
-        synced: r.synced === 1,
-      }));
-      setEntries(normalized);
-
-      // Update pending sync count
-      const unsyncedCount = normalized.filter((entry) => !entry.synced).length;
-      setPendingSyncCount(unsyncedCount);
+      setLoading(true);
+      
+      // Check database health first
+      const healthCheck = await checkOverthinkingDatabaseHealth();
+      if (!healthCheck.healthy) {
+        console.error("Database health check failed:", healthCheck);
+        Alert.alert(
+          "Database Error", 
+          "There's an issue with the overthinking database. Please restart the app.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      
+      let loadedEntries;
+      
+      if (selectedDate) {
+        console.log("Loading overthinking entries for date:", selectedDate);
+        loadedEntries = await fetchOverthinkingByDate(selectedDate);
+      } else {
+        console.log("Loading recent overthinking entries");
+        loadedEntries = await fetchRecentOverthinkingEntries(10);
+      }
+      
+      console.log("Loaded overthinking entries:", loadedEntries);
+      setEntries(loadedEntries || []);
+      
+      // Update unsynced count
+      updateUnsyncedCount();
     } catch (error) {
-      console.error("Error loading entries:", error);
+      console.error("Error loading overthinking entries:", error);
+      
+      // Check if it's a database lock error
+      if (error.message && error.message.includes('database is locked')) {
+        Alert.alert(
+          "Database Busy", 
+          "The database is currently busy. Please try again in a moment.",
+          [{ text: "Retry", onPress: () => setTimeout(() => loadEntries(), 1000) }]
+        );
+      } else {
+        Alert.alert("Error", "Failed to load overthinking entries: " + (error.message || "Unknown error"));
+      }
+    } finally {
+      setLoading(false);
     }
   };
-
-  const loadEntriesForDate = async (date) => {
+  
+  // Update the count of unsynced entries
+  const updateUnsyncedCount = async () => {
     try {
-      if (!isReady) return;
-
-      const rows = await listOverthinkingEntriesByDate(date);
-      const normalized = rows.map((r) => ({
-        localId: r.localId,
-        id: r.serverId || `local-${r.localId}`,
-        serverId: r.serverId || null,
-        date: r.date,
-        thought: r.thought,
-        solution: r.solution,
-        timestamp: r.timestamp,
-        dumped: r.dumped === 1,
-        synced: r.synced === 1,
-      }));
-      setEntries(normalized);
-
-      // Update pending sync count
-      const unsyncedCount = normalized.filter((entry) => !entry.synced).length;
-      setPendingSyncCount(unsyncedCount);
+      const count = await getUnsyncedOverthinkingCount();
+      setPendingSyncCount(count);
     } catch (error) {
-      console.error("Error loading entries for date:", error);
+      console.error("Error updating unsynced overthinking count:", error);
     }
   };
 

@@ -82,11 +82,13 @@ export async function listJournalEntries({
   const qs = params.toString() ? `?${params.toString()}` : "";
   console.log("qs", qs);
 
-  const result = authorizedFetch(
+  const result = await authorizedFetch(
     `/api/journal${qs}`,
     { method: "GET" },
     idToken
   );
+  
+  return result.data;
 }
 
 export async function createJournalEntry({

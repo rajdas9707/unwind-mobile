@@ -17,22 +17,22 @@ Notifications.setNotificationHandler({
 });
 export default function RootLayout() {
   console.log("RootLayout rendered");
-  
+
   useEffect(() => {
     // Request notification permissions on app start
     const requestPermissions = async () => {
       try {
         const { status } = await Notifications.requestPermissionsAsync();
-        if (status !== 'granted') {
-          console.log('Notification permissions not granted');
+        if (status !== "granted") {
+          console.log("Notification permissions not granted");
         } else {
-          console.log('Notification permissions granted');
+          console.log("Notification permissions granted");
         }
       } catch (error) {
-        console.error('Error requesting notification permissions:', error);
+        console.error("Error requesting notification permissions:", error);
       }
     };
-    
+
     requestPermissions();
   }, []);
 
