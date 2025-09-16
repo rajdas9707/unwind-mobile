@@ -13,14 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
-      "usesCleartextTraffic": true
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff",
-        "usesCleartextTraffic": true
+        "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true
     },
@@ -29,7 +27,11 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      "expo-build-properties",
+      "expo-font",
+      "expo-router",
+      "expo-web-browser"
     ]
   }
 }

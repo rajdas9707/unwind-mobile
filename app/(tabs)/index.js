@@ -102,6 +102,14 @@ export default function IdeaScreen() {
       color: "#F59E0B",
       click: () => router.push("/reminder"),
     },
+    {
+      id: 5,
+      title: "Shopping Lists",
+      subtitle: "Organize your purchases",
+      icon: "bag",
+      color: "#06B6D4",
+      click: () => router.push("/thingsToBuy"),
+    },
   ];
 
   const guides = [

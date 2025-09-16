@@ -1,27 +1,27 @@
 import React, { useEffect, useState, useRef } from "react";
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  Modal, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  StatusBar, 
-  Dimensions, 
+import {
+  View,
+  Text,
+  FlatList,
+  Modal,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  StatusBar,
+  Dimensions,
   ScrollView,
-  Animated
+  Animated,
 } from "react-native";
 import * as SQLite from "expo-sqlite";
 import * as Notifications from "expo-notifications";
 import { Calendar } from "react-native-calendars";
-import { Picker } from '@react-native-picker/picker';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Picker } from "@react-native-picker/picker";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 // ✅ Configure notifications (important for Android)
 Notifications.setNotificationHandler({
@@ -52,7 +52,7 @@ export default function ReminderScreen() {
   // Get database connection
   const getDatabase = async () => {
     if (!dbRef.current) {
-      dbRef.current = await SQLite.openDatabaseAsync('remindertask.db');
+      dbRef.current = await SQLite.openDatabaseAsync("remindertask.db");
     }
     return dbRef.current;
   };
@@ -63,14 +63,14 @@ export default function ReminderScreen() {
       try {
         const db = await getDatabase();
         await db.execAsync(
-          'CREATE TABLE IF NOT EXISTS reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, datetime TEXT);'
+          "CREATE TABLE IF NOT EXISTS reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, datetime TEXT);"
         );
         await fetchReminders();
       } catch (error) {
-        console.error('Database initialization error:', error);
+        console.error("Database initialization error:", error);
       }
     };
-    
+
     initDatabase();
     initializeDefaults();
 
@@ -83,25 +83,27 @@ export default function ReminderScreen() {
 
   const initializeDefaults = () => {
     const today = new Date();
-    setSelectedDate(today.toISOString().split('T')[0]);
-    setHour(today.getHours().toString().padStart(2, '0'));
-    setMinute(today.getMinutes().toString().padStart(2, '0'));
+    setSelectedDate(today.toISOString().split("T")[0]);
+    setHour(today.getHours().toString().padStart(2, "0"));
+    setMinute(today.getMinutes().toString().padStart(2, "0"));
   };
 
   // Fetch all reminders
   const fetchReminders = async () => {
     try {
       const db = await getDatabase();
-      const result = await db.getAllAsync('SELECT * FROM reminders ORDER BY datetime ASC');
+      const result = await db.getAllAsync(
+        "SELECT * FROM reminders ORDER BY datetime ASC"
+      );
       setReminders(result);
     } catch (error) {
-      console.error('Error fetching reminders:', error);
+      console.error("Error fetching reminders:", error);
     }
   };
 
   // Modal animation helpers
   const openModal = () => {
-    console.log('Opening modal...');
+    console.log("Opening modal...");
     setModalVisible(true);
     modalAnimation.setValue(0);
     Animated.timing(modalAnimation, {
@@ -130,9 +132,9 @@ export default function ReminderScreen() {
     setIsEditing(false);
     setEditingId(null);
     const today = new Date();
-    setSelectedDate(today.toISOString().split('T')[0]);
-    setHour(today.getHours().toString().padStart(2, '0'));
-    setMinute(today.getMinutes().toString().padStart(2, '0'));
+    setSelectedDate(today.toISOString().split("T")[0]);
+    setHour(today.getHours().toString().padStart(2, "0"));
+    setMinute(today.getMinutes().toString().padStart(2, "0"));
   };
 
   // Add or update reminder
@@ -144,17 +146,17 @@ export default function ReminderScreen() {
 
     try {
       const db = await getDatabase();
-      
+
       if (isEditing && editingId) {
         // Update existing reminder
         await db.runAsync(
-          'UPDATE reminders SET name = ?, description = ?, datetime = ? WHERE id = ?',
+          "UPDATE reminders SET name = ?, description = ?, datetime = ? WHERE id = ?",
           [taskName, taskDesc, reminderDate.toISOString(), editingId]
         );
       } else {
         // Add new reminder
         await db.runAsync(
-          'INSERT INTO reminders (name, description, datetime) VALUES (?, ?, ?)',
+          "INSERT INTO reminders (name, description, datetime) VALUES (?, ?, ?)",
           [taskName, taskDesc, reminderDate.toISOString()]
         );
 
@@ -169,23 +171,23 @@ export default function ReminderScreen() {
           });
         }
       }
-      
+
       await fetchReminders();
       closeModal();
     } catch (error) {
-      console.error('Error adding/updating reminder:', error);
+      console.error("Error adding/updating reminder:", error);
     }
   };
 
   // Edit reminder
   const editReminder = (reminder) => {
-    console.log('Edit button pressed for:', reminder.id);
+    console.log("Edit button pressed for:", reminder.id);
     const reminderDate = new Date(reminder.datetime);
     setTaskName(reminder.name);
     setTaskDesc(reminder.description);
-    setSelectedDate(reminderDate.toISOString().split('T')[0]);
-    setHour(reminderDate.getHours().toString().padStart(2, '0'));
-    setMinute(reminderDate.getMinutes().toString().padStart(2, '0'));
+    setSelectedDate(reminderDate.toISOString().split("T")[0]);
+    setHour(reminderDate.getHours().toString().padStart(2, "0"));
+    setMinute(reminderDate.getMinutes().toString().padStart(2, "0"));
     setIsEditing(true);
     setEditingId(reminder.id);
     openModal();
@@ -195,17 +197,17 @@ export default function ReminderScreen() {
   const deleteReminder = async (id) => {
     try {
       const db = await getDatabase();
-      await db.runAsync('DELETE FROM reminders WHERE id = ?', [id]);
+      await db.runAsync("DELETE FROM reminders WHERE id = ?", [id]);
       await fetchReminders();
     } catch (error) {
-      console.error('Error deleting reminder:', error);
+      console.error("Error deleting reminder:", error);
     }
   };
 
   // Helper functions
   const isToday = (dateString) => {
-    const today = new Date().toISOString().split('T')[0];
-    const reminderDate = new Date(dateString).toISOString().split('T')[0];
+    const today = new Date().toISOString().split("T")[0];
+    const reminderDate = new Date(dateString).toISOString().split("T")[0];
     return today === reminderDate;
   };
 
@@ -213,15 +215,15 @@ export default function ReminderScreen() {
     const now = new Date();
     const reminderTime = new Date(dateTime);
     const diffMs = reminderTime - now;
-    
+
     if (diffMs < 0) return "Past due";
-    
+
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (diffHours > 24) {
       const diffDays = Math.floor(diffHours / 24);
-      return `in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
+      return `in ${diffDays} day${diffDays > 1 ? "s" : ""}`;
     } else if (diffHours > 0) {
       return `in ${diffHours}h ${diffMinutes}m`;
     } else {
@@ -231,11 +233,15 @@ export default function ReminderScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
+
       {/* Background Gradient */}
       <LinearGradient
-        colors={['#667eea', '#764ba2', '#f093fb']}
+        colors={["#667eea", "#764ba2", "#f093fb"]}
         style={styles.backgroundGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -244,7 +250,8 @@ export default function ReminderScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>My Reminders</Text>
           <Text style={styles.headerSubtitle}>
-            {reminders.length} {reminders.length === 1 ? 'reminder' : 'reminders'}
+            {reminders.length}{" "}
+            {reminders.length === 1 ? "reminder" : "reminders"}
           </Text>
         </View>
 
@@ -252,13 +259,14 @@ export default function ReminderScreen() {
         {reminders.length === 0 ? (
           <View style={styles.emptyState}>
             <LinearGradient
-              colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.8)']}
+              colors={["rgba(255,255,255,0.95)", "rgba(255,255,255,0.8)"]}
               style={styles.emptyStateCard}
             >
               <Ionicons name="calendar-outline" size={64} color="#667eea" />
               <Text style={styles.emptyStateText}>No Reminders Yet</Text>
               <Text style={styles.emptyStateSubtext}>
-                Tap the + button to create your first reminder and stay organized!
+                Tap the + button to create your first reminder and stay
+                organized!
               </Text>
             </LinearGradient>
           </View>
@@ -266,16 +274,20 @@ export default function ReminderScreen() {
           <FlatList
             data={reminders}
             keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingBottom: 100,
+            }}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => {
               const isItemToday = isToday(item.datetime);
               return (
                 <View style={styles.cardWrapper}>
                   <LinearGradient
-                    colors={isItemToday ? 
-                      ['#ff9a56', '#ff6b95', '#c44569'] : 
-                      ['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.8)']
+                    colors={
+                      isItemToday
+                        ? ["#ff9a56", "#ff6b95", "#c44569"]
+                        : ["rgba(255,255,255,0.95)", "rgba(255,255,255,0.8)"]
                     }
                     style={styles.card}
                     start={{ x: 0, y: 0 }}
@@ -283,7 +295,12 @@ export default function ReminderScreen() {
                   >
                     <View style={styles.cardContent}>
                       <View style={styles.cardHeader}>
-                        <Text style={[styles.title, isItemToday && styles.todayTitle]}>
+                        <Text
+                          style={[
+                            styles.title,
+                            isItemToday && styles.todayTitle,
+                          ]}
+                        >
                           {item.name}
                         </Text>
                         {isItemToday && (
@@ -292,69 +309,101 @@ export default function ReminderScreen() {
                           </View>
                         )}
                       </View>
-                      
+
                       {item.description ? (
-                        <Text style={[styles.description, isItemToday && styles.todayDescription]}>
+                        <Text
+                          style={[
+                            styles.description,
+                            isItemToday && styles.todayDescription,
+                          ]}
+                        >
                           {item.description}
                         </Text>
                       ) : null}
-                      
+
                       <View style={styles.dateTimeContainer}>
                         <View style={styles.dateTimeInfo}>
-                          <Ionicons 
-                            name="calendar" 
-                            size={16} 
-                            color={isItemToday ? "white" : "#667eea"} 
+                          <Ionicons
+                            name="calendar"
+                            size={16}
+                            color={isItemToday ? "white" : "#667eea"}
                           />
-                          <Text style={[styles.dateText, isItemToday && styles.todayText]}>
-                            {new Date(item.datetime).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
+                          <Text
+                            style={[
+                              styles.dateText,
+                              isItemToday && styles.todayText,
+                            ]}
+                          >
+                            {new Date(item.datetime).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
+                            )}
                           </Text>
-                          
-                          <Ionicons 
-                            name="time" 
-                            size={16} 
-                            color={isItemToday ? "white" : "#f093fb"} 
+
+                          <Ionicons
+                            name="time"
+                            size={16}
+                            color={isItemToday ? "white" : "#f093fb"}
                           />
-                          <Text style={[styles.timeText, isItemToday && styles.todayText]}>
-                            {new Date(item.datetime).toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              hour12: true
-                            })}
+                          <Text
+                            style={[
+                              styles.timeText,
+                              isItemToday && styles.todayText,
+                            ]}
+                          >
+                            {new Date(item.datetime).toLocaleTimeString(
+                              "en-US",
+                              {
+                                hour: "numeric",
+                                minute: "2-digit",
+                                hour12: true,
+                              }
+                            )}
                           </Text>
                         </View>
-                        
-                        <Text style={[styles.timeUntil, isItemToday && styles.todayTimeUntil]}>
+
+                        <Text
+                          style={[
+                            styles.timeUntil,
+                            isItemToday && styles.todayTimeUntil,
+                          ]}
+                        >
                           {getTimeUntil(item.datetime)}
                         </Text>
                       </View>
                     </View>
-                    
+
                     {/* Action Buttons */}
                     <View style={styles.actionButtons}>
-                      <TouchableOpacity 
-                        style={[styles.editBtn, isItemToday && styles.todayActionBtn]}
+                      <TouchableOpacity
+                        style={[
+                          styles.editBtn,
+                          isItemToday && styles.todayActionBtn,
+                        ]}
                         onPress={() => editReminder(item)}
                       >
-                        <Ionicons 
-                          name="pencil" 
-                          size={20} 
-                          color={isItemToday ? "white" : "#667eea"} 
+                        <Ionicons
+                          name="pencil"
+                          size={20}
+                          color={isItemToday ? "white" : "#667eea"}
                         />
                       </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={[styles.deleteBtn, isItemToday && styles.todayActionBtn]}
+
+                      <TouchableOpacity
+                        style={[
+                          styles.deleteBtn,
+                          isItemToday && styles.todayActionBtn,
+                        ]}
                         onPress={() => deleteReminder(item.id)}
                       >
-                        <Ionicons 
-                          name="trash" 
-                          size={20} 
-                          color={isItemToday ? "white" : "#ff6b6b"} 
+                        <Ionicons
+                          name="trash"
+                          size={20}
+                          color={isItemToday ? "white" : "#ff6b6b"}
                         />
                       </TouchableOpacity>
                     </View>
@@ -364,17 +413,17 @@ export default function ReminderScreen() {
             }}
           />
         )}
-        
+
         {/* Floating Action Button */}
-        <TouchableOpacity 
-          style={styles.fab} 
+        <TouchableOpacity
+          style={styles.fab}
           onPress={() => {
-            console.log('FAB pressed, opening modal...');
+            console.log("FAB pressed, opening modal...");
             openModal();
           }}
         >
           <LinearGradient
-            colors={['#ff6b95', '#ff9a56']}
+            colors={["#ff6b95", "#ff9a56"]}
             style={styles.fabGradient}
           >
             <Ionicons name="add" size={32} color="white" />
@@ -383,9 +432,9 @@ export default function ReminderScreen() {
       </LinearGradient>
 
       {/* Simple Modal */}
-      <Modal 
-        visible={modalVisible} 
-        animationType="slide" 
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
         transparent={false}
         onRequestClose={closeModal}
       >
@@ -393,9 +442,9 @@ export default function ReminderScreen() {
           {/* Modal Header */}
           <View style={styles.simpleModalHeader}>
             <Text style={styles.simpleModalTitle}>
-              {isEditing ? 'Edit Reminder' : 'New Reminder'}
+              {isEditing ? "Edit Reminder" : "New Reminder"}
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.simpleCloseButton}
               onPress={closeModal}
             >
@@ -403,7 +452,7 @@ export default function ReminderScreen() {
             </TouchableOpacity>
           </View>
 
-          <ScrollView 
+          <ScrollView
             ref={modalScrollRef}
             style={styles.simpleModalContent}
             showsVerticalScrollIndicator={false}
@@ -411,7 +460,7 @@ export default function ReminderScreen() {
             {/* Task Details Section */}
             <View style={styles.simpleFormSection}>
               <Text style={styles.simpleSectionTitle}>Task Details</Text>
-              
+
               <View style={styles.simpleInputGroup}>
                 <Text style={styles.simpleInputLabel}>Task Name *</Text>
                 <TextInput
@@ -422,9 +471,11 @@ export default function ReminderScreen() {
                   onChangeText={setTaskName}
                 />
               </View>
-              
+
               <View style={styles.simpleInputGroup}>
-                <Text style={styles.simpleInputLabel}>Description (Optional)</Text>
+                <Text style={styles.simpleInputLabel}>
+                  Description (Optional)
+                </Text>
                 <TextInput
                   style={[styles.simpleInput, styles.simpleTextArea]}
                   placeholder="Add more details..."
@@ -440,57 +491,69 @@ export default function ReminderScreen() {
             {/* Date & Time Section */}
             <View style={styles.simpleFormSection}>
               <Text style={styles.simpleSectionTitle}>Date & Time</Text>
-              
+
               {/* Date Selector */}
               <View style={styles.simpleInputGroup}>
                 <Text style={styles.simpleInputLabel}>Select Date *</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.simpleDateButton}
                   onPress={() => {
                     setShowCalendar(!showCalendar);
                     if (!showCalendar) {
-                      setTimeout(() => modalScrollRef.current?.scrollToEnd({animated: true}), 100);
+                      setTimeout(
+                        () =>
+                          modalScrollRef.current?.scrollToEnd({
+                            animated: true,
+                          }),
+                        100
+                      );
                     }
                   }}
                 >
                   <Ionicons name="calendar" size={20} color="#667eea" />
                   <Text style={styles.simpleDateText}>
-                    {selectedDate ? 
-                      new Date(selectedDate).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric',
-                        year: 'numeric'
-                      }) : 
-                      'Choose a date'
-                    }
+                    {selectedDate
+                      ? new Date(selectedDate).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "Choose a date"}
                   </Text>
                 </TouchableOpacity>
               </View>
-              
+
               {/* Time Selector */}
               <View style={styles.simpleInputGroup}>
                 <Text style={styles.simpleInputLabel}>Select Time</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.simpleDateButton}
                   onPress={() => {
                     setShowTimePicker(!showTimePicker);
                     if (!showTimePicker) {
-                      setTimeout(() => modalScrollRef.current?.scrollToEnd({animated: true}), 100);
+                      setTimeout(
+                        () =>
+                          modalScrollRef.current?.scrollToEnd({
+                            animated: true,
+                          }),
+                        100
+                      );
                     }
                   }}
-
->
+                >
                   <Ionicons name="time" size={20} color="#667eea" />
                   <Text style={styles.simpleDateText}>
-                    {new Date(`2000-01-01T${hour}:${minute}:00`).toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true
+                    {new Date(
+                      `2000-01-01T${hour}:${minute}:00`
+                    ).toLocaleTimeString("en-US", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
                     })}
                   </Text>
                 </TouchableOpacity>
               </View>
-              
+
               {/* Calendar Picker */}
               {showCalendar && (
                 <View style={styles.simpleCalendarContainer}>
@@ -499,101 +562,135 @@ export default function ReminderScreen() {
                       setSelectedDate(day.dateString);
                       setShowCalendar(false);
                     }}
-                    markedDates={{ 
-                      [selectedDate]: { 
-                        selected: true, 
+                    markedDates={{
+                      [selectedDate]: {
+                        selected: true,
                         selectedColor: "#667eea",
-                        selectedTextColor: "white"
-                      } 
+                        selectedTextColor: "white",
+                      },
                     }}
                     theme={{
-                      backgroundColor: 'white',
-                      calendarBackground: 'white',
-                      textSectionTitleColor: '#667eea',
-                      selectedDayBackgroundColor: '#667eea',
-                      selectedDayTextColor: '#ffffff',
-                      todayTextColor: '#f093fb',
-                      dayTextColor: '#2d4150',
-                      textDisabledColor: '#d9e1e8',
-                      arrowColor: '#667eea',
-                      monthTextColor: '#667eea',
-                      indicatorColor: '#667eea',
+                      backgroundColor: "white",
+                      calendarBackground: "white",
+                      textSectionTitleColor: "#667eea",
+                      selectedDayBackgroundColor: "#667eea",
+                      selectedDayTextColor: "#ffffff",
+                      todayTextColor: "#f093fb",
+                      dayTextColor: "#2d4150",
+                      textDisabledColor: "#d9e1e8",
+                      arrowColor: "#667eea",
+                      monthTextColor: "#667eea",
+                      indicatorColor: "#667eea",
                     }}
                   />
                 </View>
               )}
-              
+
               {/* Clock Style Time Picker */}
               {showTimePicker && (
                 <View style={styles.clockContainer}>
                   <Text style={styles.clockTitle}>🕐 Set Time</Text>
-                  
+
                   {/* Clock Face */}
                   <View style={styles.clockFace}>
                     <View style={styles.clockCircle}>
                       {/* Hour Numbers */}
                       {Array.from({ length: 12 }, (_, i) => {
                         const hourNum = i === 0 ? 12 : i;
-                        const angle = (i * 30) - 90; // -90 to start at 12 o'clock
+                        const angle = i * 30 - 90; // -90 to start at 12 o'clock
                         const radian = (angle * Math.PI) / 180;
                         const radius = 80;
                         const x = Math.cos(radian) * radius;
                         const y = Math.sin(radian) * radius;
                         const currentHour = parseInt(hour) % 12 || 12;
                         const isSelected = currentHour === hourNum;
-                        
+
                         return (
                           <TouchableOpacity
                             key={i}
                             style={[
                               styles.clockNumber,
                               {
-                                transform: [{ translateX: x }, { translateY: y }]
+                                transform: [
+                                  { translateX: x },
+                                  { translateY: y },
+                                ],
                               },
-                              isSelected && styles.clockNumberSelected
+                              isSelected && styles.clockNumberSelected,
                             ]}
                             onPress={() => {
-                              const newHour = hourNum === 12 ? 
-                                (parseInt(hour) >= 12 ? '12' : '00') :
-                                (parseInt(hour) >= 12 ? (hourNum + 12).toString().padStart(2, '0') : hourNum.toString().padStart(2, '0'));
+                              const newHour =
+                                hourNum === 12
+                                  ? parseInt(hour) >= 12
+                                    ? "12"
+                                    : "00"
+                                  : parseInt(hour) >= 12
+                                  ? (hourNum + 12).toString().padStart(2, "0")
+                                  : hourNum.toString().padStart(2, "0");
                               setHour(newHour);
                             }}
                           >
-                            <Text style={[styles.clockNumberText, isSelected && styles.clockNumberTextSelected]}>
+                            <Text
+                              style={[
+                                styles.clockNumberText,
+                                isSelected && styles.clockNumberTextSelected,
+                              ]}
+                            >
                               {hourNum}
                             </Text>
                           </TouchableOpacity>
                         );
                       })}
-                      
+
                       {/* Center Dot */}
                       <View style={styles.clockCenter} />
                     </View>
                   </View>
-                  
+
                   {/* AM/PM Toggle */}
                   <View style={styles.ampmContainer}>
                     <TouchableOpacity
-                      style={[styles.ampmButton, parseInt(hour) < 12 && styles.ampmButtonSelected]}
+                      style={[
+                        styles.ampmButton,
+                        parseInt(hour) < 12 && styles.ampmButtonSelected,
+                      ]}
                       onPress={() => {
                         const currentHour = parseInt(hour) % 12;
-                        setHour(currentHour.toString().padStart(2, '0'));
+                        setHour(currentHour.toString().padStart(2, "0"));
                       }}
                     >
-                      <Text style={[styles.ampmText, parseInt(hour) < 12 && styles.ampmTextSelected]}>AM</Text>
+                      <Text
+                        style={[
+                          styles.ampmText,
+                          parseInt(hour) < 12 && styles.ampmTextSelected,
+                        ]}
+                      >
+                        AM
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[styles.ampmButton, parseInt(hour) >= 12 && styles.ampmButtonSelected]}
+                      style={[
+                        styles.ampmButton,
+                        parseInt(hour) >= 12 && styles.ampmButtonSelected,
+                      ]}
                       onPress={() => {
                         const currentHour = parseInt(hour) % 12;
-                        const newHour = currentHour === 0 ? 12 : currentHour + 12;
-                        setHour(newHour.toString().padStart(2, '0'));
+                        const newHour =
+                          currentHour === 0 ? 12 : currentHour + 12;
+                        setHour(newHour.toString().padStart(2, "0"));
                       }}
                     >
-                      <Text style={[styles.ampmText, parseInt(hour) >= 12 && styles.ampmTextSelected]}>PM</Text>
+                      <Text
+                        style={[
+                          styles.ampmText,
+                          parseInt(hour) >= 12 && styles.ampmTextSelected,
+                        ]}
+                      >
+                        PM
+                      </Text>
                     </TouchableOpacity>
                   </View>
-                  
+
                   {/* Minutes */}
                   <View style={styles.minutesContainer}>
                     <Text style={styles.minutesLabel}>Minutes</Text>
@@ -601,36 +698,70 @@ export default function ReminderScreen() {
                       <TouchableOpacity
                         style={styles.minuteArrow}
                         onPress={() => {
-                          const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55']
-;
+                          const minutes = [
+                            "00",
+                            "05",
+                            "10",
+                            "15",
+                            "20",
+                            "25",
+                            "30",
+                            "35",
+                            "40",
+                            "45",
+                            "50",
+                            "55",
+                          ];
                           const currentIndex = minutes.indexOf(minute);
-                          const newIndex = currentIndex > 0 ? currentIndex - 1 : minutes.length - 1;
+                          const newIndex =
+                            currentIndex > 0
+                              ? currentIndex - 1
+                              : minutes.length - 1;
                           setMinute(minutes[newIndex]);
                         }}
                       >
                         <Ionicons name="chevron-up" size={20} color="#667eea" />
                       </TouchableOpacity>
-                      
+
                       <View style={styles.minuteDisplay}>
                         <Text style={styles.minuteDisplayText}>:{minute}</Text>
                       </View>
-                      
+
                       <TouchableOpacity
                         style={styles.minuteArrow}
                         onPress={() => {
-                          const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55']
-;
+                          const minutes = [
+                            "00",
+                            "05",
+                            "10",
+                            "15",
+                            "20",
+                            "25",
+                            "30",
+                            "35",
+                            "40",
+                            "45",
+                            "50",
+                            "55",
+                          ];
                           const currentIndex = minutes.indexOf(minute);
-                          const newIndex = currentIndex < minutes.length - 1 ? currentIndex + 1 : 0;
+                          const newIndex =
+                            currentIndex < minutes.length - 1
+                              ? currentIndex + 1
+                              : 0;
                           setMinute(minutes[newIndex]);
                         }}
                       >
-                        <Ionicons name="chevron-down" size={20} color="#667eea" />
+                        <Ionicons
+                          name="chevron-down"
+                          size={20}
+                          color="#667eea"
+                        />
                       </TouchableOpacity>
                     </View>
                   </View>
-                  
-                  <TouchableOpacity 
+
+                  <TouchableOpacity
                     style={styles.clockDoneButton}
                     onPress={() => setShowTimePicker(false)}
                   >
@@ -643,19 +774,19 @@ export default function ReminderScreen() {
 
           {/* Action Buttons */}
           <View style={styles.simpleButtonContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.simpleCancelButton}
               onPress={closeModal}
             >
               <Text style={styles.simpleCancelButtonText}>Cancel</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.simpleSaveButton}
               onPress={addReminder}
             >
               <Text style={styles.simpleSaveButtonText}>
-                {isEditing ? 'Update' : 'Save'}
+                {isEditing ? "Update" : "Save"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -674,7 +805,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: StatusBar.currentHeight || 50,
   },
-  
+
   // Header Styles
   header: {
     paddingHorizontal: 24,
@@ -683,32 +814,32 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 32,
-    fontWeight: '800',
-    color: 'white',
-    textShadowColor: 'rgba(0,0,0,0.3)',
+    fontWeight: "800",
+    color: "white",
+    textShadowColor: "rgba(0,0,0,0.3)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
   headerSubtitle: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.9)',
+    color: "rgba(255,255,255,0.9)",
     marginTop: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
-  
+
   // Empty State
   emptyState: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 40,
     marginTop: 100,
   },
   emptyStateCard: {
     padding: 40,
     borderRadius: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -716,28 +847,28 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#667eea',
+    fontWeight: "700",
+    color: "#667eea",
     marginTop: 20,
     marginBottom: 8,
   },
   emptyStateSubtext: {
     fontSize: 16,
-    color: '#8e8e93',
-    textAlign: 'center',
+    color: "#8e8e93",
+    textAlign: "center",
     lineHeight: 22,
   },
-  
+
   // Card Styles
   cardWrapper: {
     marginBottom: 16,
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     padding: 20,
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -747,113 +878,113 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#2c2c2e',
+    fontWeight: "700",
+    color: "#2c2c2e",
     flex: 1,
   },
   todayTitle: {
-    color: 'white',
+    color: "white",
   },
   description: {
     fontSize: 15,
-    color: '#8e8e93',
+    color: "#8e8e93",
     lineHeight: 21,
     marginBottom: 16,
   },
   todayDescription: {
-    color: 'rgba(255,255,255,0.9)',
+    color: "rgba(255,255,255,0.9)",
   },
   dateTimeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   dateTimeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   dateText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#667eea',
+    fontWeight: "600",
+    color: "#667eea",
   },
   timeText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#f093fb',
+    fontWeight: "600",
+    color: "#f093fb",
   },
   todayText: {
-    color: 'white',
+    color: "white",
   },
   timeUntil: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#8e8e93',
+    fontWeight: "600",
+    color: "#8e8e93",
   },
   todayTimeUntil: {
-    color: 'rgba(255,255,255,0.9)',
+    color: "rgba(255,255,255,0.9)",
   },
   todayBadge: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: "rgba(255,255,255,0.3)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     marginLeft: 12,
   },
   todayBadgeText: {
-    color: 'white',
+    color: "white",
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
-  
+
   // Action Buttons
   actionButtons: {
-    flexDirection: 'column',
+    flexDirection: "column",
     gap: 12,
     marginLeft: 16,
   },
   editBtn: {
-    backgroundColor: 'rgba(102, 126, 234, 0.15)',
+    backgroundColor: "rgba(102, 126, 234, 0.15)",
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1.5,
-    borderColor: 'rgba(102, 126, 234, 0.3)',
+    borderColor: "rgba(102, 126, 234, 0.3)",
   },
   deleteBtn: {
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    backgroundColor: "rgba(255, 107, 107, 0.15)",
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 107, 107, 0.3)',
+    borderColor: "rgba(255, 107, 107, 0.3)",
   },
   todayActionBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderColor: "rgba(255,255,255,0.4)",
   },
-  
+
   // FAB Styles
   fab: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 30,
     right: 30,
     width: 64,
     height: 64,
     borderRadius: 32,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -863,43 +994,43 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  
+
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   modalContainer: {
-    width: '100%',
+    width: "100%",
     maxHeight: height * 0.9,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   modalGradient: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: "white",
   },
   modalHeader: {
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   modalHeaderGradient: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 20,
     paddingTop: 30,
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: '700',
-    color: 'white',
-    textShadowColor: 'rgba(0,0,0,0.3)',
+    fontWeight: "700",
+    color: "white",
+    textShadowColor: "rgba(0,0,0,0.3)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -907,19 +1038,19 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalScrollView: {
     flex: 1,
     paddingHorizontal: 20,
-    backgroundColor: 'white',
+    backgroundColor: "white",
   },
   modalContent: {
     paddingVertical: 20,
   },
-  
+
   // Form Styles
   formSection: {
     marginBottom: 25,
@@ -927,57 +1058,57 @@ const styles = StyleSheet.create({
   formCard: {
     padding: 20,
     borderRadius: 16,
-    backgroundColor: 'rgba(248, 250, 252, 0.8)',
+    backgroundColor: "rgba(248, 250, 252, 0.8)",
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#2c2c2e',
+    fontWeight: "700",
+    color: "#2c2c2e",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   inputGroup: {
     marginBottom: 20,
   },
   inputLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#3c3c43',
+    fontWeight: "600",
+    color: "#3c3c43",
     marginBottom: 8,
   },
   input: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     minHeight: 50,
   },
   inputError: {
-    borderColor: '#ff6b6b',
+    borderColor: "#ff6b6b",
   },
   textArea: {
     height: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
-  
+
   // Date Time Input
   dateTimeInput: {
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
   dateTimeGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 18,
     paddingHorizontal: 20,
   },
@@ -985,9 +1116,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255,255,255,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 16,
   },
   dateTimeTextContainer: {
@@ -995,27 +1126,27 @@ const styles = StyleSheet.create({
   },
   dateTimeLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1d1d1f',
+    fontWeight: "600",
+    color: "#1d1d1f",
   },
   placeholder: {
-    color: '#8e8e93',
+    color: "#8e8e93",
   },
   chevronIcon: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255,255,255,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  
+
   // Calendar
   calendarContainer: {
     marginTop: 16,
     borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -1024,13 +1155,13 @@ const styles = StyleSheet.create({
   calendarGradient: {
     padding: 16,
   },
-  
+
   // Time Picker
   timePickerContainer: {
     marginTop: 16,
     borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -1041,33 +1172,33 @@ const styles = StyleSheet.create({
   },
   timePickerTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#2c2c2e',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "#2c2c2e",
+    textAlign: "center",
     marginBottom: 20,
   },
   timePickerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     marginBottom: 24,
   },
   timePickerSection: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   timePickerLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#3c3c43',
+    fontWeight: "600",
+    color: "#3c3c43",
     marginBottom: 12,
   },
   pickerWrapper: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.2)',
+    borderColor: "rgba(102, 126, 234, 0.2)",
     width: 120,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1078,10 +1209,10 @@ const styles = StyleSheet.create({
     height: 140,
   },
   doneButton: {
-    alignSelf: 'center',
+    alignSelf: "center",
     borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1090,42 +1221,42 @@ const styles = StyleSheet.create({
   doneButtonGradient: {
     paddingVertical: 12,
     paddingHorizontal: 32,
-    alignItems: 'center',
+    alignItems: "center",
   },
   doneButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
-  
+
   // Button Container
   buttonContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 24,
     paddingVertical: 24,
     paddingBottom: 40,
     gap: 16,
-    backgroundColor: 'rgba(248, 250, 252, 0.8)',
+    backgroundColor: "rgba(248, 250, 252, 0.8)",
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: 'rgba(142, 142, 147, 0.12)',
+    backgroundColor: "rgba(142, 142, 147, 0.12)",
     borderRadius: 16,
     paddingVertical: 18,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: 'rgba(142, 142, 147, 0.2)',
+    borderColor: "rgba(142, 142, 147, 0.2)",
   },
   cancelButtonText: {
-    color: '#3c3c43',
+    color: "#3c3c43",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   saveButton: {
     flex: 1,
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1133,36 +1264,36 @@ const styles = StyleSheet.create({
   },
   saveButtonGradient: {
     paddingVertical: 18,
-    alignItems: 'center',
+    alignItems: "center",
   },
   saveButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   disabledButton: {
     shadowOpacity: 0.1,
     elevation: 2,
   },
-  
+
   // Simple Modal Styles
   simpleModalContainer: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: "white",
   },
   simpleModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     paddingTop: 50,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   simpleModalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   simpleCloseButton: {
     padding: 5,
@@ -1176,8 +1307,8 @@ const styles = StyleSheet.create({
   },
   simpleSectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 15,
   },
   simpleInputGroup: {
@@ -1185,30 +1316,30 @@ const styles = StyleSheet.create({
   },
   simpleInputLabel: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#555',
+    fontWeight: "500",
+    color: "#555",
     marginBottom: 8,
   },
   simpleInput: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   simpleTextArea: {
     height: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   simpleDateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
@@ -1216,58 +1347,58 @@ const styles = StyleSheet.create({
   },
   simpleDateText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   simpleButtonContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 20,
     gap: 15,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: "#eee",
   },
   simpleCancelButton: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     paddingVertical: 15,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   simpleCancelButtonText: {
     fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
+    color: "#666",
+    fontWeight: "500",
   },
   simpleSaveButton: {
     flex: 1,
-    backgroundColor: '#667eea',
+    backgroundColor: "#667eea",
     paddingVertical: 15,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   simpleSaveButtonText: {
     fontSize: 16,
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
   },
-  
+
   // Simple Calendar Styles
   simpleCalendarContainer: {
     marginTop: 10,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     padding: 10,
   },
-  
+
   // Clock Style Time Picker
   clockContainer: {
     marginTop: 15,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 16,
     padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1275,57 +1406,57 @@ const styles = StyleSheet.create({
   },
   clockTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
+    fontWeight: "700",
+    color: "#333",
     marginBottom: 20,
   },
   clockFace: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 25,
   },
   clockCircle: {
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     borderWidth: 2,
-    borderColor: '#e0e0e0',
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "#e0e0e0",
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
   },
   clockNumber: {
-    position: 'absolute',
+    position: "absolute",
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "white",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
   clockNumberSelected: {
-    backgroundColor: '#667eea',
-    borderColor: '#667eea',
+    backgroundColor: "#667eea",
+    borderColor: "#667eea",
   },
   clockNumberText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   clockNumberTextSelected: {
-    color: 'white',
+    color: "white",
   },
   clockCenter: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#667eea',
+    backgroundColor: "#667eea",
   },
   ampmContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginBottom: 20,
   },
@@ -1333,69 +1464,69 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
   ampmButtonSelected: {
-    backgroundColor: '#667eea',
-    borderColor: '#667eea',
+    backgroundColor: "#667eea",
+    borderColor: "#667eea",
   },
   ampmText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
   },
   ampmTextSelected: {
-    color: 'white',
+    color: "white",
   },
   minutesContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   minutesLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
     marginBottom: 12,
   },
   minuteControls: {
     // flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: "center",
     gap: 8,
   },
   minuteArrow: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "#e0e0e0",
+    alignItems: "center",
+    justifyContent: "center",
   },
   minuteDisplay: {
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#667eea',
+    backgroundColor: "#667eea",
     borderRadius: 12,
     minWidth: 60,
-    alignItems: 'center',
+    alignItems: "center",
   },
   minuteDisplayText: {
     fontSize: 18,
-    fontWeight: '700',
-    color: 'white',
+    fontWeight: "700",
+    color: "white",
   },
   clockDoneButton: {
-    backgroundColor: '#667eea',
+    backgroundColor: "#667eea",
     paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 12,
   },
   clockDoneText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

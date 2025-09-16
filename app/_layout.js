@@ -20,9 +20,9 @@ export default function RootLayout() {
                 name="meditation"
                 options={{ title: "Meditation" }}
               />
-              <Stack.Screen name="idea" options={{ title: "Idea" }} />
-              <Stack.Screen name="reminder" options={{ title: "Reminder" }} />
-              <Stack.Screen name="document" options={{ title: "Document" }} />
+              {/* <Stack.Screen name="idea" options={{ title: "Idea" }} /> */}
+              {/* <Stack.Screen name="reminder" options={{ title: "Reminder" }} /> */}
+              {/* <Stack.Screen name="document" options={{ title: "Document" }} /> */}
 
               <Stack.Screen
                 name="tasks/[category]"
