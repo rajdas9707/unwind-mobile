@@ -124,7 +124,7 @@ export default function MistakesScreen() {
       // Check database health first
       const healthCheck = await checkMistakesDatabaseHealth();
       if (!healthCheck.healthy) {
-        console.error("Database health check failed:", healthCheck);
+        console.log("Database health check failed:", healthCheck);
         Alert.alert(
           "Database Error", 
           "There's an issue with the mistakes database. Please restart the app.",
@@ -349,7 +349,7 @@ export default function MistakesScreen() {
           await syncMistakeEntryToServer({ entry, idToken });
           await loadEntries(); // Refresh the list
         } catch (syncError) {
-          console.error("Failed to sync new entry:", syncError);
+          console.log("Failed to sync new entry:", syncError);
           Alert.alert(
             "Sync Failed",
             "Entry saved locally but couldn't be synced. You can try again later.",
@@ -610,18 +610,18 @@ export default function MistakesScreen() {
 
                 <View style={styles.entryFooter}>
                   <View style={styles.syncStatusContainer}>
-                    {!entry.synced && (
+                    {entry.synced ? (
+                      <View style={styles.syncStatus}>
+                        <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                        <Text style={styles.syncedText}>Synced</Text>
+                      </View>
+                    ): (
                       <View style={styles.syncStatus}>
                         <Ionicons name="time-outline" size={14} color="#F59E0B" />
                         <Text style={styles.unsyncedText}>Pending sync</Text>
                       </View>
                     )}
-                    {entry.synced && (
-                      <View style={styles.syncStatus}>
-                        <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                        <Text style={styles.syncedText}>Synced</Text>
-                      </View>
-                    )}
+                 
                   </View>
                 </View>
               </TouchableOpacity>

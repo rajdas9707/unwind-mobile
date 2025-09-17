@@ -125,23 +125,24 @@ export const createMistakeEntryLocal = async ({
     const today = new Date().toISOString().split("T")[0];
     const todayCount = await db.getMistakesEntriesCountForDate(today);
 
-    if (todayCount >= 3) {
-      throw new Error(
-        "You can only log 3 mistakes per day. Focus on learning from what you've already identified!"
-      );
-    }
+    // if (todayCount >= 3) {
+    //   throw new Error(
+    //     "You can only log 3 mistakes per day. Focus on learning from what you've already identified!"
+    //   );
+    // }
 
     // Create timestamps
     const now = new Date().toISOString();
 
     // Insert locally first
-    const localEntry = await db.insertMistakesEntry({
-      description: validatedData.mistake,
-      lesson: validatedData.solution,
-      category: validatedData.category,
-      created_at: now,
-      updated_at: now,
-    });
+ const localEntry = await db.insertMistakesEntry({
+  title: validatedData.title,
+  mistake: validatedData.mistake,
+  solution: validatedData.solution,
+  category: validatedData.category,
+  created_at: now,
+  updated_at: now,
+});
 
     return {
       ...localEntry,
