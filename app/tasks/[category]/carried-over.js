@@ -272,7 +272,7 @@ export default function CarriedOverTasks() {
           <Text style={[styles.header, { color: categoryColor }]}>
             {category} - Carried Over Tasks
           </Text>
-          <TouchableOpacity onPress={runDebugTests}>
+          <TouchableOpacity onPress={()=>{console.log("Debug icon pressed")}}>
             <Ionicons name="bug-outline" size={24} color="#EF4444" />
           </TouchableOpacity>
         </View>
