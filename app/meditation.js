@@ -16,7 +16,7 @@ import { AntDesign, FontAwesome5 } from "@expo/vector-icons";
 // import AsyncStorage from "@react-native-async-storage/async-storage";
 import Svg, { Circle, Path } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { useDatabase } from "../context/DatabaseProvider";
+// import { useDatabase } from "../context/DatabaseProvider";
 
 export default function MeditationScreen() {
   const [timeLeft, setTimeLeft] = useState(300); // Default 5 mins
@@ -47,7 +47,7 @@ export default function MeditationScreen() {
     "Energized",
     "Neutral",
   ];
-  const { getDb } = useDatabase();
+  // const { getDb } = useDatabase();
   const THEMES = {
     Day: { bg: "#e6f0ff", fg: "#0f172a", accent: "#2563eb", soft: "#c7d2fe" },
     Night: { bg: "#0b1220", fg: "#e5e7eb", accent: "#60a5fa", soft: "#1f2a44" },

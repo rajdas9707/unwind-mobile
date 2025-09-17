@@ -2,10 +2,8 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import * as Notifications from "expo-notifications";
-import { DatabaseProvider } from "../context/DatabaseProvider";
 import { AuthProvider } from "../context/AuthProvider";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { Provider as PaperProvider } from "react-native-paper";
 
 // Configure how notifications should be handled when app is running
 Notifications.setNotificationHandler({
@@ -38,8 +36,8 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <PaperProvider>
-        <DatabaseProvider>
+      {/* <PaperProvider> */}
+        {/* <DatabaseProvider> */}
           <AuthProvider>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
@@ -65,8 +63,8 @@ export default function RootLayout() {
             </Stack>
             <StatusBar style="auto" />
           </AuthProvider>
-        </DatabaseProvider>
-      </PaperProvider>
+        {/* </DatabaseProvider> */}
+      {/* </PaperProvider> */}
     </SafeAreaProvider>
   );
 }

@@ -22,7 +22,7 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useNetworkStatus } from "../../utils/networkUtils";
-import { useDatabaseReady } from "../../hooks/useDatabaseReady";
+// import { useDatabaseReady } from "../../hooks/useDatabaseReady";
 import { AuthContext } from "../../context/AuthProvider";
 
 // Import our storage layer
@@ -37,7 +37,7 @@ import {
 export default function JournalDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { isReady } = useDatabaseReady();
+  // const { isReady } = useDatabaseReady();
   const isOnline = useNetworkStatus();
   const { idToken } = useContext(AuthContext);
   
@@ -71,10 +71,10 @@ export default function JournalDetailScreen() {
 
   // Load entry data
   useEffect(() => {
-    if (isReady && id) {
+    if ( id) {
       loadEntry();
     }
-  }, [isReady, id]);
+  }, [ id]);
 
   const loadEntry = async () => {
     try {

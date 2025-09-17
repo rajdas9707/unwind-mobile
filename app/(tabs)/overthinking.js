@@ -22,7 +22,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Calendar } from "react-native-calendars";
 import { useNetworkStatus } from "../../utils/networkUtils";
-import { useDatabaseReady } from "../../hooks/useDatabaseReady";
 import { AuthContext } from "../../context/AuthProvider";
 
 // Import new storage layer
@@ -43,7 +42,7 @@ import {
 import { checkOverthinkingDatabaseHealth } from "../../storage/overthinking/db";
 
 export default function OverthinkingScreen() {
-  const { isReady } = useDatabaseReady();
+  // const { isReady } = useDatabaseReady();
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(null);
 
@@ -80,85 +79,40 @@ export default function OverthinkingScreen() {
       spinValue.value = withTiming(0, { duration: 0 });
     }
   }, [syncingEntries.size, isSyncingAll]);
-  // useEffect(() => {
-  //   let stopMonitoring;
-  //   let removeListener;
-
-  //   (async () => {
-  //     setDbInitialized(true);
-
-  //     // Start network monitoring
-  //     stopMonitoring = startNetworkMonitoring();
-
-  //     // Add network status listener
-  //     removeListener = addNetworkListener((online) => {
-  //       try {
-  //         const wasOffline = !isOnline;
-  //         setIsOnline(online);
-
-  //         if (online && wasOffline) {
-  //           // Network restored - show notification and try to sync pending entries
-  //           Alert.alert(
-  //             "Network Restored",
-  //             "Your internet connection is back. Syncing your overthinking entries...",
-  //             [{ text: "OK" }]
-  //           );
-  //           syncPendingEntries();
-  //         }
-  //       } catch (error) {
-  //         console.log("Error in network listener:", error);
-  //       }
-  //     });
-
-  //     // Initial network status check
-  //     try {
-  //       const initialStatus = await checkNetworkStatus();
-  //       setIsOnline(initialStatus);
-  //     } catch (error) {
-  //       console.log("Error checking initial network status:", error);
-  //       setIsOnline(false); // Assume offline if we can't check
-  //     }
-  //   })();
-
-  //   return () => {
-  //     if (stopMonitoring) stopMonitoring();
-  //     if (removeListener) removeListener();
-  //   };
-  // }, []);
 
   // Load entries when the component mounts or when selectedDate changes
   useEffect(() => {
-    if (isReady) {
+  
       loadEntries();
-    }
-  }, [isReady, selectedDate]);
+    
+  }, [ selectedDate]);
   
   // Refresh data when the screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      if (isReady) {
+     
         loadEntries();
         updateUnsyncedCount();
-      }
+      
       
       // Cleanup function
       return () => {
         console.log("Screen is losing focus, resetting selectedDate to null.");
         setSelectedDate(null);
       };
-    }, [isReady])
+    }, [])
   );
   
   // Update unsynced count periodically
   useEffect(() => {
-    if (!isReady) return;
+ 
     
     const interval = setInterval(() => {
       updateUnsyncedCount();
     }, 10000); // Check every 10 seconds
     
     return () => clearInterval(interval);
-  }, [isReady]);
+  }, []);
 
   // Load entries based on whether a date is selected or not
   const loadEntries = async () => {
@@ -220,21 +174,65 @@ export default function OverthinkingScreen() {
     }
   };
 
-  const getIdToken = async () => {
+  // Sync all pending entries
+  const syncPendingEntries = async () => {
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return null;
-      return await currentUser.getIdToken();
+      // Check if online
+      if (!isOnline) {
+        Alert.alert(
+          "No Internet Connection",
+          "Please check your connection and try again.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      
+      // Check if authenticated
+      if (!idToken) {
+        Alert.alert(
+          "Authentication Required",
+          "Please log in to sync your entries.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      
+      // Start syncing
+      setIsSyncingAll(true);
+      
+      try {
+        const result = await syncAllOverthinkingEntries({ idToken });
+        
+        if (result.syncedCount > 0 || result.failedCount > 0) {
+          Alert.alert(
+            "Sync Complete",
+            `Successfully synced ${result.syncedCount} entries. ${result.failedCount > 0 ? `Failed to sync ${result.failedCount} entries.` : ''}`
+          );
+        } else {
+          Alert.alert("No Entries to Sync", "All your entries are already synced.");
+        }
+        
+        // Refresh the list
+        loadEntries();
+      } catch (error) {
+        console.error("Error syncing all entries:", error);
+        Alert.alert("Sync Failed", error.message || "Failed to sync entries. Please try again later.");
+      } finally {
+        setIsSyncingAll(false);
+      }
     } catch (e) {
-      return null;
+      console.error("Error in syncPendingEntries:", e);
+      setIsSyncingAll(false);
     }
   };
 
+  // Sync a single entry to the server
   const manualSync = async (entry) => {
     if (entry.synced) return;
 
+    console.log("Starting manual sync for overthinking entry:", entry);
+
     // Check network status before attempting sync
-    // const networkAvailable = await checkNetworkStatus();
     if (!isOnline) {
       Alert.alert(
         "No Network Connection",
@@ -245,7 +243,6 @@ export default function OverthinkingScreen() {
     }
 
     try {
-      const idToken = await getIdToken();
       if (!idToken) {
         Alert.alert(
           "Authentication Required",
@@ -255,26 +252,25 @@ export default function OverthinkingScreen() {
         return;
       }
 
+      // Check daily sync limit
+      const canSync = await canSyncOverthinkingToday();
+      if (!canSync) {
+        Alert.alert(
+          "Sync Limit Reached",
+          "You can only sync 3 times per day. Try again tomorrow.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
       // Set loading state for this entry
-      setSyncingEntries((prev) => new Set(prev).add(entry.localId));
+      setSyncingEntries((prev) => new Set(prev).add(entry.id));
 
-      // Make POST request to server
-      const created = await createOverthinkingEntry({
-        idToken,
-        thought: entry.thought,
-        solution: entry.solution,
-        date: entry.date,
-      });
-
-      // Update local database to mark as synced
-      await markOverthinkingSynced({
-        localId: entry.localId,
-        serverId: created._id,
-        timestamp: created.createdAt,
-      });
-
+      // Use the new sync function
+      await syncOverthinkingEntryToServer({ entry, idToken });
+      
       // Refresh the entries list
-      await loadLatestEntries();
+      await loadEntries();
 
       // Show success message
       Alert.alert(
@@ -283,169 +279,123 @@ export default function OverthinkingScreen() {
         [{ text: "OK" }]
       );
     } catch (error) {
-      console.log("Sync error:", error);
+      console.error("Sync error:", error);
       Alert.alert(
         "Sync Failed",
-        `Failed to sync entry: ${
-          error.message || "Unknown error"
-        }. Please try again later.`,
+        error.message || "Failed to sync entry. Please try again later.",
         [{ text: "OK" }]
       );
     } finally {
       // Clear loading state
       setSyncingEntries((prev) => {
         const newSet = new Set(prev);
-        newSet.delete(entry.localId);
+        newSet.delete(entry.id);
         return newSet;
       });
     }
   };
-
-  const syncPendingEntries = async () => {
-    try {
-      const unsyncedEntries = entries.filter((entry) => !entry.synced);
-      if (unsyncedEntries.length === 0) return;
-
-      const idToken = await getIdToken();
-      if (!idToken) return;
-
-      let syncedCount = 0;
-      for (const entry of unsyncedEntries) {
-        try {
-          const created = await createOverthinkingEntry({
-            idToken,
-            thought: entry.thought,
-            solution: entry.solution,
-            date: entry.date,
-          });
-          await markOverthinkingSynced({
-            localId: entry.localId,
-            serverId: created._id,
-            timestamp: created.createdAt,
-          });
-          syncedCount++;
-        } catch (e) {
-          console.log("Failed to sync entry:", entry.localId, e);
-        }
-      }
-
-      if (syncedCount > 0) {
-        await loadLatestEntries();
-        Alert.alert(
-          "Sync Complete",
-          `Successfully synced ${syncedCount} overthinking entries.`,
-          [{ text: "OK" }]
-        );
-      }
-    } catch (e) {
-      console.log("Error syncing pending entries:", e);
-    }
+  
+  // Navigate to overthinking detail screen
+  const viewOverthinkingEntry = (entry) => {
+    router.push(`/overthinking/${entry.id}`);
   };
 
+  // Add a new overthinking entry
   const addEntry = async () => {
-    if (!isReady) {
-      Alert.alert("Database Not Ready", "Please wait a moment and try again.");
-      return;
-    }
-
-    if (!newThought.trim()) {
-      Alert.alert("Error", "Please describe your overthinking pattern");
-      return;
-    }
-
-    // Check network status before saving
-    // const networkAvailable = await checkNetworkStatus();
-
-    const timestamp = new Date().toISOString();
-
-    let local;
     try {
-      local = await insertLocalOverthinkingEntry({
-        date: timestamp.split("T")[0],
+     
+      
+      if (!newThought.trim()) {
+        Alert.alert("Error", "Please describe your overthinking pattern");
+        return;
+      }
+      
+      // Create entry locally
+      const entry = await createOverthinkingEntryLocal({
+        title: newTitle.trim(),
         thought: newThought.trim(),
         solution: newSolution.trim(),
-        timestamp,
+        idToken
       });
-    } catch (error) {
-      console.error("error in inserting local entry:", error);
-      Alert.alert(
-        "Save Failed",
-        "Could not save the entry to the local database. Please try again.",
-        [{ text: "OK" }]
-      );
-      return;
-    }
-
-    const newEntryObj = {
-      localId: local.localId,
-      id: `local-${local.localId}`,
-      serverId: null,
-      date: timestamp.split("T")[0],
-      thought: newThought.trim(),
-      solution: newSolution.trim(),
-      timestamp,
-      dumped: false,
-      synced: false,
-    };
-
-    setEntries([newEntryObj, ...entries]);
-    setNewThought("");
-    setNewSolution("");
-    setShowAddModal(false);
-
-    // Show appropriate alert based on network status
-    if (!isOnline) {
-      console.log(
-        "Offline, entry saved locally only--overthinkimg.js add entry()"
-      );
-      Alert.alert(
-        "Entry Saved Offline",
-        "Your overthinking entry has been saved locally. When network connectivity restores, it will be automatically synced to the cloud.",
-        [{ text: "OK" }]
-      );
-    }
-
-    // Try background sync to backend if network is available
-    if (isOnline) {
-      console.log("i am hitting isOnline");
-      (async () => {
+      
+      // Reset form and close modal
+      setNewThought("");
+      setNewSolution("");
+      setNewTitle("");
+      setShowAddModal(false);
+      
+      // Add to current entries list
+      setEntries([entry, ...entries]);
+      
+      // Update unsynced count
+      updateUnsyncedCount();
+      
+      // Show appropriate alert based on network status
+      if (!isOnline) {
+        Alert.alert(
+          "Entry Saved Offline",
+          "Your overthinking entry has been saved locally. It will be synced when you're back online.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      
+      // Try to sync immediately if online
+      if (isOnline && idToken) {
         try {
-          if (!idToken) {
-            throw new Error("User not authenticated");
-            return;
-          }
-
-          console.log("i am hitting createOverthinkingEntry");
-          const created = await createOverthinkingEntry({
-            idToken,
-            thought: newThought.trim(),
-            solution: newSolution.trim(),
-            date: timestamp.split("T")[0],
-          });
-
-          console.log(
-            "Created entry on server-overthinking ADDENTRY:",
-            created
-          );
-
-          await markOverthinkingSynced({
-            localId: local.localId,
-            serverId: created._id,
-            timestamp: created.createdAt,
-          });
-          await loadLatestEntries();
-        } catch (e) {
-          // If sync fails, show alert that entry is saved locally
+          setSyncingEntries((prev) => new Set(prev).add(entry.id));
+          await syncOverthinkingEntryToServer({ entry, idToken });
+          await loadEntries(); // Refresh the list
+        } catch (syncError) {
+          console.error("Failed to sync new entry:", syncError);
           Alert.alert(
             "Sync Failed",
-            "Your entry was saved locally but couldn't be synced to the cloud. It will be synced when network connectivity improves.",
+            "Entry saved locally but couldn't be synced. You can try again later.",
             [{ text: "OK" }]
           );
+        } finally {
+          setSyncingEntries((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(entry.id);
+            return newSet;
+          });
         }
-      })();
+      }
+    } catch (error) {
+      console.error("Error adding entry:", error);
+      Alert.alert("Error", error.message || "Failed to create overthinking entry");
     }
   };
 
+  // Delete an overthinking entry
+  const deleteEntry = (entry) => {
+    Alert.alert("Delete Entry", "Are you sure you want to delete this entry?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            // Remove from UI immediately for responsive feel
+            setEntries(entries.filter((e) => e.id !== entry.id));
+            
+            // Delete from storage
+            await deleteOverthinkingEntryLocal({ entry, idToken });
+            
+            // Update unsynced count
+            updateUnsyncedCount();
+          } catch (error) {
+            console.error("Error deleting entry:", error);
+            Alert.alert("Error", "Failed to delete entry");
+            // Refresh the list to show the entry again if deletion failed
+            loadEntries();
+          }
+        },
+      },
+    ]);
+  };
+
+  // Toggle dumped status
   const dumpThought = async (entry) => {
     Alert.alert(
       "Release Thought",
@@ -455,36 +405,20 @@ export default function OverthinkingScreen() {
         {
           text: "Release",
           onPress: async () => {
-            await toggleOverthinkingDumped({
-              localId: entry.localId,
-              dumped: !entry.dumped,
-            });
-            await loadLatestEntries();
+            try {
+              await toggleOverthinkingDumpedLocal({
+                id: entry.id,
+                dumped: !entry.dumped,
+              });
+              await loadEntries();
+            } catch (error) {
+              console.error("Error toggling dumped status:", error);
+              Alert.alert("Error", "Failed to update entry");
+            }
           },
         },
       ]
     );
-  };
-
-  const deleteEntry = async (entry) => {
-    Alert.alert("Delete Entry", "Are you sure you want to delete this entry?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          await deleteOverthinkingById({
-            localId: entry.localId,
-            serverId: entry.serverId,
-          });
-          await loadLatestEntries();
-        },
-      },
-    ]);
-  };
-
-  const getEntriesForDate = (date) => {
-    return entries.filter((entry) => entry.date === date);
   };
 
   const formatDate = (dateString) => {
@@ -500,21 +434,22 @@ export default function OverthinkingScreen() {
   const getMarkedDates = () => {
     const marked = {};
     entries.forEach((entry) => {
-      marked[entry.date] = {
+      const date = entry.created_at.split('T')[0];
+      marked[date] = {
         marked: true,
         dotColor: "#8B5CF6",
         selectedColor: "#8B5CF6",
       };
     });
-    marked[selectedDate] = {
-      ...marked[selectedDate],
-      selected: true,
-      selectedColor: "#8B5CF6",
-    };
+    if (selectedDate) {
+      marked[selectedDate] = {
+        ...marked[selectedDate],
+        selected: true,
+        selectedColor: "#8B5CF6",
+      };
+    }
     return marked;
   };
-
-  const todaysEntries = getEntriesForDate(selectedDate);
 
   return (
     <View style={styles.container}>
@@ -527,8 +462,15 @@ export default function OverthinkingScreen() {
             <TouchableOpacity
               style={styles.syncAllButton}
               onPress={syncPendingEntries}
+              disabled={isSyncingAll}
             >
-              <Ionicons name="cloud-upload" size={16} color="#FFFFFF" />
+              {isSyncingAll ? (
+                <Animated.View style={spinStyle}>
+                  <Ionicons name="sync" size={16} color="#FFFFFF" />
+                </Animated.View>
+              ) : (
+                <Ionicons name="cloud-upload" size={16} color="#FFFFFF" />
+              )}
               <Text style={styles.syncAllText}>{pendingSyncCount}</Text>
             </TouchableOpacity>
           )}
@@ -543,133 +485,164 @@ export default function OverthinkingScreen() {
 
       <View style={styles.dateRow}>
         <Text style={styles.dateText}>
-          {selectedDate === new Date().toISOString().split("T")[0]
-            ? "Latest Entries"
-            : formatDate(selectedDate)}
+          {selectedDate ? formatDate(selectedDate) : "Latest Entries"}
         </Text>
-        <View style={styles.dateActions}>
-          {selectedDate !== new Date().toISOString().split("T")[0] && (
-            <TouchableOpacity
-              style={styles.todayButton}
-              onPress={() => {
-                setSelectedDate(new Date().toISOString().split("T")[0]);
-                loadLatestEntries();
-              }}
-            >
-              <Text style={styles.todayButtonText}>Today</Text>
-            </TouchableOpacity>
-          )}
-          <View style={styles.networkStatus}>
-            <Ionicons
-              name={isOnline ? "wifi" : "wifi-outline"}
-              size={16}
-              color={isOnline ? "#10B981" : "#EF4444"}
-            />
-            <Text
-              style={[
-                styles.networkText,
-                { color: isOnline ? "#10B981" : "#EF4444" },
-              ]}
-            >
-              {isOnline ? "Online" : "Offline"}
-            </Text>
-          </View>
+        <View style={styles.networkStatus}>
+          <Ionicons
+            name={isOnline ? "wifi" : "wifi-outline"}
+            size={16}
+            color={isOnline ? "#10B981" : "#EF4444"}
+          />
+          <Text
+            style={[
+              styles.networkText,
+              { color: isOnline ? "#10B981" : "#EF4444" },
+            ]}
+          >
+            {isOnline ? "Online" : "Offline"}
+          </Text>
         </View>
       </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        {entries.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="bulb-outline" size={48} color="#9CA3AF" />
-            <Text style={styles.emptyStateText}>
-              No overthinking entries yet
-            </Text>
-            <Text style={styles.emptyStateSubtext}>
-              Track and release your racing thoughts
-            </Text>
-          </View>
-        ) : (
-          entries.map((entry) => (
-            <View
-              key={entry.id}
-              style={[styles.entryCard, entry.dumped && styles.dumpedCard]}
-            >
-              <View style={styles.entryHeader}>
-                <Text style={styles.entryTime}>
-                  {new Date(entry.timestamp).toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </Text>
-                <View style={styles.actionsColumn}>
-                  <TouchableOpacity
-                    onPress={() => deleteEntry(entry)}
-                    style={styles.deleteButton}
-                  >
-                    <Ionicons name="trash" size={16} color="#EF4444" />
-                  </TouchableOpacity>
-                  {!entry.synced && (
-                    <TouchableOpacity
-                      onPress={() => manualSync(entry)}
-                      style={styles.syncButton}
-                      disabled={syncingEntries.has(entry.localId)}
-                    >
-                      <Ionicons
-                        name={
-                          syncingEntries.has(entry.localId)
-                            ? "sync"
-                            : "cloud-upload"
-                        }
-                        size={16}
-                        color={
-                          syncingEntries.has(entry.localId)
-                            ? "#9CA3AF"
-                            : "#8B5CF6"
-                        }
-                      />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              <Text style={styles.thoughtLabel}>Thought:</Text>
-              <Text style={styles.thoughtContent}>{entry.thought}</Text>
-
-              {entry.solution && (
-                <>
-                  <Text style={styles.solutionLabel}>Solution:</Text>
-                  <Text style={styles.solutionContent}>{entry.solution}</Text>
-                </>
-              )}
-
-              {!entry.dumped ? (
-                <TouchableOpacity
-                  style={styles.dumpButton}
-                  onPress={() => dumpThought(entry)}
-                >
-                  <Text style={styles.dumpButtonText}>Release Thought</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.dumpedIndicator}>
-                  <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-                  <Text style={styles.dumpedText}>Released</Text>
-                </View>
-              )}
-              {!entry.synced && (
-                <Text style={styles.unsyncedText}>Not synced</Text>
-              )}
+      
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B5CF6" />
+          <Text style={styles.loadingText}>Loading entries...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+        >
+          {entries.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="bulb-outline" size={48} color="#9CA3AF" />
+              <Text style={styles.emptyStateText}>
+                No overthinking entries yet
+              </Text>
+              <Text style={styles.emptyStateSubtext}>
+                Track and release your racing thoughts
+              </Text>
             </View>
-          ))
-        )}
-      </ScrollView>
+          ) : (
+            entries.map((entry) => (
+              <TouchableOpacity
+                key={entry.id}
+                style={[styles.entryCard, entry.dumped && styles.dumpedCard]}
+                onPress={() => viewOverthinkingEntry(entry)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.entryHeader}>
+                  <View style={styles.entryHeaderLeft}>
+                    <Text style={styles.entryDate}>
+                      {new Date(entry.created_at).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </Text>
+                    <Text style={styles.entryTime}>
+                      {new Date(entry.created_at).toLocaleTimeString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.actionsRow}>
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        deleteEntry(entry);
+                      }}
+                      style={styles.actionButton}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                    </TouchableOpacity>
+                    
+                    {!entry.synced && (
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          manualSync(entry);
+                        }}
+                        style={styles.actionButton}
+                        disabled={syncingEntries.has(entry.id)}
+                      >
+                        <Animated.View style={syncingEntries.has(entry.id) ? spinStyle : {}}>
+                          <Ionicons
+                            name={syncingEntries.has(entry.id) ? "sync" : "cloud-upload-outline"}
+                            size={18}
+                            color={syncingEntries.has(entry.id) ? "#9CA3AF" : "#8B5CF6"}
+                          />
+                        </Animated.View>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+                
+                {entry.title ? (
+                  <Text style={styles.entryTitle}>{entry.title}</Text>
+                ) : null}
+                
+                <View style={styles.contentRow}>
+                  <Text style={styles.moodEmoji}>{entry.mood}</Text>
+                  <View style={styles.thoughtSection}>
+                    <Text style={styles.thoughtLabel}>Thought:</Text>
+                    <Text style={styles.thoughtContent}>{entry.truncatedThought}</Text>
+                  </View>
+                </View>
 
+                {entry.solution && (
+                  <View style={styles.solutionSection}>
+                    <Text style={styles.solutionLabel}>Solution:</Text>
+                    <Text style={styles.solutionContent}>{entry.solution}</Text>
+                  </View>
+                )}
+
+                <View style={styles.entryFooter}>
+                  {!entry.dumped ? (
+                    <TouchableOpacity
+                      style={styles.dumpButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        dumpThought(entry);
+                      }}
+                    >
+                      <Text style={styles.dumpButtonText}>Release Thought</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.dumpedIndicator}>
+                      <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+                      <Text style={styles.dumpedText}>Released</Text>
+                    </View>
+                  )}
+                  
+                  <View style={styles.syncStatusContainer}>
+                    {entry.synced ? (
+                      <View style={styles.syncStatus}>
+                        <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                        <Text style={styles.syncedText}>Synced</Text>
+                      </View>
+                    ): (
+                      <View style={styles.syncStatus}>
+                        <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                        <Text style={styles.unsyncedText}>Pending sync</Text>
+                      </View>
+                    )}
+                    
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      )}
+      
       <TouchableOpacity
-        style={[styles.addButton, !isReady && styles.disabledButton]}
+        style={styles.addButton}
         onPress={() => setShowAddModal(true)}
-        disabled={!isReady}
       >
         <Ionicons name="add" size={24} color="#FFFFFF" />
       </TouchableOpacity>
@@ -696,6 +669,18 @@ export default function OverthinkingScreen() {
           </View>
 
           <ScrollView style={styles.modalScrollView}>
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>Title (Optional)</Text>
+              <TextInput
+                style={styles.titleInput}
+                placeholder="Brief summary..."
+                placeholderTextColor="#9CA3AF"
+                value={newTitle}
+                onChangeText={setNewTitle}
+                maxLength={200}
+              />
+            </View>
+
             <View style={styles.inputSection}>
               <Text style={styles.inputLabel}>
                 What are you overthinking about?
@@ -755,7 +740,6 @@ export default function OverthinkingScreen() {
             onDayPress={(day) => {
               setSelectedDate(day.dateString);
               setShowCalendar(false);
-              loadEntriesForDate(day.dateString);
             }}
             markedDates={getMarkedDates()}
             theme={{
@@ -833,22 +817,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#6B7280",
   },
-  dateActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  todayButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#8B5CF6",
-    borderRadius: 16,
-  },
-  todayButtonText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "600",
-  },
   networkStatus: {
     flexDirection: "row",
     alignItems: "center",
@@ -857,6 +825,16 @@ const styles = StyleSheet.create({
   networkText: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6B7280",
   },
   scrollView: {
     flex: 1,
@@ -897,24 +875,47 @@ const styles = StyleSheet.create({
   entryHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  entryHeaderLeft: {
+    flexDirection: "column",
+  },
+  entryDate: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 2,
   },
   entryTime: {
     fontSize: 12,
     color: "#6B7280",
   },
-  actionsColumn: {
-    alignItems: "flex-end",
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  deleteButton: {
-    padding: 4,
-  },
-  syncButton: {
+  actionButton: {
     padding: 6,
-    marginTop: 4,
-    backgroundColor: "#F3E8FF",
-    borderRadius: 6,
+  },
+  entryTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 8,
+  },
+  contentRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  moodEmoji: {
+    fontSize: 24,
+    marginRight: 8,
+    marginTop: 2,
+  },
+  thoughtSection: {
+    flex: 1,
   },
   thoughtLabel: {
     fontSize: 14,
@@ -926,6 +927,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#374151",
     lineHeight: 24,
+  },
+  solutionSection: {
     marginBottom: 12,
   },
   solutionLabel: {
@@ -938,19 +941,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#374151",
     lineHeight: 24,
-    marginBottom: 12,
+  },
+  entryFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
   },
   dumpButton: {
     backgroundColor: "#8B5CF6",
     borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     alignItems: "center",
   },
   dumpButtonText: {
     color: "#FFFFFF",
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 12,
   },
   dumpedIndicator: {
     flexDirection: "row",
@@ -958,19 +966,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#10B981",
     borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   dumpedText: {
     color: "#FFFFFF",
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 12,
     marginLeft: 4,
   },
+  syncStatusContainer: {
+    alignItems: "flex-end",
+  },
+  syncStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   unsyncedText: {
-    marginTop: 6,
     fontSize: 12,
     color: "#F59E0B",
+    fontWeight: "500",
+  },
+  syncedText: {
+    fontSize: 12,
+    color: "#10B981",
     fontWeight: "500",
   },
   addButton: {
@@ -988,12 +1008,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
-    disabledButton: {
-      backgroundColor: "#9CA3AF",
-    },
-  },
-  disabledButton: {
-    backgroundColor: "#9CA3AF",
   },
   modalContainer: {
     flex: 1,
@@ -1043,6 +1057,16 @@ const styles = StyleSheet.create({
     color: "#374151",
     marginBottom: 8,
   },
+  titleInput: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: "#374151",
+    backgroundColor: "#FFFFFF",
+    minHeight: 50,
+  },
   textInput: {
     borderWidth: 1,
     borderColor: "#D1D5DB",
@@ -1052,5 +1076,6 @@ const styles = StyleSheet.create({
     color: "#374151",
     backgroundColor: "#FFFFFF",
     minHeight: 100,
+    textAlignVertical: "top",
   },
 });

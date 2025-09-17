@@ -15,7 +15,7 @@ import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { auth } from "../../firebaseConfig";
 import { authorizedFetch } from "../../api/client";
-import { exportDatabase } from "../testDb";
+// import { exportDatabase } from "../testDb";
 
 export default function AccountScreen() {
   const [userInfo, setUserInfo] = useState({});
@@ -381,7 +381,7 @@ export default function AccountScreen() {
         </View>
 
         {/* Export Database Button */}
-        <TouchableOpacity style={styles.exportButton} onPress={exportDatabase}>
+        <TouchableOpacity style={styles.exportButton} onPress={() => {console.log("Export Database Pressed")}}>
           <Ionicons name="download" size={20} color="#FFFFFF" />
           <Text style={styles.exportText}>Export Database</Text>
         </TouchableOpacity>

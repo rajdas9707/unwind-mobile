@@ -19,7 +19,7 @@ import {
   forceReconnect,
   testDatabaseConnection,
 } from "../../../storage/todoDb";
-import runDatabaseTests from "../../../storage/testDb";
+// import runDatabaseTests from "../../../storage/testDb";
 
 const CarriedOverTaskItem = ({
   item,
@@ -231,26 +231,26 @@ export default function CarriedOverTasks() {
     }
   };
 
-  const runDebugTests = async () => {
-    try {
-      console.log("Running database debug tests...");
-      const success = await runDatabaseTests();
-      if (success) {
-        Alert.alert("Debug Tests", "All database tests passed successfully!");
-      } else {
-        Alert.alert(
-          "Debug Tests",
-          "Some database tests failed. Check console for details."
-        );
-      }
-    } catch (error) {
-      console.error("Debug tests failed:", error);
-      Alert.alert(
-        "Debug Tests",
-        "Debug tests failed. Check console for details."
-      );
-    }
-  };
+  // const runDebugTests = async () => {
+  //   try {
+  //     console.log("Running database debug tests...");
+  //     const success = await runDatabaseTests();
+  //     if (success) {
+  //       Alert.alert("Debug Tests", "All database tests passed successfully!");
+  //     } else {
+  //       Alert.alert(
+  //         "Debug Tests",
+  //         "Some database tests failed. Check console for details."
+  //       );
+  //     }
+  //   } catch (error) {
+  //     console.error("Debug tests failed:", error);
+  //     Alert.alert(
+  //       "Debug Tests",
+  //       "Debug tests failed. Check console for details."
+  //     );
+  //   }
+  // };
 
   return (
     <View style={styles.container}>

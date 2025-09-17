@@ -22,7 +22,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Calendar } from "react-native-calendars";
 import { useNetworkStatus } from "../../utils/networkUtils";
-import { useDatabaseReady } from "../../hooks/useDatabaseReady";
 import { AuthContext } from "../../context/AuthProvider";
 
 // Import our new storage layer
@@ -43,7 +42,7 @@ import { checkJournalDatabaseHealth } from "../../storage/journal/db";
 import { testJournalDatabase } from "../../storage/journal/test";
 
 export default function JournalScreen() {
-  const { isReady } = useDatabaseReady();
+  // const { isReady } = useDatabaseReady();
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(null);
 
@@ -192,37 +191,37 @@ export default function JournalScreen() {
 
   // Load entries when the component mounts or when selectedDate changes
   useEffect(() => {
-    if (isReady) {
+   
       loadEntries();
-    }
-  }, [isReady, selectedDate]);
+    
+  }, [ selectedDate]);
   
   // Refresh data when the screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      if (isReady) {
+      
         loadEntries();
         updateUnsyncedCount();
-      }
+      
       
       // Cleanup function
       return () => {
         console.log("Screen is losing focus, resetting selectedDate to null.");
         setSelectedDate(null);
       };
-    }, [isReady])
+    }, [])
   );
   
   // Update unsynced count periodically
   useEffect(() => {
-    if (!isReady) return;
+   
     
     const interval = setInterval(() => {
       updateUnsyncedCount();
     }, 10000); // Check every 10 seconds
     
     return () => clearInterval(interval);
-  }, [isReady]);
+  }, []);
   // Load entries based on whether a date is selected or not
   const loadEntries = async () => {
     try {
@@ -370,10 +369,7 @@ export default function JournalScreen() {
   // Add a new journal entry
   const addEntry = async () => {
     try {
-      if (!isReady) {
-        Alert.alert("Database Not Ready", "Please wait a moment and try again.");
-        return;
-      }
+     
       
       if (!newEntry.trim()) {
         Alert.alert("Error", "Please write something in your journal");
@@ -655,18 +651,18 @@ export default function JournalScreen() {
                 </View>
                 
                 <View style={styles.entryFooter}>
-                  {!entry.synced && (
+                  {entry.synced ?(
+                    <View style={styles.syncStatus}>
+                      <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                      <Text style={styles.syncedText}>Synced</Text>
+                    </View>
+                  ): (
                     <View style={styles.syncStatus}>
                       <Ionicons name="time-outline" size={14} color="#F59E0B" />
                       <Text style={styles.unsyncedText}>Pending sync</Text>
                     </View>
                   )}
-                  {entry.synced && (
-                    <View style={styles.syncStatus}>
-                      <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                      <Text style={styles.syncedText}>Synced</Text>
-                    </View>
-                  )}
+                 
                 </View>
               </TouchableOpacity>
             ))
