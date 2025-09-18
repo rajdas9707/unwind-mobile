@@ -16,13 +16,11 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker';
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { Picker } from "@react-native-picker/picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
-import {
-  getAllReminders,
-} from "../../storage/waterreminder/db.js";
+import { getAllReminders } from "../../storage/waterreminder/db.js";
 import { testDatabase } from "../../storage/waterreminder/test-db.js";
 import {
   createWaterReminder,
@@ -43,19 +41,19 @@ export default function IdeaScreen() {
   };
   const [userInfo, setUserInfo] = useState({});
   const [taskCount, setTaskCount] = useState(0);
-  
+
   // Water reminder states
   const [waterReminders, setWaterReminders] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingReminder, setEditingReminder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fabScale] = useState(new Animated.Value(1));
-  
+
   // Form states
-  const [startTime, setStartTime] = useState('08:00');
-  const [endTime, setEndTime] = useState('20:00');
+  const [startTime, setStartTime] = useState("08:00");
+  const [endTime, setEndTime] = useState("20:00");
   const [intervalValue, setIntervalValue] = useState(2);
-  const [intervalUnit, setIntervalUnit] = useState('hours');
+  const [intervalUnit, setIntervalUnit] = useState("hours");
   const [quantity, setQuantity] = useState(250);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -110,7 +108,10 @@ export default function IdeaScreen() {
       subtitle: "Clear your mind",
       icon: "heart",
       color: "#EF4444",
-      click: () => router.push("/meditation"),
+      click: () => {
+        console.log("clicked meditation");
+        router.push("/meditation");
+      },
     },
     {
       id: 2,
@@ -181,7 +182,7 @@ export default function IdeaScreen() {
         const parsed = JSON.parse(storedUserInfo);
         setUserInfo(parsed);
       }
-      
+
       // Load task count
       const tasks = await AsyncStorage.getItem("tasks");
       if (tasks) {
@@ -191,14 +192,14 @@ export default function IdeaScreen() {
           .filter((t) => t.completed).length;
         setTaskCount(totalCompleted);
       }
-      
+
       // Test and load water reminders
       const testResult = await testDatabase();
       if (testResult.success) {
         const reminders = await getAllReminders();
         setWaterReminders(reminders);
       } else {
-        console.error('Database test failed:', testResult.error);
+        console.error("Database test failed:", testResult.error);
         setWaterReminders([]);
       }
     } catch (error) {
@@ -211,7 +212,7 @@ export default function IdeaScreen() {
       loadData();
     }, [])
   );
-  
+
   const animateFAB = () => {
     Animated.sequence([
       Animated.timing(fabScale, {
@@ -226,7 +227,7 @@ export default function IdeaScreen() {
       }),
     ]).start();
   };
-  
+
   const openModal = (reminder = null) => {
     setEditingReminder(reminder);
     if (reminder) {
@@ -237,24 +238,24 @@ export default function IdeaScreen() {
       setQuantity(reminder.quantity);
     } else {
       // Reset to defaults
-      setStartTime('08:00');
-      setEndTime('20:00');
+      setStartTime("08:00");
+      setEndTime("20:00");
       setIntervalValue(2);
-      setIntervalUnit('hours');
+      setIntervalUnit("hours");
       setQuantity(250);
     }
     setShowModal(true);
   };
-  
+
   const closeModal = () => {
     setShowModal(false);
     setEditingReminder(null);
   };
-  
+
   const handleSaveReminder = async () => {
     try {
       setLoading(true);
-      
+
       const reminderData = {
         startTime,
         endTime,
@@ -262,65 +263,65 @@ export default function IdeaScreen() {
         intervalUnit,
         quantity,
       };
-      
+
       if (editingReminder) {
         await updateWaterReminder(editingReminder.id, reminderData);
-        Alert.alert('Success', 'Water reminder updated successfully!');
+        Alert.alert("Success", "Water reminder updated successfully!");
       } else {
         await createWaterReminder(reminderData);
-        Alert.alert('Success', 'Water reminder created successfully!');
+        Alert.alert("Success", "Water reminder created successfully!");
       }
-      
+
       // Reload reminders
       const reminders = await getAllReminders();
       setWaterReminders(reminders);
       closeModal();
     } catch (error) {
-      console.error('Error saving reminder:', error);
-      Alert.alert('Error', error.message || 'Failed to save reminder');
+      console.error("Error saving reminder:", error);
+      Alert.alert("Error", error.message || "Failed to save reminder");
     } finally {
       setLoading(false);
     }
   };
-  
+
   const handleDeleteReminder = async (reminderId) => {
     Alert.alert(
-      'Delete Reminder',
-      'Are you sure you want to delete this water reminder? This will also cancel all scheduled notifications.',
+      "Delete Reminder",
+      "Are you sure you want to delete this water reminder? This will also cancel all scheduled notifications.",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             try {
               await deleteWaterReminder(reminderId);
               const reminders = await getAllReminders();
               setWaterReminders(reminders);
-              Alert.alert('Success', 'Water reminder deleted successfully!');
+              Alert.alert("Success", "Water reminder deleted successfully!");
             } catch (error) {
-              console.error('Error deleting reminder:', error);
-              Alert.alert('Error', 'Failed to delete reminder');
+              console.error("Error deleting reminder:", error);
+              Alert.alert("Error", "Failed to delete reminder");
             }
           },
         },
       ]
     );
   };
-  
+
   const formatTimeForDisplay = (time) => {
-    const [hours, minutes] = time.split(':').map(Number);
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const [hours, minutes] = time.split(":").map(Number);
+    const ampm = hours >= 12 ? "PM" : "AM";
     const displayHours = hours % 12 || 12;
-    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+    return `${displayHours}:${minutes.toString().padStart(2, "0")} ${ampm}`;
   };
-  
+
   const handleTimeChange = (event, selectedTime, isStart = true) => {
-    if (event.type === 'set' && selectedTime) {
-      const hours = selectedTime.getHours().toString().padStart(2, '0');
-      const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
+    if (event.type === "set" && selectedTime) {
+      const hours = selectedTime.getHours().toString().padStart(2, "0");
+      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
       const timeString = `${hours}:${minutes}`;
-      
+
       if (isStart) {
         setStartTime(timeString);
         setShowStartPicker(false);
@@ -333,7 +334,7 @@ export default function IdeaScreen() {
       setShowEndPicker(false);
     }
   };
-  
+
   const renderWaterReminderCard = (reminder) => {
     const checkpoints = calculateCheckpoints(
       reminder.start_time,
@@ -341,7 +342,7 @@ export default function IdeaScreen() {
       reminder.interval_value,
       reminder.interval_unit
     );
-    
+
     return (
       <TouchableOpacity
         key={reminder.id}
@@ -349,7 +350,7 @@ export default function IdeaScreen() {
         onPress={() => router.push(`/reminder/${reminder.id}`)}
       >
         <LinearGradient
-          colors={['#3B82F6', '#1D4ED8']}
+          colors={["#3B82F6", "#1D4ED8"]}
           style={styles.waterReminderGradient}
         >
           <View style={styles.waterReminderHeader}>
@@ -377,26 +378,41 @@ export default function IdeaScreen() {
               </TouchableOpacity>
             </View>
           </View>
-          
+
           <Text style={styles.waterReminderTitle}>
             {formatReminderName(reminder.start_time, reminder.end_time)}
           </Text>
-          
+
           <View style={styles.waterReminderDetails}>
             <View style={styles.waterReminderDetail}>
-              <Ionicons name="time" size={14} color="rgba(255, 255, 255, 0.8)" />
+              <Ionicons
+                name="time"
+                size={14}
+                color="rgba(255, 255, 255, 0.8)"
+              />
               <Text style={styles.waterReminderDetailText}>
-                {formatInterval(reminder.interval_value, reminder.interval_unit)}
+                {formatInterval(
+                  reminder.interval_value,
+                  reminder.interval_unit
+                )}
               </Text>
             </View>
             <View style={styles.waterReminderDetail}>
-              <Ionicons name="water" size={14} color="rgba(255, 255, 255, 0.8)" />
+              <Ionicons
+                name="water"
+                size={14}
+                color="rgba(255, 255, 255, 0.8)"
+              />
               <Text style={styles.waterReminderDetailText}>
                 {reminder.quantity}ml
               </Text>
             </View>
             <View style={styles.waterReminderDetail}>
-              <Ionicons name="checkmark-circle" size={14} color="rgba(255, 255, 255, 0.8)" />
+              <Ionicons
+                name="checkmark-circle"
+                size={14}
+                color="rgba(255, 255, 255, 0.8)"
+              />
               <Text style={styles.waterReminderDetailText}>
                 {checkpoints.length} checkpoints
               </Text>
@@ -432,13 +448,13 @@ export default function IdeaScreen() {
               ]
             }
           </Text>
-      </View>
+        </View>
 
         {/* Water Reminders Section */}
         {waterReminders.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Water Reminders 💧</Text>
-            <ScrollView 
+            <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.waterRemindersContainer}
@@ -539,7 +555,7 @@ export default function IdeaScreen() {
           </View>
         </View>
       </ScrollView>
-      
+
       {/* Floating Action Button */}
       <Animated.View
         style={[
@@ -558,7 +574,7 @@ export default function IdeaScreen() {
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={['#06B6D4', '#0891B2']}
+            colors={["#06B6D4", "#0891B2"]}
             style={styles.fabGradient}
           >
             <Ionicons name="water" size={28} color="#FFFFFF" />
@@ -576,25 +592,33 @@ export default function IdeaScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <LinearGradient
-              colors={['#FFFFFF', '#F8FAFC']}
+              colors={["#FFFFFF", "#F8FAFC"]}
               style={styles.modalContent}
             >
               {/* Modal Header */}
               <View style={styles.modalHeader}>
-                <TouchableOpacity onPress={closeModal} style={styles.modalCloseButton}>
+                <TouchableOpacity
+                  onPress={closeModal}
+                  style={styles.modalCloseButton}
+                >
                   <Ionicons name="close" size={24} color="#6B7280" />
                 </TouchableOpacity>
                 <Text style={styles.modalTitle}>
-                  {editingReminder ? 'Edit Water Reminder' : 'Create Water Reminder'}
+                  {editingReminder
+                    ? "Edit Water Reminder"
+                    : "Create Water Reminder"}
                 </Text>
                 <View style={styles.modalHeaderSpacer} />
               </View>
 
-              <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalForm}
+                showsVerticalScrollIndicator={false}
+              >
                 {/* Time Pickers */}
                 <View style={styles.formSection}>
                   <Text style={styles.formSectionTitle}>Schedule</Text>
-                  
+
                   <View style={styles.timePickerRow}>
                     <View style={styles.timePickerContainer}>
                       <Text style={styles.inputLabel}>Start Time</Text>
@@ -602,20 +626,28 @@ export default function IdeaScreen() {
                         style={styles.timePickerButton}
                         onPress={() => setShowStartPicker(true)}
                       >
-                        <Ionicons name="time-outline" size={20} color="#6B7280" />
+                        <Ionicons
+                          name="time-outline"
+                          size={20}
+                          color="#6B7280"
+                        />
                         <Text style={styles.timePickerText}>
                           {formatTimeForDisplay(startTime)}
                         </Text>
                       </TouchableOpacity>
                     </View>
-                    
+
                     <View style={styles.timePickerContainer}>
                       <Text style={styles.inputLabel}>End Time</Text>
                       <TouchableOpacity
                         style={styles.timePickerButton}
                         onPress={() => setShowEndPicker(true)}
                       >
-                        <Ionicons name="time-outline" size={20} color="#6B7280" />
+                        <Ionicons
+                          name="time-outline"
+                          size={20}
+                          color="#6B7280"
+                        />
                         <Text style={styles.timePickerText}>
                           {formatTimeForDisplay(endTime)}
                         </Text>
@@ -627,7 +659,7 @@ export default function IdeaScreen() {
                 {/* Interval Section */}
                 <View style={styles.formSection}>
                   <Text style={styles.formSectionTitle}>Reminder Interval</Text>
-                  
+
                   <View style={styles.intervalRow}>
                     <View style={styles.intervalValueContainer}>
                       <Text style={styles.inputLabel}>Every</Text>
@@ -642,7 +674,7 @@ export default function IdeaScreen() {
                         maxLength={2}
                       />
                     </View>
-                    
+
                     <View style={styles.intervalUnitContainer}>
                       <Text style={styles.inputLabel}>Unit</Text>
                       <View style={styles.pickerContainer}>
@@ -676,16 +708,30 @@ export default function IdeaScreen() {
                     <Text style={styles.quantityLabel}>ml per reminder</Text>
                   </View>
                 </View>
-                
+
                 {/* Preview */}
                 <View style={styles.formSection}>
                   <Text style={styles.formSectionTitle}>Preview</Text>
                   <View style={styles.previewContainer}>
                     <Text style={styles.previewText}>
-                      You'll be reminded to drink {quantity}ml of water {formatInterval(intervalValue, intervalUnit).toLowerCase()} from {formatTimeForDisplay(startTime)} to {formatTimeForDisplay(endTime)}.
+                      You'll be reminded to drink {quantity}ml of water{" "}
+                      {formatInterval(
+                        intervalValue,
+                        intervalUnit
+                      ).toLowerCase()}{" "}
+                      from {formatTimeForDisplay(startTime)} to{" "}
+                      {formatTimeForDisplay(endTime)}.
                     </Text>
                     <Text style={styles.previewCheckpoints}>
-                      Total checkpoints: {calculateCheckpoints(startTime, endTime, intervalValue, intervalUnit).length}
+                      Total checkpoints:{" "}
+                      {
+                        calculateCheckpoints(
+                          startTime,
+                          endTime,
+                          intervalValue,
+                          intervalUnit
+                        ).length
+                      }
                     </Text>
                   </View>
                 </View>
@@ -699,21 +745,28 @@ export default function IdeaScreen() {
                 >
                   <Text style={styles.modalCancelText}>Cancel</Text>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
-                  style={[styles.modalSaveButton, loading && styles.modalSaveButtonDisabled]}
+                  style={[
+                    styles.modalSaveButton,
+                    loading && styles.modalSaveButtonDisabled,
+                  ]}
                   onPress={handleSaveReminder}
                   disabled={loading}
                 >
                   <LinearGradient
-                    colors={loading ? ['#D1D5DB', '#D1D5DB'] : ['#3B82F6', '#1D4ED8']}
+                    colors={
+                      loading ? ["#D1D5DB", "#D1D5DB"] : ["#3B82F6", "#1D4ED8"]
+                    }
                     style={styles.modalSaveGradient}
                   >
                     {loading ? (
                       <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
                       <Text style={styles.modalSaveText}>
-                        {editingReminder ? 'Update Reminder' : 'Create Reminder'}
+                        {editingReminder
+                          ? "Update Reminder"
+                          : "Create Reminder"}
                       </Text>
                     )}
                   </LinearGradient>
@@ -728,30 +781,34 @@ export default function IdeaScreen() {
       {showStartPicker && (
         <DateTimePicker
           value={(() => {
-            const [hours, minutes] = startTime.split(':').map(Number);
+            const [hours, minutes] = startTime.split(":").map(Number);
             const date = new Date();
             date.setHours(hours, minutes, 0, 0);
             return date;
-          })()} 
+          })()}
           mode="time"
           is24Hour={false}
           display="default"
-          onChange={(event, selectedTime) => handleTimeChange(event, selectedTime, true)}
+          onChange={(event, selectedTime) =>
+            handleTimeChange(event, selectedTime, true)
+          }
         />
       )}
-      
+
       {showEndPicker && (
         <DateTimePicker
           value={(() => {
-            const [hours, minutes] = endTime.split(':').map(Number);
+            const [hours, minutes] = endTime.split(":").map(Number);
             const date = new Date();
             date.setHours(hours, minutes, 0, 0);
             return date;
-          })()} 
+          })()}
           mode="time"
           is24Hour={false}
           display="default"
-          onChange={(event, selectedTime) => handleTimeChange(event, selectedTime, false)}
+          onChange={(event, selectedTime) =>
+            handleTimeChange(event, selectedTime, false)
+          }
         />
       )}
     </View>
@@ -943,7 +1000,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827",
   },
-  
+
   // Water Reminder Styles
   waterRemindersContainer: {
     paddingLeft: 16,
@@ -953,8 +1010,8 @@ const styles = StyleSheet.create({
     marginRight: 16,
     width: width * 0.8,
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -964,60 +1021,60 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   waterReminderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   waterReminderIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   waterReminderActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   waterReminderActionButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
     marginLeft: 8,
   },
   waterReminderTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: "bold",
+    color: "#FFFFFF",
     marginBottom: 16,
   },
   waterReminderDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   waterReminderDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   waterReminderDetailText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: "rgba(255, 255, 255, 0.9)",
     marginLeft: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
-  
+
   // FAB Styles
   fab: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 24,
     right: 20,
     zIndex: 1000,
@@ -1026,53 +1083,53 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
   fabGradient: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  
+
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   modalContainer: {
-    maxHeight: '90%',
+    maxHeight: "90%",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   modalContent: {
     paddingTop: 20,
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   modalCloseButton: {
     padding: 8,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
+    fontWeight: "bold",
+    color: "#1F2937",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalHeaderSpacer: {
     width: 40,
@@ -1086,13 +1143,13 @@ const styles = StyleSheet.create({
   },
   formSectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: "600",
+    color: "#1F2937",
     marginBottom: 12,
   },
   timePickerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 12,
   },
   timePickerContainer: {
@@ -1100,130 +1157,130 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
     marginBottom: 8,
   },
   timePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     borderRadius: 12,
     padding: 12,
   },
   timePickerText: {
     fontSize: 16,
-    color: '#1F2937',
+    color: "#1F2937",
     marginLeft: 8,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   intervalRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   intervalValueContainer: {
     flex: 1,
   },
   intervalInput: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     borderRadius: 12,
     padding: 12,
     fontSize: 16,
-    color: '#1F2937',
-    textAlign: 'center',
+    color: "#1F2937",
+    textAlign: "center",
   },
   intervalUnitContainer: {
     flex: 2,
   },
   pickerContainer: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   picker: {
     height: 50,
   },
   quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   quantityInput: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     borderRadius: 12,
     padding: 12,
     fontSize: 16,
-    color: '#1F2937',
-    textAlign: 'center',
+    color: "#1F2937",
+    textAlign: "center",
     width: 80,
   },
   quantityLabel: {
     fontSize: 16,
-    color: '#6B7280',
-    fontWeight: '500',
+    color: "#6B7280",
+    fontWeight: "500",
   },
   previewContainer: {
-    backgroundColor: '#EBF4FF',
+    backgroundColor: "#EBF4FF",
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
+    borderLeftColor: "#3B82F6",
   },
   previewText: {
     fontSize: 14,
-    color: '#1F2937',
+    color: "#1F2937",
     lineHeight: 20,
     marginBottom: 8,
   },
   previewCheckpoints: {
     fontSize: 14,
-    color: '#3B82F6',
-    fontWeight: '600',
+    color: "#3B82F6",
+    fontWeight: "600",
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
   },
   modalCancelButton: {
     flex: 1,
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalCancelText: {
     fontSize: 16,
-    color: '#6B7280',
-    fontWeight: '600',
+    color: "#6B7280",
+    fontWeight: "600",
   },
   modalSaveButton: {
     flex: 2,
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   modalSaveButtonDisabled: {
     opacity: 0.6,
   },
   modalSaveGradient: {
     paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalSaveText: {
     fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
 });
