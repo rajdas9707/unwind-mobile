@@ -37,33 +37,27 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       {/* <PaperProvider> */}
-        {/* <DatabaseProvider> */}
-          <AuthProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="onboarding" />
-              <Stack.Screen name="auth" />
-              <Stack.Screen
-                name="meditation"
-                options={{ title: "Meditation" }}
-              />
-              {/* <Stack.Screen name="idea" options={{ title: "Idea" }} /> */}
-              {/* <Stack.Screen name="reminder" options={{ title: "Reminder" }} /> */}
-              {/* <Stack.Screen name="document" options={{ title: "Document" }} /> */}
+      {/* <DatabaseProvider> */}
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="auth" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="meditation" options={{ title: "Meditation" }} />
+          {/* <Stack.Screen name="idea" options={{ title: "Idea" }} /> */}
+          {/* <Stack.Screen name="reminder" options={{ title: "Reminder" }} /> */}
+          {/* <Stack.Screen name="document" options={{ title: "Document" }} /> */}
 
-              <Stack.Screen
-                name="tasks/[category]"
-                options={{ title: "Tasks" }}
-              />
-              <Stack.Screen
-                name="tasks/[category]/carried-over"
-                options={{ title: "Carried Over Tasks" }}
-              />
-              <Stack.Screen name="(tabs)" />
-            </Stack>
-            <StatusBar style="auto" />
-          </AuthProvider>
-        {/* </DatabaseProvider> */}
+          <Stack.Screen name="tasks/[category]" options={{ title: "Tasks" }} />
+          <Stack.Screen
+            name="tasks/[category]/carried-over"
+            options={{ title: "Carried Over Tasks" }}
+          />
+        </Stack>
+        <StatusBar style="auto" />
+      </AuthProvider>
+      {/* </DatabaseProvider> */}
       {/* </PaperProvider> */}
     </SafeAreaProvider>
   );

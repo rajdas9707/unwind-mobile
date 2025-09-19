@@ -149,6 +149,14 @@ export default function IdeaScreen() {
       color: "#06B6D4",
       click: () => router.push("/thingsToBuy"),
     },
+    {
+      id: 6,
+      title: "Topics",
+      subtitle: "Topics to read",
+      icon: "book",
+      color: "#06B6D4",
+      click: () => router.push("/topic"),
+    },
   ];
 
   const guides = [
