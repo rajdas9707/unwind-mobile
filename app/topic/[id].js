@@ -22,6 +22,8 @@ import {
   addLink,
   updateLink,
   deleteLink,
+  toggleTopicCompletion,
+  deleteCompletedCard,
 } from '../../storage/topic/storage';
 import NewTopicModal from '../../components/topic/NewTopicModal';
 import NewLinkModal from '../../components/topic/NewLinkModal';
@@ -108,6 +110,55 @@ export default function TopicDetail() {
         },
       ]
     );
+  };
+
+  const handleToggleCompletion = async (topicId) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await toggleTopicCompletion(topicId);
+      
+      // Reload data to check if card is completed
+      const [cardData, topicsData] = await Promise.all([
+        getCard(Number(id)),
+        getTopicsByCard(Number(id))
+      ]);
+      
+      // Check if all topics are completed
+      const completedTopics = topicsData.filter(t => t.is_completed).length;
+      const totalTopics = topicsData.length;
+      
+      if (totalTopics > 0 && completedTopics === totalTopics) {
+        // Show completion celebration
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          '🎉 Congratulations!',
+          'You\'ve completed all topics in this card! The card will be removed now.',
+          [
+            {
+              text: 'Great!',
+              onPress: async () => {
+                try {
+                  // Delete the completed card
+                  await deleteCompletedCard(Number(id));
+                  // Navigate back immediately
+                  router.back();
+                } catch (error) {
+                  console.error('Failed to delete completed card:', error);
+                  // Still navigate back even if deletion fails
+                  router.back();
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        // Just reload data normally
+        loadData();
+      }
+    } catch (error) {
+      console.error('Failed to toggle completion:', error);
+      Alert.alert('Error', error.message);
+    }
   };
 
   // Link functions
@@ -276,20 +327,43 @@ export default function TopicDetail() {
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
             <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: '700',
-                  color: 'white',
-                  marginBottom: 6,
-                  textShadowColor: 'rgba(0,0,0,0.3)',
-                  textShadowOffset: { width: 1, height: 1 },
-                  textShadowRadius: 2,
-                }}
-                numberOfLines={2}
-              >
-                {topic.name}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                <TouchableOpacity
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: 'rgba(255,255,255,0.8)',
+                    backgroundColor: topic.is_completed ? 'rgba(255,255,255,0.9)' : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                  }}
+                  onPress={() => handleToggleCompletion(topic.id)}
+                  activeOpacity={0.7}
+                >
+                  {topic.is_completed && (
+                    <Ionicons name="checkmark" size={16} color="#2e7d32" />
+                  )}
+                </TouchableOpacity>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: '700',
+                    color: 'white',
+                    textShadowColor: 'rgba(0,0,0,0.3)',
+                    textShadowOffset: { width: 1, height: 1 },
+                    textShadowRadius: 2,
+                    textDecorationLine: topic.is_completed ? 'line-through' : 'none',
+                    opacity: topic.is_completed ? 0.7 : 1,
+                    flex: 1,
+                  }}
+                  numberOfLines={2}
+                >
+                  {topic.name}
+                </Text>
+              </View>
               {topic.description && (
                 <Text
                   style={{

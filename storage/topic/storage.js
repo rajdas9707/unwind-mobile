@@ -173,7 +173,11 @@ export const getAllCards = async () => {
           created_at: card.created_at,
           updated_at: card.updated_at,
           formattedDate: formatDate(card.created_at),
-          displayTitle: card.title || generateDefaultTitle()
+          displayTitle: card.title || generateDefaultTitle(),
+          is_completed: !!card.is_completed,
+          total_topics: card.total_topics || 0,
+          completed_topics: card.completed_topics || 0,
+          progress: (card.total_topics > 0) ? (card.completed_topics / card.total_topics) * 100 : 0
         };
         
         console.log(`Formatted card ${i}:`, formattedCard);
@@ -306,6 +310,9 @@ export const createTopic = async ({ cardId, name, description }) => {
 
     const topicId = await db.insertTopic(cardId, topicName, topicDescription);
     
+    // Update card progress after adding topic
+    await db.updateCardProgress(cardId);
+    
     // Return the created topic with links
     const topic = await db.getTopicById(topicId);
     const links = await db.getLinksByTopicId(topicId);
@@ -316,7 +323,8 @@ export const createTopic = async ({ cardId, name, description }) => {
         ...link,
         normalizedUrl: normalizeUrl(link.url)
       })),
-      formattedDate: formatDate(topic.created_at)
+      formattedDate: formatDate(topic.created_at),
+      is_completed: !!topic.is_completed
     };
   } catch (error) {
     console.error('Failed to create topic:', error);
@@ -348,7 +356,8 @@ export const getTopicsByCard = async (cardId) => {
             ...link,
             normalizedUrl: normalizeUrl(link.url)
           })),
-          formattedDate: formatDate(topic.created_at)
+          formattedDate: formatDate(topic.created_at),
+          is_completed: !!topic.is_completed
         };
       })
     );
@@ -408,7 +417,16 @@ export const deleteTopic = async (id) => {
       throw new Error('Topic ID is required');
     }
 
+    // Get the card_id before deleting the topic
+    const topic = await db.getTopicById(id);
+    if (!topic) {
+      throw new Error('Topic not found');
+    }
+
     await db.deleteTopic(id);
+    
+    // Update card progress after deleting topic
+    await db.updateCardProgress(topic.card_id);
   } catch (error) {
     console.error('Failed to delete topic:', error);
     throw new Error('Failed to delete topic. Please try again.');
@@ -512,8 +530,84 @@ export const deleteLink = async (id) => {
 export const initStorage = async () => {
   try {
     await db.initDatabase();
+    // Recalculate progress for existing cards to ensure consistency
+    await db.recalculateAllCardProgress();
   } catch (error) {
     console.error('Failed to initialize storage:', error);
     throw new Error('Failed to initialize storage. Please restart the app.');
+  }
+};
+
+// COMPLETION FUNCTIONS
+
+/**
+ * Toggle topic completion status
+ */
+export const toggleTopicCompletion = async (topicId) => {
+  try {
+    if (!topicId) {
+      throw new Error('Topic ID is required');
+    }
+
+    const isCompleted = await db.toggleTopicCompletion(topicId);
+    return { isCompleted };
+  } catch (error) {
+    console.error('Failed to toggle topic completion:', error);
+    throw new Error('Failed to update topic completion. Please try again.');
+  }
+};
+
+/**
+ * Get card with progress information
+ */
+export const getCardWithProgress = async (cardId) => {
+  try {
+    if (!cardId) {
+      throw new Error('Card ID is required');
+    }
+
+    const card = await getCard(cardId);
+    const progress = await db.getCardProgress(cardId);
+    
+    return {
+      ...card,
+      ...progress
+    };
+  } catch (error) {
+    console.error('Failed to get card with progress:', error);
+    throw new Error('Failed to load card progress. Please try again.');
+  }
+};
+
+/**
+ * Update card progress manually (useful when topics change)
+ */
+export const updateCardProgress = async (cardId) => {
+  try {
+    if (!cardId) {
+      throw new Error('Card ID is required');
+    }
+
+    return await db.updateCardProgress(cardId);
+  } catch (error) {
+    console.error('Failed to update card progress:', error);
+    throw new Error('Failed to update card progress. Please try again.');
+  }
+};
+
+/**
+ * Delete a completed card (used after celebration)
+ */
+export const deleteCompletedCard = async (cardId) => {
+  try {
+    if (!cardId) {
+      throw new Error('Card ID is required');
+    }
+
+    await deleteCard(cardId);
+    console.log(`Completed card ${cardId} deleted`);
+  } catch (error) {
+    console.error('Failed to delete completed card:', error);
+    throw new Error('Failed to delete completed card. Please try again.');
   }
 };

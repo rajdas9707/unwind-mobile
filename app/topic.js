@@ -27,20 +27,6 @@ export default function TopicScreen() {
   const [editingCard, setEditingCard] = useState(null);
   const router = useRouter();
 
-  // Initialize database on component mount
-  useEffect(() => {
-    const initialize = async () => {
-      try {
-        await initStorage();
-        console.log("Storage initialized successfully");
-      } catch (error) {
-        console.error("Failed to initialize storage:", error);
-        Alert.alert("Error", "Failed to initialize database");
-      }
-    };
-    initialize();
-  }, []);
-
   // Load cards when screen comes into focus
   useFocusEffect(
     useCallback(() => {
@@ -109,11 +95,15 @@ export default function TopicScreen() {
     ];
 
     const gradient = gradients[index % gradients.length];
+    const isCompleted = item.is_completed;
+    const hasTopics = item.total_topics > 0;
+    const progressPercentage = item.progress || 0;
 
     return (
       <TouchableOpacity
         style={{
           marginBottom: 16,
+          opacity: isCompleted ? 0.6 : 1,
         }}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -122,7 +112,7 @@ export default function TopicScreen() {
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={gradient}
+          colors={isCompleted ? ['#95a5a6', '#7f8c8d'] : gradient}
           style={{
             borderRadius: 16,
             padding: 20,
@@ -131,7 +121,7 @@ export default function TopicScreen() {
               width: 0,
               height: 4,
             },
-            shadowOpacity: 0.15,
+            shadowOpacity: isCompleted ? 0.1 : 0.15,
             shadowRadius: 8,
             elevation: 6,
           }}
@@ -146,27 +136,42 @@ export default function TopicScreen() {
             }}
           >
             <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: "700",
-                  color: "white",
-                  marginBottom: 8,
-                  textShadowColor: "rgba(0,0,0,0.3)",
-                  textShadowOffset: { width: 1, height: 1 },
-                  textShadowRadius: 2,
-                }}
-                numberOfLines={2}
-              >
-                {item.displayTitle}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: "700",
+                    color: "white",
+                    textShadowColor: "rgba(0,0,0,0.3)",
+                    textShadowOffset: { width: 1, height: 1 },
+                    textShadowRadius: 2,
+                    flex: 1,
+                    textDecorationLine: isCompleted ? 'line-through' : 'none',
+                  }}
+                  numberOfLines={2}
+                >
+                  {item.displayTitle}
+                </Text>
+                {isCompleted && (
+                  <View style={{ 
+                    backgroundColor: 'rgba(255,255,255,0.3)',
+                    borderRadius: 12,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    marginLeft: 8,
+                  }}>
+                    <Ionicons name="checkmark-circle" size={16} color="white" />
+                  </View>
+                )}
+              </View>
+              
               {item.description ? (
                 <Text
                   style={{
                     fontSize: 14,
                     color: "rgba(255,255,255,0.9)",
                     lineHeight: 20,
-                    marginBottom: 12,
+                    marginBottom: 8,
                     textShadowColor: "rgba(0,0,0,0.3)",
                     textShadowOffset: { width: 1, height: 1 },
                     textShadowRadius: 2,
@@ -176,6 +181,53 @@ export default function TopicScreen() {
                   {item.description}
                 </Text>
               ) : null}
+              
+              {/* Progress Section */}
+              {hasTopics ? (
+                <View style={{ marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{
+                      fontSize: 12,
+                      color: 'rgba(255,255,255,0.8)',
+                      fontWeight: '600',
+                    }}>
+                      Progress
+                    </Text>
+                    <Text style={{
+                      fontSize: 12,
+                      color: 'rgba(255,255,255,0.8)',
+                      fontWeight: '600',
+                    }}>
+                      {item.completed_topics}/{item.total_topics} topics
+                    </Text>
+                  </View>
+                  
+                  <View style={{
+                    height: 6,
+                    backgroundColor: 'rgba(255,255,255,0.3)',
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                  }}>
+                    <View style={{
+                      height: '100%',
+                      width: `${progressPercentage}%`,
+                      backgroundColor: isCompleted ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)',
+                      borderRadius: 3,
+                    }} />
+                  </View>
+                </View>
+              ) : (
+                <View style={{ marginBottom: 8 }}>
+                  <Text style={{
+                    fontSize: 12,
+                    color: 'rgba(255,255,255,0.7)',
+                    fontStyle: 'italic',
+                  }}>
+                    No topics yet - tap to add some!
+                  </Text>
+                </View>
+              )}
+              
               <Text
                 style={{
                   fontSize: 12,
