@@ -50,7 +50,7 @@ const getSentimentEmoji = (content) => {
 };
 
 // Create new journal entry with validation and rate limiting
-export const createJournalEntryLocal = async ({ title, content, idToken }) => {
+export const createJournalEntryLocal = async ({ title, content }) => {
   try {
     // Validate input
     const validatedData = validateJournalEntry(content, title);
@@ -85,11 +85,9 @@ export const createJournalEntryLocal = async ({ title, content, idToken }) => {
 };
 
 // Sync single journal entry to server
-export const syncJournalEntryToServer = async ({ entry, idToken }) => {
+export const syncJournalEntryToServer = async ({ entry }) => {
   try {
-    if (!idToken) {
-      throw new Error("Authentication required for syncing");
-    }
+    // idToken removed, now handled in client.js
     
     if (entry.synced) {
       return entry; // Already synced
@@ -97,7 +95,6 @@ export const syncJournalEntryToServer = async ({ entry, idToken }) => {
     
     // Create entry on server
     const serverEntry = await createJournalEntry({
-      idToken,
       content: entry.content,
       date: entry.created_at.split('T')[0],
       title: entry.title
@@ -123,11 +120,9 @@ export const syncJournalEntryToServer = async ({ entry, idToken }) => {
 };
 
 // Sync all unsynced journal entries with rate limiting
-export const syncAllJournalEntries = async ({ idToken }) => {
+export const syncAllJournalEntries = async () => {
   try {
-    if (!idToken) {
-      throw new Error("Authentication required for syncing");
-    }
+    // idToken removed, now handled in client.js
     
     // Check daily sync limit (3 syncs per day)
     const todaySyncCount = await db.getSyncAttemptsCountToday();
@@ -147,7 +142,7 @@ export const syncAllJournalEntries = async ({ idToken }) => {
     
     for (const entry of unsyncedEntries) {
       try {
-        await syncJournalEntryToServer({ entry, idToken });
+  await syncJournalEntryToServer({ entry });
         syncedCount++;
       } catch (error) {
         console.error(`Failed to sync entry ${entry.id}:`, error);
@@ -245,15 +240,15 @@ export const updateJournalEntryLocal = async ({ id, title, content }) => {
 };
 
 // Delete journal entry locally and from server
-export const deleteJournalEntryLocal = async ({ entry, idToken }) => {
+export const deleteJournalEntryLocal = async ({ entry }) => {
   try {
     // Delete from local database first
     await db.deleteJournalEntryById(entry.id);
     
     // If entry was synced, also delete from server
-    if (entry.synced && entry.server_id && idToken) {
+    if (entry.synced && entry.server_id) {
       try {
-        await deleteJournalEntry({ idToken, id: entry.server_id });
+        await deleteJournalEntry({ id: entry.server_id });
       } catch (serverError) {
         console.warn("Failed to delete from server, but local deletion succeeded:", serverError);
       }
@@ -301,12 +296,9 @@ export const canSyncToday = async () => {
 };
 
 // Sync from server (download server entries to local)
-export const syncFromServer = async ({ idToken }) => {
+export const syncFromServer = async () => {
   try {
-    if (!idToken) {
-      return { downloaded: 0 };
-    }
-    
+    // idToken removed, now handled in client.js
     // This would need to be implemented in your API client
     // For now, we'll skip this as it's not in the existing client.js
     console.log("Server sync not yet implemented");

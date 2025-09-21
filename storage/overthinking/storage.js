@@ -54,7 +54,7 @@ const getMoodEmoji = (thought) => {
 };
 
 // Create new overthinking entry with validation and rate limiting
-export const createOverthinkingEntryLocal = async ({ title, thought, solution, idToken }) => {
+export const createOverthinkingEntryLocal = async ({ title, thought, solution }) => {
   try {
     // Validate input
     const validatedData = validateOverthinkingEntry(thought, title, solution);
@@ -90,11 +90,9 @@ export const createOverthinkingEntryLocal = async ({ title, thought, solution, i
 };
 
 // Sync single overthinking entry to server
-export const syncOverthinkingEntryToServer = async ({ entry, idToken }) => {
+export const syncOverthinkingEntryToServer = async ({ entry }) => {
   try {
-    if (!idToken) {
-      throw new Error("Authentication required for syncing");
-    }
+    // idToken removed, now handled in client.js
     
     if (entry.synced) {
       return entry; // Already synced
@@ -102,7 +100,6 @@ export const syncOverthinkingEntryToServer = async ({ entry, idToken }) => {
     
     // Create entry on server
     const serverEntry = await createOverthinkingEntry({
-      idToken,
       thought: entry.thought,
       solution: entry.solution,
       date: entry.created_at.split('T')[0]
@@ -128,11 +125,9 @@ export const syncOverthinkingEntryToServer = async ({ entry, idToken }) => {
 };
 
 // Sync all unsynced overthinking entries with rate limiting
-export const syncAllOverthinkingEntries = async ({ idToken }) => {
+export const syncAllOverthinkingEntries = async () => {
   try {
-    if (!idToken) {
-      throw new Error("Authentication required for syncing");
-    }
+    // idToken removed, now handled in client.js
     
     // Check daily sync limit (3 syncs per day)
     const todaySyncCount = await db.getOverthinkingSyncAttemptsCountToday();
@@ -152,7 +147,7 @@ export const syncAllOverthinkingEntries = async ({ idToken }) => {
     
     for (const entry of unsyncedEntries) {
       try {
-        await syncOverthinkingEntryToServer({ entry, idToken });
+  await syncOverthinkingEntryToServer({ entry });
         syncedCount++;
       } catch (error) {
         console.error(`Failed to sync overthinking entry ${entry.id}:`, error);
@@ -266,15 +261,15 @@ export const toggleOverthinkingDumpedLocal = async ({ id, dumped }) => {
 };
 
 // Delete overthinking entry locally and from server
-export const deleteOverthinkingEntryLocal = async ({ entry, idToken }) => {
+export const deleteOverthinkingEntryLocal = async ({ entry }) => {
   try {
     // Delete from local database first
     await db.deleteOverthinkingEntryById(entry.id);
     
     // If entry was synced, also delete from server
-    if (entry.synced && entry.server_id && idToken) {
+    if (entry.synced && entry.server_id) {
       try {
-        await deleteOverthinkingEntry({ idToken, id: entry.server_id });
+        await deleteOverthinkingEntry({ id: entry.server_id });
       } catch (serverError) {
         console.warn("Failed to delete from server, but local deletion succeeded:", serverError);
       }

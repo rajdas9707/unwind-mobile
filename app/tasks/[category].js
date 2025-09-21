@@ -19,7 +19,7 @@ import {
   deleteTodoById,
   moveTaskToCarriedOver,
 } from "../../storage/todoDb";
-import { AuthContext } from "../../context/AuthProvider";
+// import { AuthContext } from "../../context/AuthProvider";
 import {checkNetworkStatus, useNetworkStatus} from "../../utils/networkUtils"
 
 
@@ -95,7 +95,7 @@ export default function CategoryTasks() {
   const [newTask, setNewTask] = useState("");
   const [intention, setIntention] = useState("");
   const [editingTaskId, setEditingTaskId] = useState(null);
- const {idToken}=useContext(AuthContext)
+ // const {idToken}=useContext(AuthContext) // removed, now handled in client.js
  const isOnline=useNetworkStatus()
   const categoryColors = {
     "2-Minute": "#10B981",
@@ -161,18 +161,15 @@ export default function CategoryTasks() {
       if (isOnline && task.synced) {
         try {
         
-          if (idToken) {
-            await updateTodoAPI({
-              idToken,
-              id: task.serverId,
-              title: task.title,
-              description: task.description,
-              category: task.category,
-              priority: task.priority,
-              dueDate: task.dueDate,
-              completed: newCompleted,
-            });
-          }
+          await updateTodoAPI({
+            id: task.serverId,
+            title: task.title,
+            description: task.description,
+            category: task.category,
+            priority: task.priority,
+            dueDate: task.dueDate,
+            completed: newCompleted,
+          });
         } catch (e) {
           console.log("Failed to sync task completion:", e);
         }
@@ -192,10 +189,8 @@ export default function CategoryTasks() {
       // Try to sync deletion if online and task was synced
       if (isOnline && task.synced) {
         try {
-        idToken
-          if (idToken) {
-            await deleteTodo({ idToken, id: task.serverId });
-          }
+  // idToken removed
+          await deleteTodo({ id: task.serverId });
         } catch (e) {
           console.log("Failed to sync task deletion:", e);
         }

@@ -110,7 +110,6 @@ export const createMistakeEntryLocal = async ({
   description,
   lesson,
   category,
-  idToken,
 }) => {
   try {
     // Validate input
@@ -155,11 +154,8 @@ export const createMistakeEntryLocal = async ({
 };
 
 // Sync single mistakes entry to server
-export const syncMistakesEntryToServer = async ({ entry, idToken }) => {
+export const syncMistakesEntryToServer = async ({ entry }) => {
   try {
-    if (!idToken) {
-      throw new Error("Authentication required for syncing");
-    }
 
     if (entry.synced) {
       return entry; // Already synced
@@ -167,7 +163,6 @@ export const syncMistakesEntryToServer = async ({ entry, idToken }) => {
 
     // Create entry on server
     const serverEntry = await createMistakeEntry({
-      idToken,
       mistake: entry.description,
       solution: entry.lesson,
       category: entry.category,
@@ -194,11 +189,10 @@ export const syncMistakesEntryToServer = async ({ entry, idToken }) => {
 };
 
 // Sync all unsynced mistakes entries with rate limiting
-export const syncAllMistakesEntries = async ({ idToken }) => {
+export const syncAllMistakesEntries = async ({ 
+
+ }) => {
   try {
-    if (!idToken) {
-      throw new Error("Authentication required for syncing");
-    }
 
     // Check daily sync limit (3 syncs per day)
     const todaySyncCount = await db.getMistakesSyncAttemptsCountToday();
@@ -218,7 +212,7 @@ export const syncAllMistakesEntries = async ({ idToken }) => {
 
     for (const entry of unsyncedEntries) {
       try {
-        await syncMistakesEntryToServer({ entry, idToken });
+        await syncMistakesEntryToServer({ entry });
         syncedCount++;
       } catch (error) {
         console.error(`Failed to sync mistakes entry ${entry.id}:`, error);
@@ -346,15 +340,15 @@ export const toggleMistakesAvoidedLocal = async ({ id, avoided }) => {
 };
 
 // Delete mistakes entry locally and from server
-export const deleteMistakesEntryLocal = async ({ entry, idToken }) => {
+export const deleteMistakesEntryLocal = async ({ entry }) => {
   try {
     // Delete from local database first
     await db.deleteMistakesEntryById(entry.id);
 
     // If entry was synced, also delete from server
-    if (entry.synced && entry.server_id && idToken) {
+    if (entry.synced && entry.server_id ) {
       try {
-        await deleteMistakeEntry({ idToken, id: entry.server_id });
+        await deleteMistakeEntry({ id: entry.server_id });
       } catch (serverError) {
         console.warn(
           "Failed to delete from server, but local deletion succeeded:",

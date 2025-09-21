@@ -23,7 +23,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useNetworkStatus } from "../../utils/networkUtils";
 // import { useDatabaseReady } from "../../hooks/useDatabaseReady";
-import { AuthContext } from "../../context/AuthProvider";
 
 // Import our storage layer
 import {
@@ -39,7 +38,6 @@ export default function JournalDetailScreen() {
   const router = useRouter();
   // const { isReady } = useDatabaseReady();
   const isOnline = useNetworkStatus();
-  const { idToken } = useContext(AuthContext);
   
   const [entry, setEntry] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -128,10 +126,10 @@ export default function JournalDetailScreen() {
       Alert.alert("Success", "Entry updated successfully!");
       
       // Try to sync if online
-      if (isOnline && idToken) {
+      if (isOnline) {
         try {
           setIsSyncing(true);
-          await syncJournalEntryToServer({ entry: updatedEntry, idToken });
+          await syncJournalEntryToServer({ entry: updatedEntry });
           await loadEntry(); // Refresh to show synced status
         } catch (syncError) {
           console.warn("Failed to sync updated entry:", syncError);
@@ -160,7 +158,7 @@ export default function JournalDetailScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteJournalEntryLocal({ entry, idToken });
+              await deleteJournalEntryLocal({ entry });
               Alert.alert("Success", "Entry deleted successfully!", [
                 { text: "OK", onPress: () => router.back() }
               ]);
@@ -185,13 +183,7 @@ export default function JournalDetailScreen() {
       return;
     }
     
-    if (!idToken) {
-      Alert.alert(
-        "Authentication Required",
-        "Please log in to sync your entries."
-      );
-      return;
-    }
+    // idToken check removed, handled in client.js
     
     try {
       // Check daily sync limit
@@ -205,7 +197,7 @@ export default function JournalDetailScreen() {
       }
       
       setIsSyncing(true);
-      await syncJournalEntryToServer({ entry, idToken });
+  await syncJournalEntryToServer({ entry });
       await loadEntry(); // Refresh to show synced status
       
       Alert.alert("Success", "Entry synced to cloud successfully!");

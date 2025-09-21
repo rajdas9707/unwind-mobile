@@ -22,7 +22,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Calendar } from "react-native-calendars";
 import { useNetworkStatus } from "../../utils/networkUtils";
-import { AuthContext } from "../../context/AuthProvider";
+// import { AuthContext } from "../../context/AuthProvider";
 
 // Import our new storage layer
 import {
@@ -56,7 +56,7 @@ export default function JournalScreen() {
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
   const [isSyncingAll, setIsSyncingAll] = useState(false);
-  const { idToken } = useContext(AuthContext);
+  // const { idToken } = useContext(AuthContext); // removed, now handled in client.js
   
   // Spinning animation for sync icon
   const spinValue = useSharedValue(0);
@@ -92,21 +92,13 @@ export default function JournalScreen() {
         return;
       }
       
-      // Check if authenticated
-      if (!idToken) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in to sync your entries.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
+    
       
       // Start syncing
       setIsSyncingAll(true);
       
       try {
-        const result = await syncAllJournalEntries({ idToken });
+  const result = await syncAllJournalEntries();
         
         if (result.syncedCount > 0 || result.failedCount > 0) {
           Alert.alert(
@@ -242,14 +234,14 @@ export default function JournalScreen() {
       let loadedEntries;
       
       if (selectedDate) {
-        console.log("Loading entries for date:", selectedDate);
+        // console.log("Loading entries for date:", selectedDate);
         loadedEntries = await fetchJournalsByDate(selectedDate);
       } else {
         console.log("Loading recent entries");
         loadedEntries = await fetchRecentJournalEntries(10);
       }
       
-      console.log("Loaded entries:", loadedEntries);
+      // console.log("Loaded entries:", loadedEntries);
       setEntries(loadedEntries || []);
       
       // Update unsynced count
@@ -299,14 +291,7 @@ export default function JournalScreen() {
     }
 
     try {
-      if (!idToken) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in to sync your entries.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
+      // idToken check removed, handled in client.js
 
       // Check daily sync limit
       const canSync = await canSyncToday();
@@ -323,7 +308,7 @@ export default function JournalScreen() {
       setSyncingEntries((prev) => new Set(prev).add(entry.id));
 
       // Use the new sync function
-      await syncJournalEntryToServer({ entry, idToken });
+  await syncJournalEntryToServer({ entry });
       
       // Refresh the entries list
       await loadEntries();
@@ -380,7 +365,7 @@ export default function JournalScreen() {
       const entry = await createJournalEntryLocal({
         title: newEntryTitle.trim(),
         content: newEntry.trim(),
-        idToken
+  // idToken removed
       });
       
       // Reset form and close modal
@@ -405,10 +390,10 @@ export default function JournalScreen() {
       }
       
       // Try to sync immediately if online
-      if (isOnline && idToken) {
+      if (isOnline) {
         try {
           setSyncingEntries((prev) => new Set(prev).add(entry.id));
-          await syncJournalEntryToServer({ entry, idToken });
+          await syncJournalEntryToServer({ entry });
           await loadEntries(); // Refresh the list
         } catch (syncError) {
           console.error("Failed to sync new entry:", syncError);
@@ -444,7 +429,7 @@ export default function JournalScreen() {
             setEntries(entries.filter((e) => e.id !== entry.id));
             
             // Delete from storage
-            await deleteJournalEntryLocal({ entry, idToken });
+            await deleteJournalEntryLocal({ entry });
             
             // Update unsynced count
             updateUnsyncedCount();

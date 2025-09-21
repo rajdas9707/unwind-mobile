@@ -22,7 +22,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Calendar } from "react-native-calendars";
 import { useNetworkStatus } from "../../utils/networkUtils";
-import { AuthContext } from "../../context/AuthProvider";
+// import { AuthContext } from "../../context/AuthProvider";
 
 // Import new storage layer
 import {
@@ -59,7 +59,7 @@ export default function MistakesScreen() {
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
   const [isSyncingAll, setIsSyncingAll] = useState(false);
-  const { idToken } = useContext(AuthContext);
+  // const { idToken } = useContext(AuthContext); // removed, now handled in client.js
   
   // Spinning animation for sync icon
   const spinValue = useSharedValue(0);
@@ -189,21 +189,13 @@ export default function MistakesScreen() {
         return;
       }
       
-      // Check if authenticated
-      if (!idToken) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in to sync your entries.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
+      // idToken check removed, handled in client.js
       
       // Start syncing
       setIsSyncingAll(true);
       
       try {
-        const result = await syncAllMistakesEntries({ idToken });
+  const result = await syncAllMistakesEntries();
         
         if (result.syncedCount > 0 || result.failedCount > 0) {
           Alert.alert(
@@ -245,15 +237,6 @@ export default function MistakesScreen() {
     }
 
     try {
-      if (!idToken) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in to sync your entries.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-
       // Check daily sync limit
       const canSync = await canSyncMistakesToday();
       if (!canSync) {
@@ -269,7 +252,7 @@ export default function MistakesScreen() {
       setSyncingEntries((prev) => new Set(prev).add(entry.id));
 
       // Use the new sync function
-      await syncMistakeEntryToServer({ entry, idToken });
+      await syncMistakeEntryToServer({ entry });
       
       // Refresh the entries list
       await loadEntries();
@@ -316,8 +299,7 @@ export default function MistakesScreen() {
       const entry = await createMistakeEntryLocal({
         description: newDescription.trim(),
         lesson: newLesson.trim(),
-        category: newCategory,
-        idToken
+        category: newCategory
       });
       
       // Reset form and close modal
@@ -343,10 +325,10 @@ export default function MistakesScreen() {
       }
       
       // Try to sync immediately if online
-      if (isOnline && idToken) {
+      if (isOnline) {
         try {
           setSyncingEntries((prev) => new Set(prev).add(entry.id));
-          await syncMistakeEntryToServer({ entry, idToken });
+          await syncMistakeEntryToServer({ entry });
           await loadEntries(); // Refresh the list
         } catch (syncError) {
           console.log("Failed to sync new entry:", syncError);
@@ -382,7 +364,7 @@ export default function MistakesScreen() {
             setEntries(entries.filter((e) => e.id !== entry.id));
             
             // Delete from storage
-            await deleteMistakeEntryLocal({ entry, idToken });
+            await deleteMistakeEntryLocal({ entry });
             
             // Update unsynced count
             updateUnsyncedCount();

@@ -23,7 +23,7 @@ import FileViewer from "../../components/shared/FileViewer";
 export default function DocumentDetail() {
   const { id } = useLocalSearchParams();
   const [document, setDocument] = useState(null);
-  const [editModalVisible, setEditModalVisible] = useState(false);
+   // import { AuthContext } from "../../context/AuthProvider";
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   const router = useRouter();

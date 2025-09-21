@@ -68,7 +68,7 @@ export default function AuthScreen() {
         // console.log("userInfo", userCredential.user.displayName);
         const token = await userCredential.user.getIdToken();
 
-        await AsyncStorage.setItem("userToken", token);
+
 
         await AsyncStorage.setItem(
           "userInfo",

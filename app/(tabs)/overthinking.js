@@ -22,7 +22,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Calendar } from "react-native-calendars";
 import { useNetworkStatus } from "../../utils/networkUtils";
-import { AuthContext } from "../../context/AuthProvider";
+// import { AuthContext } from "../../context/AuthProvider";
 
 // Import new storage layer
 import {
@@ -57,7 +57,7 @@ export default function OverthinkingScreen() {
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
   const [isSyncingAll, setIsSyncingAll] = useState(false);
-  const { idToken } = useContext(AuthContext);
+  // const { idToken } = useContext(AuthContext); // removed, now handled in client.js
   
   // Spinning animation for sync icon
   const spinValue = useSharedValue(0);
@@ -187,21 +187,13 @@ export default function OverthinkingScreen() {
         return;
       }
       
-      // Check if authenticated
-      if (!idToken) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in to sync your entries.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
+      // idToken check removed, handled in client.js
       
       // Start syncing
       setIsSyncingAll(true);
       
       try {
-        const result = await syncAllOverthinkingEntries({ idToken });
+  const result = await syncAllOverthinkingEntries();
         
         if (result.syncedCount > 0 || result.failedCount > 0) {
           Alert.alert(
@@ -243,15 +235,6 @@ export default function OverthinkingScreen() {
     }
 
     try {
-      if (!idToken) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in to sync your entries.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-
       // Check daily sync limit
       const canSync = await canSyncOverthinkingToday();
       if (!canSync) {
@@ -267,7 +250,7 @@ export default function OverthinkingScreen() {
       setSyncingEntries((prev) => new Set(prev).add(entry.id));
 
       // Use the new sync function
-      await syncOverthinkingEntryToServer({ entry, idToken });
+      await syncOverthinkingEntryToServer({ entry });
       
       // Refresh the entries list
       await loadEntries();
@@ -314,8 +297,7 @@ export default function OverthinkingScreen() {
       const entry = await createOverthinkingEntryLocal({
         title: newTitle.trim(),
         thought: newThought.trim(),
-        solution: newSolution.trim(),
-        idToken
+        solution: newSolution.trim()
       });
       
       // Reset form and close modal
@@ -341,10 +323,10 @@ export default function OverthinkingScreen() {
       }
       
       // Try to sync immediately if online
-      if (isOnline && idToken) {
+      if (isOnline) {
         try {
           setSyncingEntries((prev) => new Set(prev).add(entry.id));
-          await syncOverthinkingEntryToServer({ entry, idToken });
+          await syncOverthinkingEntryToServer({ entry });
           await loadEntries(); // Refresh the list
         } catch (syncError) {
           console.error("Failed to sync new entry:", syncError);
@@ -380,7 +362,7 @@ export default function OverthinkingScreen() {
             setEntries(entries.filter((e) => e.id !== entry.id));
             
             // Delete from storage
-            await deleteOverthinkingEntryLocal({ entry, idToken });
+            await deleteOverthinkingEntryLocal({ entry });
             
             // Update unsynced count
             updateUnsyncedCount();

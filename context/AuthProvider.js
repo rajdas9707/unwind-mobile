@@ -3,28 +3,41 @@ import { auth } from "../firebaseConfig";
 import { View, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { useNetworkStatus } from "../utils/networkUtils";
+
 export const AuthContext = createContext();
+
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [idToken, setIdToken] = useState(null);
+  // idToken state removed, now handled in client.js
   const [loading, setLoading] = useState(true);
+  const isOnline = useNetworkStatus();
+
 
   useEffect(() => {
-    (async () => {
+    const fetchAndSetToken = async () => {
       try {
-        const token = await AsyncStorage.getItem("userToken");
-        console.log("token from authprovider", typeof token);
-        setIdToken(token);
-        const currentUser = await AsyncStorage.getItem("userInfo");
+       
+        let userInfo = await AsyncStorage.getItem("userInfo");
+       
+        
 
-        setUser(currentUser);
+
+   
+        setUser(userInfo);
         setLoading(false);
       } catch (error) {
         console.log("error from authprovider useeffect", error.message);
       }
-    })();
-  }, []);
+    };
+    fetchAndSetToken();
+    // Optionally, listen for auth state changes and refresh token
+    // return () => unsubscribe && unsubscribe();
+  }, [isOnline]);
+
+  // Optionally, expose a manual refreshToken function if needed
+
 
   if (loading) {
     return (
@@ -35,7 +48,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, idToken }}>
+  <AuthContext.Provider value={{ user }}>
       {children}
     </AuthContext.Provider>
   );

@@ -42,7 +42,7 @@ export default function IdeaDetail() {
       const fileUri = idea.files[index];
       await deleteStoredFile(fileUri);
       const nextFiles = idea.files.filter((_, i) => i !== index);
-      await updateIdea({ id: idea.id, files: nextFiles });
+   // import { AuthContext } from "../../context/AuthProvider";
       setIdea({ ...idea, files: nextFiles });
     } catch (error) {
       console.log("error removing file", error);

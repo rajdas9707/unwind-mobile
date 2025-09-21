@@ -10,13 +10,12 @@ const client = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-export async function authorizedFetch(path, options = {}, idToken) {
-  // Auto-attach Firebase ID token if available
-  let token = idToken;
+export async function authorizedFetch(path, options = {}) {
+ 
   try {
-    if (!token && auth?.currentUser) {
-      token = await auth.currentUser.getIdToken();
-    }
+ 
+      token = await auth.currentUser.getIdToken(true);
+    
   } catch {
     Alert.alert(
       "Authentication Error",
@@ -70,7 +69,7 @@ export { API_BASE_URL };
 
 // Journal endpoints
 export async function listJournalEntries({
-  idToken,
+  
   date,
   page = 1,
   limit = 50,
@@ -85,14 +84,14 @@ export async function listJournalEntries({
   const result = await authorizedFetch(
     `/api/journal${qs}`,
     { method: "GET" },
-    idToken
+    
   );
   
   return result.data;
 }
 
 export async function createJournalEntry({
-  idToken,
+  
   content,
   date,
   tags,
@@ -106,7 +105,7 @@ export async function createJournalEntry({
     const result = await authorizedFetch(
       `/api/journal`,
       { method: "POST", body },
-      idToken
+      
     );
     console.log("createJournalEntry result:", result);
     if (result.status !== 201) {
@@ -120,13 +119,13 @@ export async function createJournalEntry({
   }
 }
 
-export async function deleteJournalEntry({ idToken, id }) {
-  return authorizedFetch(`/api/journal/${id}`, { method: "DELETE" }, idToken);
+export async function deleteJournalEntry({  id }) {
+  return authorizedFetch(`/api/journal/${id}`, { method: "DELETE" });
 }
 
 // Overthinking endpoints
 export async function listOverthinkingEntries({
-  idToken,
+  
   date,
   page = 1,
   limit = 50,
@@ -136,11 +135,13 @@ export async function listOverthinkingEntries({
   if (page) params.set("page", String(page));
   if (limit) params.set("limit", String(limit));
   const qs = params.toString() ? `?${params.toString()}` : "";
-  return authorizedFetch(`/api/overthinking${qs}`, { method: "GET" }, idToken);
+  return authorizedFetch(`/api/overthinking${qs}`, { method: "GET" }
+
+  );
 }
 
 export async function createOverthinkingEntry({
-  idToken,
+  
   thought,
   solution,
   date,
@@ -155,7 +156,7 @@ export async function createOverthinkingEntry({
     const result = await authorizedFetch(
       `/api/overthinking`,
       { method: "POST", body },
-      idToken
+    
     );
 
     console.log("createoverthinking result:", result);
@@ -170,17 +171,17 @@ export async function createOverthinkingEntry({
   }
 }
 
-export async function deleteOverthinkingEntry({ idToken, id }) {
+export async function deleteOverthinkingEntry({ id }) {
   return authorizedFetch(
     `/api/overthinking/${id}`,
     { method: "DELETE" },
-    idToken
+    
   );
 }
 
 // Mistakes endpoints
 export async function listMistakesEntries({
-  idToken,
+  
   date,
   page = 1,
   limit = 50,
@@ -190,11 +191,11 @@ export async function listMistakesEntries({
   if (page) params.set("page", String(page));
   if (limit) params.set("limit", String(limit));
   const qs = params.toString() ? `?${params.toString()}` : "";
-  return authorizedFetch(`/api/mistakes${qs}`, { method: "GET" }, idToken);
+  return authorizedFetch(`/api/mistakes${qs}`, { method: "GET" });
 }
 
 export async function createMistakeEntry({
-  idToken,
+  
   mistake,
   solution,
   category,
@@ -205,8 +206,7 @@ export async function createMistakeEntry({
     const result = await authorizedFetch(
       `/api/mistakes`,
       { method: "POST", body },
-      idToken
-    );
+          );
     console.log("createMistakeEntry result:", result);
 
     if (result.status !== 201) {
@@ -220,13 +220,14 @@ export async function createMistakeEntry({
   }
 }
 
-export async function deleteMistakeEntry({ idToken, id }) {
-  return authorizedFetch(`/api/mistakes/${id}`, { method: "DELETE" }, idToken);
+export async function deleteMistakeEntry({ 
+   id }) {
+  return authorizedFetch(`/api/mistakes/${id}`, { method: "DELETE" });
 }
 
 // Todo endpoints
 export async function listTodos({
-  idToken,
+  
   category,
   page = 1,
   limit = 50,
@@ -236,11 +237,11 @@ export async function listTodos({
   if (page) params.set("page", String(page));
   if (limit) params.set("limit", String(limit));
   const qs = params.toString() ? `?${params.toString()}` : "";
-  return authorizedFetch(`/api/todos${qs}`, { method: "GET" }, idToken);
+  return authorizedFetch(`/api/todos${qs}`, { method: "GET" });
 }
 
 export async function createTodo({
-  idToken,
+
   title,
   description,
   category,
@@ -254,11 +255,11 @@ export async function createTodo({
     priority,
     dueDate,
   });
-  return authorizedFetch(`/api/todos`, { method: "POST", body }, idToken);
+  return authorizedFetch(`/api/todos`, { method: "POST", body });
 }
 
 export async function updateTodo({
-  idToken,
+  
   id,
   title,
   description,
@@ -275,9 +276,9 @@ export async function updateTodo({
     dueDate,
     completed,
   });
-  return authorizedFetch(`/api/todos/${id}`, { method: "PUT", body }, idToken);
+  return authorizedFetch(`/api/todos/${id}`, { method: "PUT", body });
 }
 
-export async function deleteTodo({ idToken, id }) {
-  return authorizedFetch(`/api/todos/${id}`, { method: "DELETE" }, idToken);
+export async function deleteTodo({ id }) {
+  return authorizedFetch(`/api/todos/${id}`, { method: "DELETE" });
 }
