@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -26,6 +27,7 @@ export default function DocumentDetail() {
    // import { AuthContext } from "../../context/AuthProvider";
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const [editModalVisible, setEditModalVisible] = useState(false);
   const router = useRouter();
 
   const load = async () => {
@@ -111,13 +113,15 @@ export default function DocumentDetail() {
   if (!document) return null;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F3F4F6", padding: 16 }}>
+  <SafeAreaView style={{ flex: 1, backgroundColor: "#F8FAFC", paddingHorizontal: 0, paddingTop: Platform.OS === "android" ? 50 : 0 }}>
       <View
         style={{
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: 12,
+          paddingHorizontal: 20,
+          paddingTop: 8,
+          paddingBottom: 8,
         }}
       >
         <TouchableOpacity onPress={() => router.back()}>
@@ -128,104 +132,141 @@ export default function DocumentDetail() {
             onPress={handleEditDocument}
             style={{
               backgroundColor: "#2563EB",
-              paddingHorizontal: 16,
-              paddingVertical: 8,
+              padding: 8,
               borderRadius: 8,
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 8,
             }}
+            accessibilityLabel="Edit Document"
           >
-            <Text style={{ color: "#fff", fontWeight: "600" }}>Edit</Text>
+            <Ionicons name="create-outline" size={22} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleDeleteDocument}
             style={{
               backgroundColor: "#DC2626",
-              paddingHorizontal: 16,
-              paddingVertical: 8,
+              padding: 8,
               borderRadius: 8,
+              alignItems: "center",
+              justifyContent: "center",
             }}
+            accessibilityLabel="Delete Document"
           >
-            <Text style={{ color: "#fff", fontWeight: "600" }}>Delete</Text>
+            <Ionicons name="trash-outline" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
-      <Text
-        style={{
-          fontSize: 20,
-          fontWeight: "700",
-          color: "#111827",
-          marginBottom: 8,
-        }}
-      >
-        {document.docName}
-      </Text>
-      <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 16 }}>
-        {document.tag || "miscellaneous"}
-      </Text>
+
+      <View style={{
+        marginHorizontal: 16,
+        marginTop: 18,
+        borderRadius: 18,
+        padding: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+      }}>
+        <Ionicons name="document-outline" size={26} color="#6366F1" style={{ marginRight: 6 }} />
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "700",
+              color: "#1F2937",
+              marginBottom: 2,
+              letterSpacing: 0.1,
+            }}
+          >
+            {document.docName}
+          </Text>
+          <Text style={{ fontSize: 13, color: "#6366F1", fontWeight: '600', marginBottom: 2, textTransform: 'capitalize', flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="pricetag-outline" size={14} color="#6366F1" style={{ marginRight: 2 }} />
+            {document.tag || "miscellaneous"}
+          </Text>
+        </View>
+      </View>
 
       {document.files?.length > 0 && (
-        <View style={{ marginBottom: 16 }}>
-          <Text style={{ fontWeight: "600", marginBottom: 8 }}>Files</Text>
+  <View style={{ marginHorizontal: 16, marginTop: 18, marginBottom: 24 }}>
+          <Text style={{ fontWeight: "700", marginBottom: 12, fontSize: 16, color: '#1F2937' }}>Files</Text>
           <FlatList
             data={document.files}
             keyExtractor={(item, index) => `${item}-${index}`}
             renderItem={({ item, index }) => {
               const uri = item;
-              const isPdf =
-                typeof uri === "string" && uri.toLowerCase().endsWith(".pdf");
+              const isPdf = typeof uri === "string" && uri.toLowerCase().endsWith(".pdf");
               return (
                 <TouchableOpacity
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
-                    marginBottom: 12,
-                    padding: 12,
-                    backgroundColor: "#fff",
-                    borderRadius: 12,
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                    elevation: 3,
+                    marginBottom: 14,
+                    padding: 14,
+                    backgroundColor: "#F9FAFB",
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
                   }}
                   onPress={() => handleFilePress(index)}
-                  activeOpacity={0.7}
+                  activeOpacity={0.8}
                 >
                   {isPdf ? (
                     <View
                       style={{
-                        width: 64,
-                        height: 64,
+                        width: 56,
+                        height: 56,
                         borderRadius: 8,
-                        backgroundColor: "#f3f4f6",
+                        backgroundColor: "#EEF2FF",
                         alignItems: "center",
                         justifyContent: "center",
+                        marginRight: 12,
+                        borderWidth: 1,
+                        borderColor: '#E0E7FF',
                       }}
                     >
                       <Ionicons
                         name="document-text-outline"
-                        size={32}
-                        color="#667eea"
+                        size={28}
+                        color="#6366F1"
                       />
                     </View>
                   ) : (
                     <Image
                       source={{ uri }}
                       style={{
-                        width: 64,
-                        height: 64,
+                        width: 56,
+                        height: 56,
                         borderRadius: 8,
-                        backgroundColor: "#eee",
+                        backgroundColor: "#E0E7FF",
+                        marginRight: 12,
+                        borderWidth: 1,
+                        borderColor: '#E0E7FF',
                       }}
                     />
                   )}
                   <Text
                     numberOfLines={1}
-                    style={{ flex: 1, marginLeft: 10, color: "#374151" }}
+                    style={{ flex: 1, marginLeft: 2, color: "#374151", fontSize: 15, fontWeight: '500' }}
                   >
                     {uri}
                   </Text>
-                  <TouchableOpacity onPress={() => removeFile(index)}>
-                    <Text style={{ color: "red" }}>Remove</Text>
+                  <TouchableOpacity
+                    onPress={() => removeFile(index)}
+                    style={{
+                      marginLeft: 10,
+                      padding: 10,
+                      borderRadius: 20,
+                      backgroundColor: '#fff',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 1,
+                      borderColor: '#FCA5A5',
+                    }}
+                    accessibilityLabel="Remove File"
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={22} color="#DC2626" />
                   </TouchableOpacity>
                 </TouchableOpacity>
               );

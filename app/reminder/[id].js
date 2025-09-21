@@ -48,9 +48,13 @@ export default function ReminderDetailsScreen() {
       setReminder(reminderData);
       setCheckpoints(reminderData.checkpoints || []);
   // const { idToken } = useContext(AuthContext); // removed, now handled in client.js
-      console.error('Error loading reminder data:', error);
+    }
+  catch(error){
+ console.error('Error loading reminder data:', error);
       Alert.alert('Error', 'Failed to load reminder details');
-    } finally {
+  }
+     
+     finally {
       setLoading(false);
     }
   };

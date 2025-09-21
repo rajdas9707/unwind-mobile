@@ -11,7 +11,7 @@ import {
   Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+// import { LinearGradient } from "expo-linear-gradient";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { saveFiles } from "../../storage/document/storage";
@@ -78,7 +78,7 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: "Images",
         allowsEditing: true, // Always allow editing/cropping
         allowsMultipleSelection: false, // Take one photo at a time for better editing experience
         quality: 0.7,
@@ -206,11 +206,9 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
             backgroundColor: "#fff",
             borderRadius: 24,
             padding: 24,
-            shadowColor: "#000",
-            shadowOpacity: 0.25,
-            shadowOffset: { width: 0, height: 8 },
-            shadowRadius: 16,
-            elevation: 6,
+            borderWidth: 1,
+            borderColor: '#E5E7EB',
+            // No box shadow for a clean, modern look
           }}
         >
           <Text
@@ -279,85 +277,50 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
           <View
             style={{
               flexDirection: "row",
-              justifyContent: "space-around",
-              marginBottom: 16,
+              justifyContent: "space-between",
+              marginBottom: 18,
+              gap: 12,
             }}
           >
             <TouchableOpacity
               onPress={pickFiles}
               style={{
-                flexDirection: "row",
                 alignItems: "center",
-                borderRadius: 16,
-                paddingVertical: 14,
-                paddingHorizontal: 20,
-                flex: 1,
-                marginRight: 12,
                 justifyContent: "center",
+                borderRadius: 18,
+                height: 54,
+                width: 54,
+                marginRight: 6,
+                backgroundColor: '#6366F1',
+                shadowColor: '#6366F1',
+                shadowOpacity: 0.08,
+                shadowRadius: 4,
+                elevation: 1,
               }}
+              activeOpacity={0.85}
+              accessibilityLabel="Upload File"
             >
-              <LinearGradient
-                colors={["#667eea", "#764ba2"]}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  borderRadius: 16,
-                  paddingVertical: 14,
-                  paddingHorizontal: 20,
-                  flex: 1,
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontSize: 14,
-                    marginLeft: 8,
-                    fontWeight: "600",
-                  }}
-                >
-                  Upload
-                </Text>
-              </LinearGradient>
+              <Ionicons name="cloud-upload-outline" size={30} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={takePhoto}
               style={{
-                flexDirection: "row",
                 alignItems: "center",
-                borderRadius: 16,
-                paddingVertical: 14,
-                paddingHorizontal: 20,
-                flex: 1,
-                marginLeft: 12,
                 justifyContent: "center",
+                borderRadius: 18,
+                height: 54,
+                width: 54,
+                marginLeft: 6,
+                backgroundColor: '#22C55E',
+                shadowColor: '#22C55E',
+                shadowOpacity: 0.08,
+                shadowRadius: 4,
+                elevation: 1,
               }}
+              activeOpacity={0.85}
+              accessibilityLabel="Take Photo"
             >
-              <LinearGradient
-                colors={["#28a745", "#20c997"]}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  borderRadius: 16,
-                  paddingVertical: 14,
-                  paddingHorizontal: 20,
-                  flex: 1,
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons name="camera-outline" size={20} color="#fff" />
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontSize: 14,
-                    marginLeft: 8,
-                    fontWeight: "600",
-                  }}
-                >
-                  Camera
-                </Text>
-              </LinearGradient>
+              <Ionicons name="camera-outline" size={30} color="#fff" />
             </TouchableOpacity>
           </View>
 
@@ -376,33 +339,40 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
                       flexDirection: "row",
                       alignItems: "center",
                       marginBottom: 8,
+                      backgroundColor: '#F3F4F6',
+                      borderRadius: 10,
+                      padding: 8,
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
                     }}
                   >
                     {isPdf ? (
                       <Ionicons
                         name="document-text-outline"
-                        size={28}
-                        color="#6B7280"
+                        size={26}
+                        color="#6366F1"
+                        style={{ marginRight: 6 }}
                       />
                     ) : (
                       <Image
                         source={{ uri }}
                         style={{
-                          width: 48,
-                          height: 48,
+                          width: 40,
+                          height: 40,
                           borderRadius: 8,
                           backgroundColor: "#eee",
+                          marginRight: 6,
                         }}
                       />
                     )}
                     <Text
                       numberOfLines={1}
-                      style={{ flex: 1, marginLeft: 10, color: "#374151" }}
+                      style={{ flex: 1, marginLeft: 2, color: "#374151", fontSize: 14 }}
                     >
                       {item.name || uri}
                     </Text>
-                    <TouchableOpacity onPress={() => removeFile(index)}>
-                      <Text style={{ color: "red" }}>Remove</Text>
+                    <TouchableOpacity onPress={() => removeFile(index)} style={{ marginLeft: 8, padding: 6, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#FCA5A5' }} accessibilityLabel="Remove File">
+                      <Ionicons name="trash-outline" size={18} color="#DC2626" />
                     </TouchableOpacity>
                   </View>
                 );
@@ -415,46 +385,49 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
             style={{
               flexDirection: "row",
               justifyContent: "flex-end",
-              marginTop: 16,
+              marginTop: 18,
+              gap: 10,
             }}
           >
             <TouchableOpacity
               style={{
-                borderRadius: 12,
-                paddingVertical: 10,
-                paddingHorizontal: 20,
-                marginLeft: 10,
-                backgroundColor: "#ccc",
+                borderRadius: 14,
+                height: 48,
+                minWidth: 100,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: "#F3F4F6",
+                marginLeft: 0,
+                paddingHorizontal: 18,
+                marginRight: 6,
               }}
               onPress={onClose}
+              activeOpacity={0.85}
             >
-              <Text style={{ fontSize: 15, fontWeight: "600" }}>Cancel</Text>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: "#374151" }}>Cancel</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={{
-                borderRadius: 16,
-                paddingVertical: 12,
-                paddingHorizontal: 24,
-                marginLeft: 12,
+                borderRadius: 14,
+                height: 48,
+                minWidth: 110,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#6366F1',
+                flexDirection: 'row',
+                paddingHorizontal: 22,
+                marginLeft: 0,
               }}
               onPress={handleSubmit}
+              activeOpacity={0.85}
             >
-              <LinearGradient
-                colors={["#667eea", "#764ba2"]}
-                style={{
-                  borderRadius: 16,
-                  paddingVertical: 12,
-                  paddingHorizontal: 24,
-                  alignItems: "center",
-                }}
+              <Ionicons name="save-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text
+                style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}
               >
-                <Text
-                  style={{ fontSize: 16, fontWeight: "600", color: "#fff" }}
-                >
-                  {docId ? "Update" : "Save"}
-                </Text>
-              </LinearGradient>
+                {docId ? "Update" : "Save"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

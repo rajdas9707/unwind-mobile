@@ -17,7 +17,7 @@ import {
   Ionicons,
   FontAwesome5,
 } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+// import { LinearGradient } from "expo-linear-gradient";
 import DocCardList from "../components/document/docCard";
 import UploadDocModal from "../components/document/UploadDocModal";
 import { getDocuments } from "../storage/document/db";
@@ -36,38 +36,9 @@ export default function Document() {
   const fabAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const toggleFab = () => {
-    const toValue = fabOpen ? 0 : 1;
-    setFabOpen(!fabOpen);
-    Animated.timing(fabAnim, {
-      toValue,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
-  };
 
-  const fab1Style = {
-    transform: [
-      {
-        translateY: fabAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, -60],
-        }),
-      },
-    ],
-    opacity: fabAnim,
-  };
-  const fab2Style = {
-    transform: [
-      {
-        translateY: fabAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, -120],
-        }),
-      },
-    ],
-    opacity: fabAnim,
-  };
+
+
   useEffect(() => {
     loadDocs();
   }, []);
@@ -107,10 +78,7 @@ export default function Document() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#667eea" />
-      <LinearGradient
-        colors={["#667eea", "#764ba2"]}
-        style={styles.gradientBackground}
-      >
+      <View style={[styles.gradientBackground, { backgroundColor: '#F3F4F6' }] }>
         <View style={styles.container}>
           <View style={styles.leftPane}>
             {/* Header */}
@@ -170,18 +138,14 @@ export default function Document() {
           {/* Floating Action Button */}
           <View style={styles.fabWrap}>
             <TouchableOpacity
-              style={styles.fab}
+              style={[styles.fab, styles.plusCircle, { backgroundColor: "#6366F1" }]}
               onPress={() => {
                 setModalVisible(true);
               }}
               activeOpacity={0.9}
+              accessibilityLabel="Add Document"
             >
-              <LinearGradient
-                colors={["#667eea", "#764ba2"]}
-                style={styles.plusCircle}
-              >
-                <Feather name={fabOpen ? "x" : "plus"} size={26} color="#fff" />
-              </LinearGradient>
+              <Feather name={fabOpen ? "x" : "plus"} size={26} color="#fff" />
             </TouchableOpacity>
           </View>
 
@@ -193,30 +157,23 @@ export default function Document() {
             onSave={handleSaveDocument}
           />
         </View>
-      </LinearGradient>
+  </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#667eea" },
-  gradientBackground: { flex: 1 },
-  container: { flex: 1, paddingVertical: 20, paddingHorizontal: 16 },
+  safe: { flex: 1},
+  gradientBackground: { flex: 1, paddingTop: Platform.OS === "android" ? 25 : 0 },
+  container: { flex: 1 },
   leftPane: {
     flex: 1,
     backgroundColor: "#fff",
+    paddingVertical: 25,
+    paddingHorizontal: 20,
     borderRadius: 24,
-    padding: 24,
-    marginHorizontal: 4,
-    ...Platform.select({
-      android: { elevation: 8 },
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-      },
-    }),
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   headerRow: {
     flexDirection: "row",
@@ -279,15 +236,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 14,
     marginBottom: 14,
-    ...Platform.select({
-      android: { elevation: 4 },
-      ios: {
-        shadowColor: "#e8eef8",
-        shadowOffset: { width: 6, height: 6 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-      },
-    }),
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   cardTop: {
     height: 100,
