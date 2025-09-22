@@ -4,7 +4,7 @@ import { openDB } from "../mainDb";
 
 export const initwaterRemindersTable = async () => {
   try {
-    db = await openDB();
+    const db = await openDB();
 
     // Create reminders table with simple schema
     await db.execAsync(
