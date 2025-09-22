@@ -16,9 +16,7 @@ import {
   updateTodo,
   toggleTodoComplete,
   deleteTodoById,
-  forceReconnect,
-  testDatabaseConnection,
-} from "../../../storage/todoDb";
+} from "../../../storage/todo/db";
 // import runDatabaseTests from "../../../storage/testDb";
 
 const CarriedOverTaskItem = ({
@@ -272,7 +270,11 @@ export default function CarriedOverTasks() {
           <Text style={[styles.header, { color: categoryColor }]}>
             {category} - Carried Over Tasks
           </Text>
-          <TouchableOpacity onPress={()=>{console.log("Debug icon pressed")}}>
+          <TouchableOpacity
+            onPress={() => {
+              console.log("Debug icon pressed");
+            }}
+          >
             <Ionicons name="bug-outline" size={24} color="#EF4444" />
           </TouchableOpacity>
         </View>

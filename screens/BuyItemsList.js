@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,26 +11,33 @@ import {
   RefreshControl,
   Dimensions,
   ActivityIndicator,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import storage from '../storage/buyItems/storage.js';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
+import {
+  calculateCompletionPercentage,
+  createItem,
+  deleteItem,
+  getItemsByListId,
+  toggleItemBought,
+  updateItem,
+} from "../storage/buyItems/storage.js";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 export default function BuyItemsList() {
   const params = useLocalSearchParams();
   const listId = parseInt(params.listId);
-  const listName = params.listName || 'Shopping List';
+  const listName = params.listName || "Shopping List";
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemLocation, setNewItemLocation] = useState('');
+  const [newItemName, setNewItemName] = useState("");
+  const [newItemLocation, setNewItemLocation] = useState("");
   const [editingItem, setEditingItem] = useState(null);
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -38,10 +45,10 @@ export default function BuyItemsList() {
   // Load items from storage
   const loadItems = async () => {
     try {
-      const allItems = await storage.getItemsByListId(listId);
+      const allItems = await getItemsByListId(listId);
       setItems(allItems);
     } catch (error) {
-      console.error('Error loading items:', error);
+      console.error("Error loading items:", error);
     } finally {
       setLoading(false);
     }
@@ -68,8 +75,8 @@ export default function BuyItemsList() {
     if (listId) {
       loadItems();
     } else {
-      Alert.alert('Error', 'Invalid list ID', [
-        { text: 'OK', onPress: () => router.back() }
+      Alert.alert("Error", "Invalid list ID", [
+        { text: "OK", onPress: () => router.back() },
       ]);
     }
   }, [listId]);
@@ -80,15 +87,15 @@ export default function BuyItemsList() {
 
     setCreating(true);
     try {
-      const itemId = await storage.createItem(listId, newItemName, newItemLocation);
+      const itemId = await createItem(listId, newItemName, newItemLocation);
       if (itemId) {
         setModalVisible(false);
-        setNewItemName('');
-        setNewItemLocation('');
+        setNewItemName("");
+        setNewItemLocation("");
         await loadItems();
       }
     } catch (error) {
-      console.error('Error creating item:', error);
+      console.error("Error creating item:", error);
     } finally {
       setCreating(false);
     }
@@ -97,12 +104,12 @@ export default function BuyItemsList() {
   // Toggle item bought status
   const handleToggleItem = async (itemId) => {
     try {
-      const success = await storage.toggleItemBought(itemId);
+      const success = await toggleItemBought(itemId);
       if (success) {
         await loadItems();
       }
     } catch (error) {
-      console.error('Error toggling item:', error);
+      console.error("Error toggling item:", error);
     }
   };
 
@@ -110,7 +117,7 @@ export default function BuyItemsList() {
   const handleEditItem = (item) => {
     setEditingItem(item);
     setNewItemName(item.name);
-    setNewItemLocation(item.location || '');
+    setNewItemLocation(item.location || "");
     setEditModalVisible(true);
   };
 
@@ -120,16 +127,20 @@ export default function BuyItemsList() {
 
     setUpdating(true);
     try {
-      const success = await storage.updateItem(editingItem.id, newItemName, newItemLocation);
+      const success = await updateItem(
+        editingItem.id,
+        newItemName,
+        newItemLocation
+      );
       if (success) {
         setEditModalVisible(false);
         setEditingItem(null);
-        setNewItemName('');
-        setNewItemLocation('');
+        setNewItemName("");
+        setNewItemLocation("");
         await loadItems();
       }
     } catch (error) {
-      console.error('Error updating item:', error);
+      console.error("Error updating item:", error);
     } finally {
       setUpdating(false);
     }
@@ -138,47 +149,50 @@ export default function BuyItemsList() {
   // Delete item
   const handleDeleteItem = async (itemId) => {
     try {
-      const deleted = await storage.deleteItem(itemId);
+      const deleted = await deleteItem(itemId);
       if (deleted) {
         await loadItems();
       }
     } catch (error) {
-      console.error('Error deleting item:', error);
+      console.error("Error deleting item:", error);
     }
   };
 
   // Cancel modal
   const handleCancelModal = () => {
     setModalVisible(false);
-    setNewItemName('');
-    setNewItemLocation('');
+    setNewItemName("");
+    setNewItemLocation("");
   };
 
   // Cancel edit modal
   const handleCancelEditModal = () => {
     setEditModalVisible(false);
     setEditingItem(null);
-    setNewItemName('');
-    setNewItemLocation('');
+    setNewItemName("");
+    setNewItemLocation("");
   };
 
   // Get stats
   const getStats = () => {
     const total = items.length;
-    const bought = items.filter(item => item.is_bought).length;
+    const bought = items.filter((item) => item.is_bought).length;
     const remaining = total - bought;
-    const percentage = storage.calculateCompletionPercentage(total, bought);
-    
+    const percentage = calculateCompletionPercentage(total, bought);
+
     return { total, bought, remaining, percentage };
   };
 
   // Render item
   const renderItem = (item) => {
     const isBought = Boolean(item.is_bought);
-    
+
     return (
-      <View key={item.id} style={[styles.itemCard, isBought && styles.itemCardBought]}>
-        <TouchableOpacity 
+      <View
+        key={item.id}
+        style={[styles.itemCard, isBought && styles.itemCardBought]}
+      >
+        <TouchableOpacity
           style={styles.itemContent}
           onPress={() => handleToggleItem(item.id)}
           activeOpacity={0.7}
@@ -190,15 +204,27 @@ export default function BuyItemsList() {
               )}
             </View>
           </View>
-          
+
           <View style={styles.itemInfo}>
-            <Text style={[styles.itemName, isBought && styles.itemNameBought]} numberOfLines={2}>
+            <Text
+              style={[styles.itemName, isBought && styles.itemNameBought]}
+              numberOfLines={2}
+            >
               {item.name}
             </Text>
             {item.location && (
-              <Text style={[styles.itemLocation, isBought && styles.itemLocationBought]}>
-                <Ionicons name="location-outline" size={14} color={isBought ? '#9CA3AF' : '#6B7280'} />
-                {' '}{item.location}
+              <Text
+                style={[
+                  styles.itemLocation,
+                  isBought && styles.itemLocationBought,
+                ]}
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={14}
+                  color={isBought ? "#9CA3AF" : "#6B7280"}
+                />{" "}
+                {item.location}
               </Text>
             )}
           </View>
@@ -212,7 +238,7 @@ export default function BuyItemsList() {
           >
             <Ionicons name="pencil" size={18} color="#6B7280" />
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => handleDeleteItem(item.id)}
@@ -239,10 +265,10 @@ export default function BuyItemsList() {
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -253,7 +279,9 @@ export default function BuyItemsList() {
             {listName}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {stats.total > 0 ? `${stats.bought} of ${stats.total} items` : 'Empty list'}
+            {stats.total > 0
+              ? `${stats.bought} of ${stats.total} items`
+              : "Empty list"}
           </Text>
         </View>
         <View style={styles.headerSpacer} />
@@ -263,18 +291,21 @@ export default function BuyItemsList() {
       {stats.total > 0 && (
         <View style={styles.progressSection}>
           <View style={styles.progressBar}>
-            <View 
+            <View
               style={[
                 styles.progressFill,
-                { 
+                {
                   width: `${stats.percentage}%`,
-                  backgroundColor: stats.percentage === 100 ? '#10B981' : '#8B5CF6'
-                }
-              ]} 
+                  backgroundColor:
+                    stats.percentage === 100 ? "#10B981" : "#8B5CF6",
+                },
+              ]}
             />
           </View>
           <Text style={styles.progressText}>
-            {stats.percentage === 100 ? 'Completed!' : `${stats.remaining} items remaining`}
+            {stats.percentage === 100
+              ? "Completed!"
+              : `${stats.remaining} items remaining`}
           </Text>
         </View>
       )}
@@ -284,10 +315,10 @@ export default function BuyItemsList() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
+          <RefreshControl
+            refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#8B5CF6']}
+            colors={["#8B5CF6"]}
             tintColor="#8B5CF6"
           />
         }
@@ -305,15 +336,15 @@ export default function BuyItemsList() {
         ) : (
           <View style={styles.itemsContainer}>
             {/* Unbought items first */}
-            {items.filter(item => !item.is_bought).map(renderItem)}
-            
+            {items.filter((item) => !item.is_bought).map(renderItem)}
+
             {/* Bought items at the bottom */}
-            {items.filter(item => item.is_bought).length > 0 && (
+            {items.filter((item) => item.is_bought).length > 0 && (
               <View style={styles.completedSection}>
                 <Text style={styles.completedSectionTitle}>
-                  Completed ({items.filter(item => item.is_bought).length})
+                  Completed ({items.filter((item) => item.is_bought).length})
                 </Text>
-                {items.filter(item => item.is_bought).map(renderItem)}
+                {items.filter((item) => item.is_bought).map(renderItem)}
               </View>
             )}
           </View>
@@ -384,8 +415,9 @@ export default function BuyItemsList() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
-                  styles.saveButton, 
-                  (creating || !newItemName.trim()) && styles.saveButtonDisabled
+                  styles.saveButton,
+                  (creating || !newItemName.trim()) &&
+                    styles.saveButtonDisabled,
                 ]}
                 onPress={handleCreateItem}
                 disabled={creating || !newItemName.trim()}
@@ -453,8 +485,9 @@ export default function BuyItemsList() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
-                  styles.saveButton, 
-                  (updating || !newItemName.trim()) && styles.saveButtonDisabled
+                  styles.saveButton,
+                  (updating || !newItemName.trim()) &&
+                    styles.saveButtonDisabled,
                 ]}
                 onPress={handleUpdateItem}
                 disabled={updating || !newItemName.trim()}
@@ -476,28 +509,28 @@ export default function BuyItemsList() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   backButton: {
     padding: 4,
@@ -509,39 +542,39 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: "#111827",
     marginBottom: 2,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   headerSpacer: {
     width: 32,
   },
   progressSection: {
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   progressBar: {
     height: 8,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: "#E5E7EB",
     borderRadius: 4,
     marginBottom: 8,
   },
   progressFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 4,
     minWidth: 8,
   },
   progressText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    textAlign: 'center',
+    fontWeight: "500",
+    color: "#374151",
+    textAlign: "center",
   },
   scrollView: {
     flex: 1,
@@ -550,27 +583,27 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   itemCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
   },
   itemCardBought: {
     opacity: 0.6,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
   },
   itemContent: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   checkboxContainer: {
     marginRight: 16,
@@ -580,41 +613,41 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#D1D5DB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    borderColor: "#D1D5DB",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
   },
   checkboxChecked: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
+    backgroundColor: "#10B981",
+    borderColor: "#10B981",
   },
   itemInfo: {
     flex: 1,
   },
   itemName: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
+    fontWeight: "500",
+    color: "#111827",
     marginBottom: 4,
     lineHeight: 20,
   },
   itemNameBought: {
-    textDecorationLine: 'line-through',
-    color: '#9CA3AF',
+    textDecorationLine: "line-through",
+    color: "#9CA3AF",
   },
   itemLocation: {
     fontSize: 14,
-    color: '#6B7280',
-    flexDirection: 'row',
-    alignItems: 'center',
+    color: "#6B7280",
+    flexDirection: "row",
+    alignItems: "center",
   },
   itemLocationBought: {
-    color: '#9CA3AF',
+    color: "#9CA3AF",
   },
   itemActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginLeft: 12,
   },
   actionButton: {
@@ -625,18 +658,18 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
   },
   completedSectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: "600",
+    color: "#6B7280",
     marginBottom: 16,
   },
   emptyState: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 32,
     paddingTop: 80,
   },
@@ -645,28 +678,28 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: "#111827",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptySubtitle: {
     fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
+    color: "#6B7280",
+    textAlign: "center",
     lineHeight: 24,
   },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 24,
     right: 24,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#10B981',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    backgroundColor: "#10B981",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -674,34 +707,34 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     margin: 20,
     width: width - 40,
     maxWidth: 400,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 8,
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   modalCloseButton: {
     padding: 4,
@@ -711,22 +744,22 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: "500",
+    color: "#374151",
     marginBottom: 8,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: "#D1D5DB",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     marginBottom: 16,
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 20,
     paddingTop: 0,
     gap: 12,
@@ -734,30 +767,30 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
     borderRadius: 12,
   },
   cancelButtonText: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: "500",
+    color: "#374151",
   },
   saveButton: {
     flex: 1,
     paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: '#10B981',
+    alignItems: "center",
+    backgroundColor: "#10B981",
     borderRadius: 12,
     minHeight: 48,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   saveButtonDisabled: {
     opacity: 0.5,
   },
   saveButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 });

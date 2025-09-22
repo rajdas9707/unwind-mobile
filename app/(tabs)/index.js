@@ -31,6 +31,7 @@ import {
   calculateCheckpoints,
   getCurrentTime,
 } from "../../storage/waterreminder/storage.js";
+import { initTable } from "../../storage/initTable.js";
 
 const { width } = Dimensions.get("window");
 
@@ -217,7 +218,11 @@ export default function IdeaScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
+      async function loadAndInit() {
+        await loadData();
+        await initTable();
+      }
+      loadAndInit();
     }, [])
   );
 

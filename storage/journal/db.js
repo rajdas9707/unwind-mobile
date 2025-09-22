@@ -1,60 +1,9 @@
-import * as SQLite from "expo-sqlite";
-
-// Singleton database connection
-let dbInstance = null;
-let dbPromise = null;
-let initAttempts = 0;
-const MAX_INIT_ATTEMPTS = 3;
-
-// Get or create database connection (singleton pattern)
-export const getJournalDB = async () => {
-  if (dbInstance) {
-    return dbInstance;
-  }
-  
-  if (dbPromise) {
-    return await dbPromise;
-  }
-  
-  dbPromise = initializeDatabase();
-  try {
-    dbInstance = await dbPromise;
-    dbPromise = null;
-    initAttempts = 0; // Reset on success
-    return dbInstance;
-  } catch (error) {
-    dbPromise = null;
-    initAttempts++;
-    
-    if (initAttempts < MAX_INIT_ATTEMPTS) {
-      console.log(`📖 Database init failed, retrying... (attempt ${initAttempts}/${MAX_INIT_ATTEMPTS})`);
-      // Wait a bit before retrying
-      await new Promise(resolve => setTimeout(resolve, 1000 * initAttempts));
-      return getJournalDB(); // Retry
-    }
-    
-    throw error;
-  }
-};
+import { openDB } from "../mainDb";
 
 // Initialize database with tables and indexes
-const initializeDatabase = async () => {
+export const initJournalsTable = async () => {
   try {
-    console.log('📖 Initializing journal database...');
-    
-    // Close any existing connections first
-    if (dbInstance) {
-      try {
-        await dbInstance.closeAsync();
-      } catch (e) {
-        // Ignore errors when closing
-      }
-      dbInstance = null;
-    }
-    
-    const db = await SQLite.openDatabaseAsync("journal.db", {
-      enableChangeListener: false, // Disable change listener to prevent locks
-    });
+    const db = await openDB();
 
     // Create journals table with required schema
     await db.execAsync(`
@@ -77,69 +26,40 @@ const initializeDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_journals_server_id ON journals(server_id);
     `);
 
-    // Test the connection with a simple query
-    await db.getFirstAsync("SELECT 1 as test");
-
-    console.log('✅ Journal database initialized successfully');
-    return db;
+    console.log("✅ Journal database initialized successfully");
   } catch (error) {
     console.error("❌ Error initializing journal database:", error);
     // Reset the instance so we can retry
-    dbInstance = null;
+
     throw error;
   }
 };
 
-// Legacy function for backward compatibility
-export const openJournalDB = getJournalDB;
-
-// Database health check
-export const checkJournalDatabaseHealth = async () => {
-  try {
-    const db = await getJournalDB();
-    
-    // Test basic operations
-    const testResult = await db.getFirstAsync("SELECT 1 as test");
-    const tableCheck = await db.getFirstAsync(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='journals'"
-    );
-    const count = await db.getFirstAsync("SELECT COUNT(*) as count FROM journals");
-    
-    return {
-      healthy: true,
-      testQuery: testResult?.test === 1,
-      tableExists: !!tableCheck,
-      entryCount: count?.count || 0,
-      message: 'Database is healthy'
-    };
-  } catch (error) {
-    console.error('❌ Database health check failed:', error);
-    return {
-      healthy: false,
-      error: error.message,
-      message: 'Database health check failed'
-    };
-  }
-};
-
 // Insert new journal entry (locally, unsynced)
-export const insertJournalEntry = async ({ title = "", content, created_at, updated_at }) => {
+export const insertJournalEntry = async ({
+  title = "",
+  content,
+  created_at,
+  updated_at,
+}) => {
   try {
-    const db = await getJournalDB();
+    const db = await openDB();
     const result = await db.runAsync(
       "INSERT INTO journals (title, content, created_at, updated_at, synced) VALUES (?, ?, ?, ?, 0)",
       [title, content, created_at, updated_at]
     );
-    
+
     // Return the newly created entry
     const newEntry = await db.getFirstAsync(
       "SELECT * FROM journals WHERE id = ?",
       [result.lastInsertRowId]
     );
-    
+
     return {
       ...newEntry,
-      server_meta: newEntry.server_meta ? JSON.parse(newEntry.server_meta) : null
+      server_meta: newEntry.server_meta
+        ? JSON.parse(newEntry.server_meta)
+        : null,
     };
   } catch (error) {
     console.error("Error inserting journal entry:", error);
@@ -150,16 +70,16 @@ export const insertJournalEntry = async ({ title = "", content, created_at, upda
 // Get recent journal entries (default 10)
 export const getRecentJournalEntries = async (limit = 10) => {
   try {
-    const db = await getJournalDB();
+    const db = await openDB();
     const rows = await db.getAllAsync(
       "SELECT * FROM journals ORDER BY created_at DESC LIMIT ?",
       [limit]
     );
-    
-    return rows.map(row => ({
+
+    return rows.map((row) => ({
       ...row,
       synced: row.synced === 1,
-      server_meta: row.server_meta ? JSON.parse(row.server_meta) : null
+      server_meta: row.server_meta ? JSON.parse(row.server_meta) : null,
     }));
   } catch (error) {
     console.error("Error getting recent journal entries:", error);
@@ -170,19 +90,19 @@ export const getRecentJournalEntries = async (limit = 10) => {
 // Get journal entries by date
 export const getJournalEntriesByDate = async (date) => {
   try {
-    const db = await getJournalDB();
+    const db = await openDB();
     const startOfDay = `${date}T00:00:00.000Z`;
     const endOfDay = `${date}T23:59:59.999Z`;
-    
+
     const rows = await db.getAllAsync(
       "SELECT * FROM journals WHERE created_at >= ? AND created_at <= ? ORDER BY created_at DESC",
       [startOfDay, endOfDay]
     );
-    
-    return rows.map(row => ({
+
+    return rows.map((row) => ({
       ...row,
       synced: row.synced === 1,
-      server_meta: row.server_meta ? JSON.parse(row.server_meta) : null
+      server_meta: row.server_meta ? JSON.parse(row.server_meta) : null,
     }));
   } catch (error) {
     console.error("Error getting journal entries by date:", error);
@@ -193,18 +113,17 @@ export const getJournalEntriesByDate = async (date) => {
 // Get journal entry by ID
 export const getJournalEntryById = async (id) => {
   try {
-    const db = await getJournalDB();
-    const row = await db.getFirstAsync(
-      "SELECT * FROM journals WHERE id = ?",
-      [id]
-    );
-    
+    const db = await openDB();
+    const row = await db.getFirstAsync("SELECT * FROM journals WHERE id = ?", [
+      id,
+    ]);
+
     if (!row) return null;
-    
+
     return {
       ...row,
       synced: row.synced === 1,
-      server_meta: row.server_meta ? JSON.parse(row.server_meta) : null
+      server_meta: row.server_meta ? JSON.parse(row.server_meta) : null,
     };
   } catch (error) {
     console.error("Error getting journal entry by ID:", error);
@@ -213,14 +132,19 @@ export const getJournalEntryById = async (id) => {
 };
 
 // Update journal entry
-export const updateJournalEntry = async ({ id, title, content, updated_at }) => {
+export const updateJournalEntry = async ({
+  id,
+  title,
+  content,
+  updated_at,
+}) => {
   try {
-    const db = await getJournalDB();
+    const db = await openDB();
     await db.runAsync(
       "UPDATE journals SET title = ?, content = ?, updated_at = ?, synced = 0 WHERE id = ?",
       [title, content, updated_at, id]
     );
-    
+
     return await getJournalEntryById(id);
   } catch (error) {
     console.error("Error updating journal entry:", error);
@@ -229,16 +153,20 @@ export const updateJournalEntry = async ({ id, title, content, updated_at }) => 
 };
 
 // Mark journal entry as synced with server
-export const markJournalEntrySynced = async ({ id, server_id, server_meta = null }) => {
+export const markJournalEntrySynced = async ({
+  id,
+  server_id,
+  server_meta = null,
+}) => {
   try {
-    const db = await getJournalDB();
+    const db = await openDB();
     const metaJson = server_meta ? JSON.stringify(server_meta) : null;
-    
+
     await db.runAsync(
       "UPDATE journals SET synced = 1, server_id = ?, server_meta = ? WHERE id = ?",
       [server_id, metaJson, id]
     );
-    
+
     return await getJournalEntryById(id);
   } catch (error) {
     console.error("Error marking journal entry as synced:", error);
@@ -249,15 +177,15 @@ export const markJournalEntrySynced = async ({ id, server_id, server_meta = null
 // Get unsynced journal entries
 export const getUnsyncedJournalEntries = async () => {
   try {
-    const db = await getJournalDB();
+    const db = await openDB();
     const rows = await db.getAllAsync(
       "SELECT * FROM journals WHERE synced = 0 ORDER BY created_at ASC"
     );
-    
-    return rows.map(row => ({
+
+    return rows.map((row) => ({
       ...row,
       synced: row.synced === 1,
-      server_meta: row.server_meta ? JSON.parse(row.server_meta) : null
+      server_meta: row.server_meta ? JSON.parse(row.server_meta) : null,
     }));
   } catch (error) {
     console.error("Error getting unsynced journal entries:", error);
@@ -268,7 +196,7 @@ export const getUnsyncedJournalEntries = async () => {
 // Delete journal entry by ID
 export const deleteJournalEntryById = async (id) => {
   try {
-    const db = await getJournalDB();
+    const db = await openDB();
     await db.runAsync("DELETE FROM journals WHERE id = ?", [id]);
     return true;
   } catch (error) {
@@ -278,17 +206,24 @@ export const deleteJournalEntryById = async (id) => {
 };
 
 // Upsert from server (used during sync)
-export const upsertJournalFromServer = async ({ server_id, title, content, created_at, updated_at, server_meta }) => {
+export const upsertJournalFromServer = async ({
+  server_id,
+  title,
+  content,
+  created_at,
+  updated_at,
+  server_meta,
+}) => {
   try {
-    const db = await getJournalDB();
+    const db = await openDB();
     const metaJson = server_meta ? JSON.stringify(server_meta) : null;
-    
+
     // Check if entry with this server_id already exists
     const existing = await db.getFirstAsync(
       "SELECT id FROM journals WHERE server_id = ?",
       [server_id]
     );
-    
+
     if (existing) {
       // Update existing entry
       await db.runAsync(
@@ -302,7 +237,7 @@ export const upsertJournalFromServer = async ({ server_id, title, content, creat
         [title, content, created_at, updated_at, server_id, metaJson]
       );
     }
-    
+
     return true;
   } catch (error) {
     console.error("Error upserting journal entry from server:", error);
@@ -313,15 +248,15 @@ export const upsertJournalFromServer = async ({ server_id, title, content, creat
 // Get entries count for a specific date
 export const getJournalEntriesCountForDate = async (date) => {
   try {
-    const db = await getJournalDB();
+    const db = await openDB();
     const startOfDay = `${date}T00:00:00.000Z`;
     const endOfDay = `${date}T23:59:59.999Z`;
-    
+
     const result = await db.getFirstAsync(
       "SELECT COUNT(*) as count FROM journals WHERE created_at >= ? AND created_at <= ?",
       [startOfDay, endOfDay]
     );
-    
+
     return result?.count || 0;
   } catch (error) {
     console.error("Error getting journal entries count for date:", error);
@@ -332,17 +267,17 @@ export const getJournalEntriesCountForDate = async (date) => {
 // Get sync attempts count for today (for rate limiting)
 export const getSyncAttemptsCountToday = async () => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split("T")[0];
     const startOfDay = `${today}T00:00:00.000Z`;
     const endOfDay = `${today}T23:59:59.999Z`;
-    
-    const db = await getJournalDB();
+
+    const db = await openDB();
     // Count entries that were synced today (became synced today)
     const result = await db.getFirstAsync(
       "SELECT COUNT(*) as count FROM journals WHERE synced = 1 AND server_meta IS NOT NULL",
       []
     );
-    
+
     // For now, we'll use a simplified approach - count all sync operations
     // In a real implementation, you might want to track sync timestamps separately
     return Math.min(result?.count || 0, 3); // Cap at 3 to prevent issues

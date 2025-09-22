@@ -1,14 +1,10 @@
 import * as SQLite from "expo-sqlite";
+import { openDB } from "../mainDb";
 
 // open database asynchronously
-export const openDB = async () => {
+export const initIdeasTable = async () => {
   try {
-    const db = await SQLite.openDatabaseAsync("ideas.db", {
-      useNewConnection: true,
-    });
-    if (db) {
-      return db;
-    }
+    const db = await openDB();
 
     // create table
     await db.execAsync(`
@@ -22,7 +18,7 @@ export const openDB = async () => {
     );
   `);
 
-    return db;
+    console.log("Idea table initialized");
   } catch (error) {
     console.log("error from storage/idea/db.js", error);
   }

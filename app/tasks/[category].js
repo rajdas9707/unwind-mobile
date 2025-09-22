@@ -18,10 +18,9 @@ import {
   toggleTodoComplete,
   deleteTodoById,
   moveTaskToCarriedOver,
-} from "../../storage/todoDb";
+} from "../../storage/todo/db";
 // import { AuthContext } from "../../context/AuthProvider";
-import {checkNetworkStatus, useNetworkStatus} from "../../utils/networkUtils"
-
+import { checkNetworkStatus, useNetworkStatus } from "../../utils/networkUtils";
 
 const TaskItem = ({
   item,
@@ -95,8 +94,8 @@ export default function CategoryTasks() {
   const [newTask, setNewTask] = useState("");
   const [intention, setIntention] = useState("");
   const [editingTaskId, setEditingTaskId] = useState(null);
- // const {idToken}=useContext(AuthContext) // removed, now handled in client.js
- const isOnline=useNetworkStatus()
+  // const {idToken}=useContext(AuthContext) // removed, now handled in client.js
+  const isOnline = useNetworkStatus();
   const categoryColors = {
     "2-Minute": "#10B981",
     Urgent: "#EF4444",
@@ -160,7 +159,6 @@ export default function CategoryTasks() {
       // Try to sync if online
       if (isOnline && task.synced) {
         try {
-        
           await updateTodoAPI({
             id: task.serverId,
             title: task.title,
@@ -189,7 +187,7 @@ export default function CategoryTasks() {
       // Try to sync deletion if online and task was synced
       if (isOnline && task.synced) {
         try {
-  // idToken removed
+          // idToken removed
           await deleteTodo({ id: task.serverId });
         } catch (e) {
           console.log("Failed to sync task deletion:", e);
@@ -258,8 +256,6 @@ export default function CategoryTasks() {
 
     try {
       console.log("Adding new task:", { title: newTask.trim(), category });
-
-
 
       const createdAt = new Date().toISOString();
       const updatedAt = createdAt;

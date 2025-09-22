@@ -1,11 +1,10 @@
-import { getDb } from "./db";
+// db.js - Centralized database connection
 
-export async function initTodoDb() {
+import { openDB } from "../mainDb";
+
+export const initTodosTable = async () => {
   try {
-    console.log("Initializing todo database...");
-    const db = await getDb();
-    console.log("Database connection established");
-
+    const db = await openDB();
     // Create todos table first
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS todos (
@@ -55,17 +54,15 @@ export async function initTodoDb() {
       CREATE INDEX IF NOT EXISTS idx_carried_over_completed ON carried_over_todos(completed)
     `);
     console.log("Indexes created successfully");
+
     console.log("Todo database initialized successfully");
   } catch (error) {
     console.error("Error initializing todo database:", error);
-    // Reset connection on error
-    dbPromise = null;
-    throw error;
   }
-}
+};
 
 export async function listAllTodos() {
-  const db = await getDb();
+  const db = await openDB();
   const res = await db.getAllAsync(
     "SELECT id AS localId, title, description, category, priority, completed, due_date, created_at, updated_at FROM todos ORDER BY created_at DESC"
   );
@@ -73,7 +70,7 @@ export async function listAllTodos() {
 }
 
 export async function listTodosByCategory(category) {
-  const db = await getDb();
+  const db = await openDB();
   const res = await db.getAllAsync(
     "SELECT id AS localId, title, description, category, priority, completed, due_date, created_at, updated_at FROM todos WHERE category = ? ORDER BY created_at DESC",
     [category]
@@ -82,7 +79,7 @@ export async function listTodosByCategory(category) {
 }
 
 export async function listCarriedOverTodosByCategory(category) {
-  const db = await getDb();
+  const db = await openDB();
   const res = await db.getAllAsync(
     "SELECT id AS localId, original_task_id, title, description, category, priority, completed, due_date, original_created_at, carried_over_at, updated_at FROM carried_over_todos WHERE category = ? ORDER BY carried_over_at DESC",
     [category]
@@ -101,7 +98,7 @@ export async function insertLocalTodo({
 }) {
   try {
     console.log("Inserting local todo:", { title, category });
-    const db = await getDb();
+    const db = await openDB();
 
     const result = await db.runAsync(
       "INSERT INTO todos (title, description, category, priority, completed, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
@@ -142,7 +139,7 @@ export async function updateTodo({
   dueDate,
   updatedAt,
 }) {
-  const db = await getDb();
+  const db = await openDB();
   const result = await db.runAsync(
     "UPDATE todos SET title = ?, description = ?, category = ?, priority = ?, due_date = ?, updated_at = ? WHERE id = ?",
     [title, description, category, priority, dueDate, updatedAt, localId]
@@ -151,7 +148,7 @@ export async function updateTodo({
 }
 
 export async function toggleTodoComplete({ localId, completed, updatedAt }) {
-  const db = await getDb();
+  const db = await openDB();
   const result = await db.runAsync(
     "UPDATE todos SET completed = ?, updated_at = ? WHERE id = ?",
     [completed ? 1 : 0, updatedAt, localId]
@@ -160,14 +157,14 @@ export async function toggleTodoComplete({ localId, completed, updatedAt }) {
 }
 
 export async function deleteTodoById({ localId }) {
-  const db = await getDb();
+  const db = await openDB();
   await db.runAsync("DELETE FROM todos WHERE id = ?", [localId]);
 }
 
 export async function moveTaskToCarriedOver(taskId) {
   try {
     console.log("Moving task to carried over:", taskId);
-    const db = await getDb();
+    const db = await openDB();
 
     // Get the original task
     const originalTask = await db.getFirstAsync(
@@ -213,7 +210,7 @@ export async function moveTaskToCarriedOver(taskId) {
 export async function moveAllPendingTasksToCarriedOver() {
   try {
     console.log("Moving all pending tasks to carried over...");
-    const db = await getDb();
+    const db = await openDB();
 
     // Get all incomplete tasks
     const pendingTasks = await db.getAllAsync(
@@ -235,7 +232,7 @@ export async function moveAllPendingTasksToCarriedOver() {
 }
 
 export async function getTodoById(localId) {
-  const db = await getDb();
+  const db = await openDB();
   const res = await db.getFirstAsync(
     "SELECT id AS localId, title, description, category, priority, completed, due_date, created_at, updated_at FROM todos WHERE id = ?",
     [localId]
@@ -243,7 +240,6 @@ export async function getTodoById(localId) {
   return res;
 }
 
-// Daily cleanup function to move all pending tasks to carried over
 export async function performDailyCleanup() {
   try {
     console.log("Performing daily cleanup...");

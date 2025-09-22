@@ -1,16 +1,10 @@
 import * as SQLite from "expo-sqlite";
 import * as Notifications from "expo-notifications";
+import { openDB } from "../mainDb";
 
-// Database initialization
-let db = null;
-
-export const initDatabase = async () => {
+export const initwaterRemindersTable = async () => {
   try {
-    if (db) {
-      return db; // Already initialized
-    }
-
-    db = await SQLite.openDatabaseAsync("waterreminder.db");
+    db = await openDB();
 
     // Create reminders table with simple schema
     await db.execAsync(
@@ -40,25 +34,16 @@ export const initDatabase = async () => {
     );
 
     console.log("Water reminder database initialized successfully");
-    return db;
   } catch (error) {
     console.error("Error initializing database:", error);
     throw error;
   }
 };
 
-export const getDatabase = async () => {
-  if (!db) {
-    console.log("Database not initialized, initializing now...");
-    await initDatabase();
-  }
-  return db;
-};
-
 // Reminder CRUD operations
 export const createReminder = async (reminderData) => {
   try {
-    const database = await getDatabase();
+    const database = await openDB();
     const { startTime, endTime, intervalValue, intervalUnit, quantity } =
       reminderData;
     const currentTimestamp = new Date().toISOString();
@@ -86,7 +71,7 @@ export const createReminder = async (reminderData) => {
 
 export const getAllReminders = async () => {
   try {
-    const database = await getDatabase();
+    const database = await openDB();
     const reminders = await database.getAllAsync(
       "SELECT * FROM reminders WHERE is_active = 1 ORDER BY created_at DESC"
     );
@@ -99,7 +84,7 @@ export const getAllReminders = async () => {
 
 export const getReminderById = async (id) => {
   try {
-    const database = await getDatabase();
+    const database = await openDB();
     const reminder = await database.getFirstAsync(
       "SELECT * FROM reminders WHERE id = ? AND is_active = 1",
       [id]
@@ -113,7 +98,7 @@ export const getReminderById = async (id) => {
 
 export const updateReminder = async (id, reminderData) => {
   try {
-    const database = await getDatabase();
+    const database = await openDB();
     const { startTime, endTime, intervalValue, intervalUnit, quantity } =
       reminderData;
     const currentTimestamp = new Date().toISOString();
@@ -142,7 +127,7 @@ export const updateReminder = async (id, reminderData) => {
 
 export const deleteReminder = async (id) => {
   try {
-    const database = await getDatabase();
+    const database = await openDB();
 
     // Cancel all notifications for this reminder
     const checkpoints = await getCheckpointsByReminderId(id);
@@ -176,7 +161,7 @@ export const deleteReminder = async (id) => {
 // Checkpoint CRUD operations
 export const createCheckpoint = async (checkpointData) => {
   try {
-    const database = await getDatabase();
+    const database = await openDB();
     const { reminderId, checkpointTime, notificationId } = checkpointData;
 
     const result = await database.runAsync(
@@ -193,7 +178,7 @@ export const createCheckpoint = async (checkpointData) => {
 
 export const getCheckpointsByReminderId = async (reminderId) => {
   try {
-    const database = await getDatabase();
+    const database = await openDB();
     const checkpoints = await database.getAllAsync(
       "SELECT * FROM checkpoints WHERE reminder_id = ? ORDER BY checkpoint_time ASC",
       [reminderId]
@@ -207,7 +192,7 @@ export const getCheckpointsByReminderId = async (reminderId) => {
 
 export const updateCheckpointStatus = async (checkpointId, isCompleted) => {
   try {
-    const database = await getDatabase();
+    const database = await openDB();
     const completedAt = isCompleted ? new Date().toISOString() : null;
 
     await database.runAsync(
@@ -224,7 +209,7 @@ export const updateCheckpointStatus = async (checkpointId, isCompleted) => {
 
 export const deleteCheckpointsByReminderId = async (reminderId) => {
   try {
-    const database = await getDatabase();
+    const database = await openDB();
 
     // Get checkpoints to cancel notifications
     const checkpoints = await getCheckpointsByReminderId(reminderId);

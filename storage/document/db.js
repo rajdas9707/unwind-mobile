@@ -1,15 +1,9 @@
 import * as SQLite from "expo-sqlite";
-
+import { openDB } from "../mainDb";
 // open database asynchronously
-export const openDB = async () => {
+export const initDocumentsTable = async () => {
   try {
-    const db = await SQLite.openDatabaseAsync("docs.db", {
-      useNewConnection: true,
-    });
-
-    if (db) {
-      return db;
-    }
+    const db = await openDB();
 
     // create table
     await db.execAsync(`
@@ -22,8 +16,6 @@ export const openDB = async () => {
         lastOpenedAt DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
-
-    return db;
   } catch (error) {
     console.log("error from storage/document/db.js", error);
   }
