@@ -22,6 +22,7 @@ import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import { signup } from "../api/client";
 
 export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
@@ -65,11 +66,6 @@ export default function AuthScreen() {
           return;
         }
 
-        // console.log("userInfo", userCredential.user.displayName);
-        const token = await userCredential.user.getIdToken();
-
-
-
         await AsyncStorage.setItem(
           "userInfo",
           JSON.stringify({
@@ -78,6 +74,13 @@ export default function AuthScreen() {
             joinDate: new Date(userCredential.user.metadata.creationTime)
               .toISOString()
               .split("T")[0],
+
+            subscription: {
+              isActive: false,
+              plan: "trial",
+            },
+            trialStart: "25-05-2025",
+            trialEnd: "01-06-2025",
           })
         );
 
@@ -90,8 +93,17 @@ export default function AuthScreen() {
           password
         );
 
+        //update user in the backend with name,uid,email
+        const response = await signup({
+          uid: userCredential.user.uid,
+          email: userCredential.user.email,
+          name: name || "User",
+          trialStart: new Date().toISOString().split("T")[0],
+        });
+
         await updateProfile(userCredential.user, {
           displayName: name || "User",
+          isAccessAllowed: true,
         });
 
         // 🔑 Reload the user to apply changes

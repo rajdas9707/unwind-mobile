@@ -4,9 +4,9 @@ import { View, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useNetworkStatus } from "../utils/networkUtils";
+import { getProfile } from "../api/client";
 
 export const AuthContext = createContext();
-
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -14,17 +14,26 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const isOnline = useNetworkStatus();
 
+  const fetchUserDetailsFromBackend = async () => {
+    getProfile({ uid: auth.currentUser.uid })
+      .then((data) => {
+        console.log("Fetched user details from backend:", data);
+        setUser(data.user); // Assuming backend returns user details in data.user
+      })
+      .catch((error) => {
+        console.log("Error fetching user details from backend:", error);
+      });
+  };
+  useEffect(() => {
+    if (isOnline && auth.currentUser) {
+      fetchUserDetailsFromBackend();
+    }
+  }, [isOnline]);
 
   useEffect(() => {
     const fetchAndSetToken = async () => {
       try {
-       
         let userInfo = await AsyncStorage.getItem("userInfo");
-       
-        
-
-
-   
         setUser(userInfo);
         setLoading(false);
       } catch (error) {
@@ -38,7 +47,6 @@ export const AuthProvider = ({ children }) => {
 
   // Optionally, expose a manual refreshToken function if needed
 
-
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -48,8 +56,6 @@ export const AuthProvider = ({ children }) => {
   }
 
   return (
-  <AuthContext.Provider value={{ user }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={{ user }}>{children}</AuthContext.Provider>
   );
 };

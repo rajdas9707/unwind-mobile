@@ -1,6 +1,6 @@
 // Lightweight API client for authorized requests to the backend
 import axios from "axios";
-import { auth } from "../firebaseConfig";
+import { auth } from "../";
 import { Alert } from "react-native";
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || "http://192.168.29.225:5000";
@@ -10,60 +10,30 @@ const client = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-export async function signup({ uid, email, name, trialStart }) {
-  console.log("Signup called with:", { uid, email, name, trialStart });
-  const body = JSON.stringify({ uid, email, name, trialStart });
+export async function authorizedFetch(path, options = {}, idToken) {
+  // Auto-attach Firebase ID token if available
+  let token = idToken;
   try {
-    const response = await client.post(`/api/auth/signup`, body, {});
-    console.log("Signup response:", response.data);
-    return response.data;
-  } catch (error) {
-    console.log("Signup error:", error.response?.data || error.message);
-    throw error;
-  }
-}
-
-export async function getProfile({ uid }) {
-  await authorizedFetch(`/api/auth/profile`, { method: "GET" });
-
-  const params = new URLSearchParams();
-  if (uid) params.set("uid", uid);
-
-  const qs = params.toString() ? `?${params.toString()}` : "";
-  // console.log("qs", qs);
-
-  const result = await authorizedFetch(`/api/journal${qs}`, { method: "GET" });
-
-  return result.data;
-}
-
-export async function authorizedFetch(path, options = {}) {
-  let token;
-  try {
-    console.log("currentuser", await auth.currentUser);
-    token = await auth.currentUser.getIdToken();
-  } catch (error) {
-    console.log("Failed to retrieve authentication token", error);
+    if (!token && auth?.currentUser) {
+      token = await auth.currentUser.getIdToken();
+    }
+  } catch {
     Alert.alert(
       "Authentication Error",
       "Failed to retrieve authentication token. Please log in again."
     );
-    // throw new Error("Failed to retrieve authentication token");
+    throw new Error("Failed to retrieve authentication token");
   }
-  if (!token) {
-    console.log("No authentication token available");
-    Alert.alert(
-      "Authentication Error",
-      "No authentication token available. Please log in again."
-    );
-    return;
-  }
+
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
 
-  headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const method = (options.method || "GET").toLowerCase();
   let data;
   if (typeof options.body === "string") {
@@ -92,53 +62,15 @@ export async function authorizedFetch(path, options = {}) {
       (payload && (payload.error || payload.message)) ||
       error?.message ||
       (status ? `Request failed with ${status}` : "Network request failed");
-    console.log(message);
+    throw new Error(message);
   }
 }
 
 export { API_BASE_URL };
 
 // Journal endpoints
-export async function listJournalEntries({ date, page = 1, limit = 50 } = {}) {
-  const params = new URLSearchParams();
-  if (date) params.set("date", date);
-  if (page) params.set("page", String(page));
-  if (limit) params.set("limit", String(limit));
-  const qs = params.toString() ? `?${params.toString()}` : "";
-  console.log("qs", qs);
-
-  const result = await authorizedFetch(`/api/journal${qs}`, { method: "GET" });
-
-  return result.data;
-}
-
-export async function createJournalEntry({ content, date, tags, mood }) {
-  // console.log("createJournalEntry called with:", { content, date, tags, mood });
-  const body = JSON.stringify({ content, date, tags, mood });
-  // console.log("Request body:", body);
-
-  try {
-    const result = await authorizedFetch(`/api/journal`, {
-      method: "POST",
-      body,
-    });
-    console.log("createJournalEntry result:", result);
-    if (result.status !== 201) {
-      console.log(`Unexpected response status: ${result.status}`);
-    }
-
-    return result.data;
-  } catch (error) {
-    console.log("createJournalEntry error:", error);
-  }
-}
-
-export async function deleteJournalEntry({ id }) {
-  return authorizedFetch(`/api/journal/${id}`, { method: "DELETE" });
-}
-
-// Overthinking endpoints
-export async function listOverthinkingEntries({
+export async function listJournalEntries({
+  idToken,
   date,
   page = 1,
   limit = 50,
@@ -148,10 +80,71 @@ export async function listOverthinkingEntries({
   if (page) params.set("page", String(page));
   if (limit) params.set("limit", String(limit));
   const qs = params.toString() ? `?${params.toString()}` : "";
-  return authorizedFetch(`/api/overthinking${qs}`, { method: "GET" });
+  console.log("qs", qs);
+
+  const result = await authorizedFetch(
+    `/api/journal${qs}`,
+    { method: "GET" },
+    idToken
+  );
+  
+  return result.data;
 }
 
-export async function createOverthinkingEntry({ thought, solution, date }) {
+export async function createJournalEntry({
+  idToken,
+  content,
+  date,
+  tags,
+  mood,
+}) {
+  console.log("createJournalEntry called with:", { content, date, tags, mood });
+  const body = JSON.stringify({ content, date, tags, mood });
+  console.log("Request body:", body);
+
+  try {
+    const result = await authorizedFetch(
+      `/api/journal`,
+      { method: "POST", body },
+      idToken
+    );
+    console.log("createJournalEntry result:", result);
+    if (result.status !== 201) {
+      throw new Error(`Unexpected response status: ${result.status}`);
+    }
+
+    return result.data;
+  } catch (error) {
+    console.log("createJournalEntry error:", error);
+    throw error;
+  }
+}
+
+export async function deleteJournalEntry({ idToken, id }) {
+  return authorizedFetch(`/api/journal/${id}`, { method: "DELETE" }, idToken);
+}
+
+// Overthinking endpoints
+export async function listOverthinkingEntries({
+  idToken,
+  date,
+  page = 1,
+  limit = 50,
+} = {}) {
+  const params = new URLSearchParams();
+  if (date) params.set("date", date);
+  if (page) params.set("page", String(page));
+  if (limit) params.set("limit", String(limit));
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return authorizedFetch(`/api/overthinking${qs}`, { method: "GET" }, idToken);
+}
+
+export async function createOverthinkingEntry({
+  idToken,
+  thought,
+  solution,
+  date,
+}) {
   const body = JSON.stringify({ thought, solution, date });
   console.log("createOverthinkingEntry called with: client.js ", {
     thought,
@@ -159,10 +152,11 @@ export async function createOverthinkingEntry({ thought, solution, date }) {
     date,
   });
   try {
-    const result = await authorizedFetch(`/api/overthinking`, {
-      method: "POST",
-      body,
-    });
+    const result = await authorizedFetch(
+      `/api/overthinking`,
+      { method: "POST", body },
+      idToken
+    );
 
     console.log("createoverthinking result:", result);
     if (result.status !== 201) {
@@ -176,21 +170,31 @@ export async function createOverthinkingEntry({ thought, solution, date }) {
   }
 }
 
-export async function deleteOverthinkingEntry({ id }) {
-  return authorizedFetch(`/api/overthinking/${id}`, { method: "DELETE" });
+export async function deleteOverthinkingEntry({ idToken, id }) {
+  return authorizedFetch(
+    `/api/overthinking/${id}`,
+    { method: "DELETE" },
+    idToken
+  );
 }
 
 // Mistakes endpoints
-export async function listMistakesEntries({ date, page = 1, limit = 50 } = {}) {
+export async function listMistakesEntries({
+  idToken,
+  date,
+  page = 1,
+  limit = 50,
+} = {}) {
   const params = new URLSearchParams();
   if (date) params.set("date", date);
   if (page) params.set("page", String(page));
   if (limit) params.set("limit", String(limit));
   const qs = params.toString() ? `?${params.toString()}` : "";
-  return authorizedFetch(`/api/mistakes${qs}`, { method: "GET" });
+  return authorizedFetch(`/api/mistakes${qs}`, { method: "GET" }, idToken);
 }
 
 export async function createMistakeEntry({
+  idToken,
   mistake,
   solution,
   category,
@@ -198,10 +202,11 @@ export async function createMistakeEntry({
 }) {
   const body = JSON.stringify({ mistake, solution, category, date });
   try {
-    const result = await authorizedFetch(`/api/mistakes`, {
-      method: "POST",
-      body,
-    });
+    const result = await authorizedFetch(
+      `/api/mistakes`,
+      { method: "POST", body },
+      idToken
+    );
     console.log("createMistakeEntry result:", result);
 
     if (result.status !== 201) {
@@ -215,21 +220,27 @@ export async function createMistakeEntry({
   }
 }
 
-export async function deleteMistakeEntry({ id }) {
-  return authorizedFetch(`/api/mistakes/${id}`, { method: "DELETE" });
+export async function deleteMistakeEntry({ idToken, id }) {
+  return authorizedFetch(`/api/mistakes/${id}`, { method: "DELETE" }, idToken);
 }
 
 // Todo endpoints
-export async function listTodos({ category, page = 1, limit = 50 } = {}) {
+export async function listTodos({
+  idToken,
+  category,
+  page = 1,
+  limit = 50,
+} = {}) {
   const params = new URLSearchParams();
   if (category) params.set("category", category);
   if (page) params.set("page", String(page));
   if (limit) params.set("limit", String(limit));
   const qs = params.toString() ? `?${params.toString()}` : "";
-  return authorizedFetch(`/api/todos${qs}`, { method: "GET" });
+  return authorizedFetch(`/api/todos${qs}`, { method: "GET" }, idToken);
 }
 
 export async function createTodo({
+  idToken,
   title,
   description,
   category,
@@ -243,10 +254,11 @@ export async function createTodo({
     priority,
     dueDate,
   });
-  return authorizedFetch(`/api/todos`, { method: "POST", body });
+  return authorizedFetch(`/api/todos`, { method: "POST", body }, idToken);
 }
 
 export async function updateTodo({
+  idToken,
   id,
   title,
   description,
@@ -263,9 +275,9 @@ export async function updateTodo({
     dueDate,
     completed,
   });
-  return authorizedFetch(`/api/todos/${id}`, { method: "PUT", body });
+  return authorizedFetch(`/api/todos/${id}`, { method: "PUT", body }, idToken);
 }
 
-export async function deleteTodo({ id }) {
-  return authorizedFetch(`/api/todos/${id}`, { method: "DELETE" });
+export async function deleteTodo({ idToken, id }) {
+  return authorizedFetch(`/api/todos/${id}`, { method: "DELETE" }, idToken);
 }
