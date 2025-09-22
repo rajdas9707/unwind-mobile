@@ -10,7 +10,6 @@ import {
   StatusBar,
   Platform,
   Animated,
-  ScrollView
 } from "react-native";
 import {
   Feather,
@@ -111,34 +110,23 @@ export default function Document() {
             </View>
 
             {/* Tabs */}
-            <View style={{ marginVertical: 16 }}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tabsScroll}
-              >
-                {["All", "Bank", "Work", "Personal", "ID"].map((t) => {
-                  const active = activeTab === t;
-                  return (
-                    <TouchableOpacity
-                      key={t}
-                      style={[
-                        styles.tabItem,
-                        active && styles.tabActive,
-                        { shadowColor: active ? '#667eea' : 'transparent', shadowOpacity: active ? 0.15 : 0, shadowRadius: 6, elevation: active ? 3 : 0 }
-                      ]}
-                      onPress={() => filterDocs(t)}
-                      activeOpacity={0.85}
+            <View style={styles.tabs}>
+              {["All", "Bank", "Work", "Personal", "ID"].map((t) => {
+                const active = activeTab === t;
+                return (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.tabItem, active && styles.tabActive]}
+                    onPress={() => filterDocs(t)}
+                  >
+                    <Text
+                      style={[styles.tabText, active && styles.tabTextActive]}
                     >
-                      <Text
-                        style={[styles.tabText, active && styles.tabTextActive]}
-                      >
-                        {t}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+                      {t}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Cards */}
@@ -224,11 +212,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 12,
     borderBottomRightRadius: 12,
   },
-  tabsScroll: {
+  tabs: {
     flexDirection: "row",
+    marginVertical: 16,
     alignItems: "center",
     paddingHorizontal: 4,
-    gap: 0,
   },
   tabItem: {
     marginRight: 12,

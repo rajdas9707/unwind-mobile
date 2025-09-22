@@ -1,8 +1,7 @@
-
-import * as FileSystem from "expo-file-system/legacy";
+import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
 
 const appDocsDir = `${FileSystem.documentDirectory}docs/`;
-
 
 export const ensureDocsDir = async () => {
   try {
@@ -11,7 +10,6 @@ export const ensureDocsDir = async () => {
     // directory may already exist; ignore specific EEXIST-like errors
   }
 };
-
 
 export const saveFiles = async ({ files = [], fileLabel = "doc", docId }) => {
   try {
@@ -24,7 +22,8 @@ export const saveFiles = async ({ files = [], fileLabel = "doc", docId }) => {
       const ext = extIdx !== -1 ? uri.substring(extIdx) : ".jpg";
       const uniqueName = `${fileLabel}_${docId || "tmp"}_${Date.now()}${ext}`;
       const dest = `${appDocsDir}${uniqueName}`;
-      await FileSystem.copyAsync({ from: uri, to: dest });
+      // Use new File API for copying
+      await File.copyAsync(uri, dest);
       saved.push(dest);
     }
     return saved;
