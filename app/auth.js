@@ -17,12 +17,18 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  ScrollView,
+  Button
 } from "react-native";
+import CheckBox from "../components/auth/checkbox";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { signup } from "../api/client";
+import { TERMS_AND_CONDITIONS } from "../TermsAndConditions";
+
 
 export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
@@ -31,8 +37,29 @@ export default function AuthScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+    const [isChecked, setIsChecked] = useState(true);
+  const [isModalVisible, setModalVisible] = useState(false);
+   const toggleModal = () => setModalVisible(!isModalVisible);
+
+
+    const handleAccept = () => {
+      console.log('clickefd')
+    setIsChecked(true);
+   setModalVisible(false);
+  };
+
+  const handleReject = () => {
+    setIsChecked(false);
+    setModalVisible(false);
+  };
+
 
   const handleSubmit = async () => {
+
+     if (!isChecked) {
+     Alert.alert("You must accept Terms & Conditions to sign up.");
+      return;
+    }
     if (!email || !password) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
@@ -187,7 +214,7 @@ export default function AuthScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
-        </View>
+  </View>
 
         <View style={styles.inputContainer}>
           <Ionicons name="lock-closed-outline" size={20} color="#6B7280" />
@@ -221,6 +248,17 @@ export default function AuthScreen() {
           </TouchableOpacity>
         )}
 
+     {!isLogin && <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+        <CheckBox
+          value={isChecked}
+          onValueChange={setIsChecked}
+        />
+        <Text style={{ color: "#FFFFFF", textAlign: "right", marginLeft: 10}}>I agree to the </Text>
+        <TouchableOpacity onPress={toggleModal}>
+          <Text style={{ color: 'blue', textDecorationLine: 'underline' }}>Terms & Conditions</Text>
+        </TouchableOpacity>
+      </View>}
+
         <TouchableOpacity
           style={styles.submitButton}
           onPress={handleSubmit}
@@ -241,6 +279,32 @@ export default function AuthScreen() {
               : "Already have an account? Sign in"}
           </Text>
         </TouchableOpacity>
+
+            {/* Terms Modal */}
+      <Modal
+        visible={isModalVisible}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Terms & Conditions</Text>
+            </View>
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.termsText}>{TERMS_AND_CONDITIONS}</Text>
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalButton, styles.rejectButton]} onPress={handleReject}>
+                <Text style={styles.rejectButtonText}>Reject</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, styles.acceptButton]} onPress={handleAccept}>
+                <Text style={styles.acceptButtonText}>Accept</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       </View>
     </KeyboardAvoidingView>
   );
@@ -288,4 +352,75 @@ const styles = StyleSheet.create({
   submitButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
   switchButton: { alignItems: "center" },
   switchButtonText: { color: "#9CA3AF", fontSize: 14 },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingBottom: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+    letterSpacing: 0.5,
+  },
+  modalContent: {
+    marginBottom: 18,
+    maxHeight: 300,
+  },
+  termsText: {
+    fontSize: 15,
+    color: '#374151',
+    lineHeight: 22,
+    textAlign: 'justify',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 6,
+  },
+  acceptButton: {
+    backgroundColor: '#22C55E',
+  },
+  rejectButton: {
+    backgroundColor: '#EF4444',
+  },
+  acceptButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  rejectButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
 });
