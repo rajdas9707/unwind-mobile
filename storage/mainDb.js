@@ -42,7 +42,7 @@ export const openDB = async () => {
 // Initialize database with tables and indexes
 const initializeDatabase = async () => {
   try {
-    console.log("📖 Initializing journal database...");
+    console.log("📖 Initializing unwind database...");
 
     // Close any existing connections first
     if (dbInstance) {

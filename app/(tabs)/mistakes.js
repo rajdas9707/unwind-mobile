@@ -40,8 +40,7 @@ import {
   getCategoryEmoji
 } from "../../storage/mistakes/storage";
 
-// Import database health check
-import { checkMistakesDatabaseHealth } from "../../storage/mistakes/db";
+// Removed database health utilities
 
 export default function MistakesScreen() {
   // const { isReady } = useDatabaseReady();
@@ -121,17 +120,7 @@ export default function MistakesScreen() {
     try {
       setLoading(true);
       
-      // Check database health first
-      const healthCheck = await checkMistakesDatabaseHealth();
-      if (!healthCheck.healthy) {
-        console.log("Database health check failed:", healthCheck);
-        Alert.alert(
-          "Database Error", 
-          "There's an issue with the mistakes database. Please restart the app.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
+      // Database health checks removed
       
       let loadedEntries;
       

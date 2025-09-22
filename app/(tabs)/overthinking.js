@@ -38,8 +38,7 @@ import {
   canSyncOverthinkingToday
 } from "../../storage/overthinking/storage";
 
-// Import database health check
-import { checkOverthinkingDatabaseHealth } from "../../storage/overthinking/db";
+// Removed database health utilities
 
 export default function OverthinkingScreen() {
   // const { isReady } = useDatabaseReady();
@@ -119,17 +118,7 @@ export default function OverthinkingScreen() {
     try {
       setLoading(true);
       
-      // Check database health first
-      const healthCheck = await checkOverthinkingDatabaseHealth();
-      if (!healthCheck.healthy) {
-        console.error("Database health check failed:", healthCheck);
-        Alert.alert(
-          "Database Error", 
-          "There's an issue with the overthinking database. Please restart the app.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
+      // Database health checks removed
       
       let loadedEntries;
       

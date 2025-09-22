@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useContext } from "react";
 import {
   View,
   Text,
@@ -31,16 +31,18 @@ import {
   calculateCheckpoints,
   getCurrentTime,
 } from "../../storage/waterreminder/storage.js";
-import { initTable } from "../../storage/initTable.js";
+import { AuthContext } from "../../context/AuthProvider.js";
+// initTable is now called once in tabs layout startup
 
 const { width } = Dimensions.get("window");
 
 export default function IdeaScreen() {
+  const { user } = useContext(AuthContext);
   const capitalize = (str) => {
     if (!str) return "";
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
-  const [userInfo, setUserInfo] = useState({});
+  // const [userInfo, setUserInfo] = useState({});
   const [taskCount, setTaskCount] = useState(0);
 
   // Water reminder states
@@ -182,49 +184,6 @@ export default function IdeaScreen() {
       description: "Practices for present-moment awareness",
     },
   ];
-
-  const loadData = async () => {
-    try {
-      // Load user info
-      const storedUserInfo = await AsyncStorage.getItem("userInfo");
-      if (storedUserInfo) {
-        const parsed = JSON.parse(storedUserInfo);
-        setUserInfo(parsed);
-      }
-
-      // Load task count
-      const tasks = await AsyncStorage.getItem("tasks");
-      if (tasks) {
-        const parsedTasks = JSON.parse(tasks);
-        const totalCompleted = Object.values(parsedTasks)
-          .flat()
-          .filter((t) => t.completed).length;
-        setTaskCount(totalCompleted);
-      }
-
-      // Test and load water reminders
-      const testResult = await testDatabase();
-      if (testResult.success) {
-        const reminders = await getAllReminders();
-        setWaterReminders(reminders);
-      } else {
-        console.error("Database test failed:", testResult.error);
-        setWaterReminders([]);
-      }
-    } catch (error) {
-      console.error("Error loading data:", error);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      async function loadAndInit() {
-        await loadData();
-        await initTable();
-      }
-      loadAndInit();
-    }, [])
-  );
 
   const animateFAB = () => {
     Animated.sequence([
@@ -445,7 +404,7 @@ export default function IdeaScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.greeting}>{`Good morning ${capitalize(
-            userInfo?.name
+            user?.name
           )} !`}</Text>
           <Text style={styles.subtitle}>How are you feeling today?</Text>
         </View>

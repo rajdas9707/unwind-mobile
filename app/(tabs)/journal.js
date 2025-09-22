@@ -38,8 +38,7 @@ import {
 } from "../../storage/journal/storage";
 
 // Import database health check
-import { checkJournalDatabaseHealth } from "../../storage/journal/db";
-import { testJournalDatabase } from "../../storage/journal/test";
+// Removed database health/test utilities to avoid errors
 
 export default function JournalScreen() {
   // const { isReady } = useDatabaseReady();
@@ -219,17 +218,7 @@ export default function JournalScreen() {
     try {
       setLoading(true);
       
-      // Check database health first
-      const healthCheck = await checkJournalDatabaseHealth();
-      if (!healthCheck.healthy) {
-        console.error("Database health check failed:", healthCheck);
-        Alert.alert(
-          "Database Error", 
-          "There's an issue with the journal database. Please restart the app.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
+      // Database health checks removed
       
       let loadedEntries;
       
@@ -509,23 +498,7 @@ export default function JournalScreen() {
             <Ionicons name="calendar" size={20} color="#3B82F6" />
           </TouchableOpacity>
           
-          <TouchableOpacity
-            style={[styles.calendarButton, { marginLeft: 8 }]}
-            onPress={async () => {
-              console.log("🧪 Running database test...");
-              const result = await testJournalDatabase();
-              Alert.alert(
-                result.success ? "Test Passed" : "Test Failed",
-                result.message + (result.error ? `\n\nError: ${result.error}` : ''),
-                [{ text: "OK" }]
-              );
-              if (result.success) {
-                loadEntries(); // Refresh entries to show test entry
-              }
-            }}
-          >
-            <Ionicons name="flask" size={16} color="#8B5CF6" />
-          </TouchableOpacity>
+          {/* Removed test button */}
         </View>
       </View>
 

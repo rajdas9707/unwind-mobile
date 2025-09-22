@@ -12,13 +12,13 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  listTodosByCategory,
-  insertLocalTodo,
-  updateTodo,
-  toggleTodoComplete,
-  deleteTodoById,
-  moveTaskToCarriedOver,
-} from "../../storage/todo/db";
+  fetchTodosByCategory,
+  createTodoEntryLocal,
+  updateTodoEntryLocal,
+  toggleTodoCompleteLocal,
+  deleteTodoEntryLocal,
+  moveTaskToCarriedOverLocal,
+} from "../../storage/todo/storage";
 // import { AuthContext } from "../../context/AuthProvider";
 import { checkNetworkStatus, useNetworkStatus } from "../../utils/networkUtils";
 
@@ -114,7 +114,7 @@ export default function CategoryTasks() {
   const loadTasks = async () => {
     try {
       console.log(`Loading tasks for category: ${category}`);
-      const categoryTasks = await listTodosByCategory(category);
+      const categoryTasks = await fetchTodosByCategory(category);
       // Filter for incomplete tasks
       // const incompleteTasks = categoryTasks.filter((task) => !task.completed);
       setTasks(categoryTasks);
@@ -125,7 +125,7 @@ export default function CategoryTasks() {
 
   const moveToCarriedOver = async (taskId) => {
     try {
-      await moveTaskToCarriedOver(taskId);
+      await moveTaskToCarriedOverLocal(taskId);
       await loadTasks();
       Alert.alert("Task Moved", "Task has been moved to carried over tasks.", [
         { text: "OK" },
@@ -142,16 +142,14 @@ export default function CategoryTasks() {
 
   const toggleTaskCompletion = async (taskId) => {
     try {
-      const task = tasks.find((t) => t.localId === taskId);
+      const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
       const newCompleted = !task.completed;
-      const updatedAt = new Date().toISOString();
 
-      await toggleTodoComplete({
-        localId: taskId,
+      await toggleTodoCompleteLocal({
+        id: taskId,
         completed: newCompleted,
-        updatedAt,
       });
 
       await loadTasks();
@@ -160,12 +158,12 @@ export default function CategoryTasks() {
       if (isOnline && task.synced) {
         try {
           await updateTodoAPI({
-            id: task.serverId,
+            id: task.server_id,
             title: task.title,
             description: task.description,
             category: task.category,
             priority: task.priority,
-            dueDate: task.dueDate,
+            dueDate: task.due_date,
             completed: newCompleted,
           });
         } catch (e) {
@@ -179,16 +177,16 @@ export default function CategoryTasks() {
 
   const deleteTask = async (taskId) => {
     try {
-      const task = tasks.find((t) => t.localId === taskId);
+      const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
-      await deleteTodoById({ localId: taskId, serverId: task.serverId });
+      await deleteTodoEntryLocal(taskId);
 
       // Try to sync deletion if online and task was synced
       if (isOnline && task.synced) {
         try {
           // idToken removed
-          await deleteTodo({ id: task.serverId });
+          await deleteTodo({ id: task.server_id });
         } catch (e) {
           console.log("Failed to sync task deletion:", e);
         }
@@ -202,15 +200,13 @@ export default function CategoryTasks() {
 
   const dumpTask = async (taskId) => {
     try {
-      const task = tasks.find((t) => t.localId === taskId);
+      const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
       // Mark task as completed (dumped)
-      const updatedAt = new Date().toISOString();
-      await toggleTodoComplete({
-        localId: taskId,
+      await toggleTodoCompleteLocal({
+        id: taskId,
         completed: true,
-        updatedAt,
       });
 
       await loadTasks();
@@ -220,7 +216,7 @@ export default function CategoryTasks() {
   };
 
   const openEditModal = (task) => {
-    setEditingTaskId(task.localId);
+    setEditingTaskId(task.id);
     setNewTask(task.title);
     setIntention(task.description || "");
     setModalVisible(true);
@@ -230,15 +226,12 @@ export default function CategoryTasks() {
     if (!newTask.trim()) return;
 
     try {
-      const updatedAt = new Date().toISOString();
-      await updateTodo({
-        localId: editingTaskId,
+      await updateTodoEntryLocal({
+        id: editingTaskId,
         title: newTask.trim(),
         description: intention.trim(),
         category,
         priority: "medium",
-        dueDate: null,
-        updatedAt,
       });
 
       await loadTasks();
@@ -257,17 +250,11 @@ export default function CategoryTasks() {
     try {
       console.log("Adding new task:", { title: newTask.trim(), category });
 
-      const createdAt = new Date().toISOString();
-      const updatedAt = createdAt;
-
-      const newTaskObj = await insertLocalTodo({
+      const newTaskObj = await createTodoEntryLocal({
         title: newTask.trim(),
         description: intention.trim(),
         category,
         priority: "medium",
-        dueDate: null,
-        createdAt,
-        updatedAt,
       });
 
       setNewTask("");
@@ -345,7 +332,7 @@ export default function CategoryTasks() {
             openEditModal={openEditModal}
           />
         )}
-        keyExtractor={(item) => item.localId.toString()}
+        keyExtractor={(item) => item.id.toString()}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons

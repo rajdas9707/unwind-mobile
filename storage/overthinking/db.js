@@ -22,6 +22,37 @@ export const initOverthinkingsTable = async () => {
       );
     `);
 
+    // Lightweight migration: add any missing columns from older schemas
+    try {
+      const columns = await db.getAllAsync("PRAGMA table_info(overthinking)");
+      const columnNames = new Set(columns.map((c) => c.name));
+
+      const addColumnIfMissing = async (name, typeAndDefault) => {
+        if (!columnNames.has(name)) {
+          await db.execAsync(
+            `ALTER TABLE overthinking ADD COLUMN ${name} ${typeAndDefault};`
+          );
+        }
+      };
+
+      // Ensure required columns exist
+      await addColumnIfMissing("created_at", "TEXT");
+      await addColumnIfMissing("updated_at", "TEXT");
+      await addColumnIfMissing("synced", "INTEGER NOT NULL DEFAULT 0");
+      await addColumnIfMissing("server_id", "TEXT");
+      await addColumnIfMissing("server_meta", "TEXT");
+      await addColumnIfMissing("dumped", "INTEGER NOT NULL DEFAULT 0");
+
+      // Backfill timestamps if they were just added or are null
+      const nowIso = new Date().toISOString();
+      await db.runAsync(
+        "UPDATE overthinking SET created_at = COALESCE(created_at, ?), updated_at = COALESCE(updated_at, ?) WHERE created_at IS NULL OR updated_at IS NULL",
+        [nowIso, nowIso]
+      );
+    } catch (migErr) {
+      console.warn("⚠️ Overthinking table migration warning:", migErr);
+    }
+
     // Create index for faster queries
     await db.execAsync(`
       CREATE INDEX IF NOT EXISTS idx_overthinking_created_at ON overthinking(created_at);
@@ -202,8 +233,9 @@ export const markOverthinkingEntrySynced = async ({
 export const getUnsyncedOverthinkingEntries = async () => {
   try {
     const db = await openDB();
+    // Use COALESCE to avoid errors if created_at is NULL in legacy rows
     const rows = await db.getAllAsync(
-      "SELECT * FROM overthinking WHERE synced = 0 ORDER BY created_at ASC"
+      "SELECT * FROM overthinking WHERE synced = 0 ORDER BY COALESCE(created_at, updated_at) ASC"
     );
 
     return rows.map((row) => ({

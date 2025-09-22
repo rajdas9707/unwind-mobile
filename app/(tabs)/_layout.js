@@ -1,7 +1,18 @@
+import React, { useEffect } from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { initTable } from "../../storage/initTable";
 
 export default function TabLayout() {
+  useEffect(() => {
+    (async () => {
+      try {
+        await initTable();
+      } catch (e) {
+        console.error("Failed to initialize database tables:", e);
+      }
+    })();
+  }, []);
   return (
     <Tabs
       screenOptions={{

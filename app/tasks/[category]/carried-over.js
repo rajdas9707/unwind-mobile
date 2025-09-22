@@ -12,11 +12,11 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  listCarriedOverTodosByCategory,
-  updateTodo,
-  toggleTodoComplete,
-  deleteTodoById,
-} from "../../../storage/todo/db";
+  fetchCarriedOverTodosByCategory,
+  updateTodoEntryLocal,
+  toggleTodoCompleteLocal,
+  deleteTodoEntryLocal,
+} from "../../../storage/todo/storage";
 // import runDatabaseTests from "../../../storage/testDb";
 
 const CarriedOverTaskItem = ({
@@ -126,43 +126,15 @@ export default function CarriedOverTasks() {
     setIsLoading(true);
     try {
       console.log(`Loading carried over tasks for category: ${category}`);
-      const categoryTasks = await listCarriedOverTodosByCategory(category);
+      const categoryTasks = await fetchCarriedOverTodosByCategory(category);
       setTasks(categoryTasks);
     } catch (error) {
       console.error("Error loading carried over tasks:", error);
-
-      // If it's a database connection error, try to reset and retry once
-      if (error.message && error.message.includes("NullPointerException")) {
-        console.log(
-          "Database connection error detected, attempting to reset and retry..."
-        );
-        try {
-          const reconnected = await forceReconnect();
-          if (reconnected) {
-            const categoryTasks = await listCarriedOverTodosByCategory(
-              category
-            );
-            setTasks(categoryTasks);
-          } else {
-            throw new Error("Failed to reconnect to database");
-          }
-        } catch (retryError) {
-          console.error("Retry failed:", retryError);
-          // Show user-friendly error message
-          Alert.alert(
-            "Database Error",
-            "Unable to load tasks. Please restart the app and try again.",
-            [{ text: "OK" }]
-          );
-        }
-      } else {
-        // Show user-friendly error message for other errors
-        Alert.alert(
-          "Error",
-          "Failed to load carried over tasks. Please try again.",
-          [{ text: "OK" }]
-        );
-      }
+      Alert.alert(
+        "Error",
+        "Failed to load carried over tasks. Please try again.",
+        [{ text: "OK" }]
+      );
     } finally {
       setIsLoading(false);
     }
@@ -170,16 +142,14 @@ export default function CarriedOverTasks() {
 
   const toggleTaskCompletion = async (taskId) => {
     try {
-      const task = tasks.find((t) => t.localId === taskId);
+      const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
       const newCompleted = !task.completed;
-      const updatedAt = new Date().toISOString();
 
-      await toggleTodoComplete({
-        localId: taskId,
+      await toggleTodoCompleteLocal({
+        id: taskId,
         completed: newCompleted,
-        updatedAt,
       });
 
       await loadTasks();
@@ -190,7 +160,7 @@ export default function CarriedOverTasks() {
 
   const deleteTask = async (taskId) => {
     try {
-      await deleteTodoById({ localId: taskId });
+      await deleteTodoEntryLocal(taskId);
       await loadTasks();
     } catch (error) {
       console.error("Error deleting task:", error);
@@ -198,7 +168,7 @@ export default function CarriedOverTasks() {
   };
 
   const openEditModal = (task) => {
-    setEditingTaskId(task.localId);
+    setEditingTaskId(task.id);
     setNewTask(task.title);
     setIntention(task.description || "");
     setModalVisible(true);
@@ -208,15 +178,12 @@ export default function CarriedOverTasks() {
     if (!newTask.trim()) return;
 
     try {
-      const updatedAt = new Date().toISOString();
-      await updateTodo({
-        localId: editingTaskId,
+      await updateTodoEntryLocal({
+        id: editingTaskId,
         title: newTask.trim(),
         description: intention.trim(),
         category,
         priority: "medium",
-        dueDate: null,
-        updatedAt,
       });
 
       await loadTasks();
@@ -297,7 +264,7 @@ export default function CarriedOverTasks() {
               openEditModal={openEditModal}
             />
           )}
-          keyExtractor={(item) => item.localId.toString()}
+          keyExtractor={(item) => item.id.toString()}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons
