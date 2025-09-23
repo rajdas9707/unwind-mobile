@@ -58,7 +58,7 @@ const initializeDatabase = async () => {
       enableChangeListener: false, // Disable change listener to prevent locks
     });
 
-     await runMigrations()
+     await runMigrations(db)
 
     console.log("✅ unwind database initialized successfully");
     return db;
@@ -72,9 +72,9 @@ const initializeDatabase = async () => {
 
 
 
-async function runMigrations() {
+async function runMigrations(db) {
   try {
-    const db=await openDB()
+  
  
   const result = await db.getFirstAsync("PRAGMA user_version");
   let currentVersion = result.user_version || 0;
@@ -86,7 +86,7 @@ async function runMigrations() {
 
   for (let i = currentVersion; i < migrations.length; i++) {
     console.log(`Running migration v${i + 1}`);
-    await migrations[i].migrate();
+    await migrations[i].migrate(db);
     await db.execAsync(`PRAGMA user_version = ${i + 1};`);
   }
 

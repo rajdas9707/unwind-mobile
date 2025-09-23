@@ -1,9 +1,9 @@
 import * as SQLite from "expo-sqlite";
 import { openDB } from "../mainDb";
 
-export const initTopicsTable = async () => {
+export const initTopicsTable = async (db) => {
   try {
-    const db = await openDB();
+    // const db = await openDB();
     // Create cards table
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS cards (

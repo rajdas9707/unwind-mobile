@@ -1,9 +1,9 @@
 import { openDB } from "../mainDb";
 
 // Initialize database with tables and indexes
-export const initTodosTable = async () => {
+export const initTodosTable = async (db) => {
   try {
-    const db = await openDB();
+    // const db = await openDB();
 
     // Create todos table with required schema
     await db.execAsync(`

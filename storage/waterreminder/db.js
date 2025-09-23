@@ -2,9 +2,9 @@ import * as SQLite from "expo-sqlite";
 import * as Notifications from "expo-notifications";
 import { openDB } from "../mainDb";
 
-export const initwaterRemindersTable = async () => {
+export const initwaterRemindersTable = async (db) => {
   try {
-    const db = await openDB();
+    // const db = await openDB();
 
     // Create reminders table with simple schema
     await db.execAsync(

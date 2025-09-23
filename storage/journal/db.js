@@ -1,9 +1,9 @@
 import { openDB } from "../mainDb";
 
 // Initialize database with tables and indexes
-export const initJournalsTable = async () => {
+export const initJournalsTable = async (db) => {
   try {
-    const db = await openDB();
+    // const db = await openDB();
 
     // Create journals table with required schema
     await db.execAsync(`

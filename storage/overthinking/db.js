@@ -2,10 +2,10 @@ import * as SQLite from "expo-sqlite";
 import { openDB } from "../mainDb";
 
 // Initialize database with tables and indexes
-export const initOverthinkingsTable = async () => {
+export const initOverthinkingsTable = async (db) => {
   try {
-    const db = await openDB();
-
+    // const db = await openDB();
+// 
     // Create overthinking table with required schema
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS overthinking (

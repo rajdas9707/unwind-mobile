@@ -9,20 +9,20 @@ import { initTodosTable } from "./todo/db";
 import { initTopicsTable } from "./topic/db";
 import { initwaterRemindersTable } from "./waterreminder/db";
 
-export const migrate = async () => {
+export const migrate = async (db) => {
   try {
 
     
     // Initialize all tables
-    await initBuyItemsTable();
-    await initDocumentsTable();
-    await initIdeasTable();
-    await initJournalsTable();
-    await initMistakesTable();
-    await initOverthinkingsTable();
-    await initTopicsTable();
-    await initwaterRemindersTable();
-    await initTodosTable();
+    await initBuyItemsTable(db);
+    await initDocumentsTable(db);
+    await initIdeasTable(db);
+    await initJournalsTable(db);
+    await initMistakesTable(db);
+    await initOverthinkingsTable(db);
+    await initTopicsTable(db);
+    await initwaterRemindersTable(db);
+    await initTodosTable(db);
 
     console.log("✅ All tables initialized");
   } catch (error) {

@@ -2,9 +2,9 @@ import * as SQLite from "expo-sqlite";
 import { openDB } from "../mainDb";
 
 // open database asynchronously
-export const initIdeasTable = async () => {
+export const initIdeasTable = async (db) => {
   try {
-    const db = await openDB();
+    // const db = await openDB();
 
     // create table
     await db.execAsync(`

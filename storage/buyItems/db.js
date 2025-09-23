@@ -1,9 +1,9 @@
 import * as SQLite from "expo-sqlite";
 import { openDB } from "../mainDb";
 
-export const initBuyItemsTable = async () => {
+export const initBuyItemsTable = async (db) => {
   try {
-    const db = await openDB();
+    // const db = await openDB();
 
     // Create shopping lists table
     await db.execAsync(`
