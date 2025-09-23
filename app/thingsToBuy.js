@@ -15,7 +15,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import storage from '../storage/buyItems/storage.js';
+import  { calculateCompletionPercentage, createList, deleteList, formatDate, getAllLists, getDefaultListName, updateList } from '../storage/buyItems/storage.js';
 
 const { width } = Dimensions.get('window');
 
@@ -33,7 +33,7 @@ export default function ThingsToBuy() {
   // Load lists from storage
   const loadLists = async () => {
     try {
-      const allLists = await storage.getAllLists();
+      const allLists = await getAllLists();
       setLists(allLists);
     } catch (error) {
       console.error('Error loading lists:', error);
@@ -65,11 +65,11 @@ export default function ThingsToBuy() {
   const handleCreateList = async () => {
     if (creating) return;
 
-    const listName = newListName.trim() || storage.getDefaultListName();
+    const listName = newListName.trim() || getDefaultListName();
     
     setCreating(true);
     try {
-      const listId = await storage.createList(listName);
+      const listId = await createList(listName);
       if (listId) {
         setModalVisible(false);
         setNewListName('');
@@ -109,7 +109,7 @@ export default function ThingsToBuy() {
 
     setUpdating(true);
     try {
-      const success = await storage.updateList(editingList.id, newListName);
+      const success = await updateList(editingList.id, newListName);
       if (success) {
         setEditModalVisible(false);
         setEditingList(null);
@@ -125,7 +125,7 @@ export default function ThingsToBuy() {
 
   // Delete list with confirmation
   const handleDeleteList = async (listId, listName) => {
-    const deleted = await storage.deleteList(listId);
+    const deleted = await deleteList(listId);
     if (deleted) {
       await loadLists();
     }
@@ -148,7 +148,7 @@ export default function ThingsToBuy() {
   // Get completion color
   const getCompletionColor = (totalItems, boughtItems) => {
     if (totalItems === 0) return '#9CA3AF';
-    const percentage = storage.calculateCompletionPercentage(totalItems, boughtItems);
+    const percentage = calculateCompletionPercentage(totalItems, boughtItems);
     if (percentage === 100) return '#10B981';
     if (percentage >= 50) return '#F59E0B';
     return '#EF4444';
@@ -156,7 +156,8 @@ export default function ThingsToBuy() {
 
   // Render list card
   const renderListCard = (list) => {
-    const completionPercentage = storage.calculateCompletionPercentage(list.total_items, list.bought_items);
+    const completionPercentage = 
+calculateCompletionPercentage(list.total_items, list.bought_items);
     const completionColor = getCompletionColor(list.total_items, list.bought_items);
     const completionText = getCompletionText(list.total_items, list.bought_items);
 
@@ -173,7 +174,8 @@ export default function ThingsToBuy() {
               {list.name}
             </Text>
             <Text style={styles.listDate}>
-              {storage.formatDate(list.created_at)}
+              {
+              formatDate(list.created_at)}
             </Text>
           </View>
           <View style={styles.listActions}>
@@ -313,7 +315,7 @@ export default function ThingsToBuy() {
               <Text style={styles.inputLabel}>List Name</Text>
               <TextInput
                 style={styles.textInput}
-                placeholder={storage.getDefaultListName()}
+                placeholder={getDefaultListName()}
                 value={newListName}
                 onChangeText={setNewListName}
                 maxLength={100}
