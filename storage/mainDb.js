@@ -1,3 +1,4 @@
+
 import * as SQLite from "expo-sqlite";
 
 // Singleton database connection
