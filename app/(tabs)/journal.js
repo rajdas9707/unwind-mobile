@@ -223,41 +223,42 @@ export default function JournalScreen() {
   // Load entries based on whether a date is selected or not
   const loadEntries = async () => {
 
-    console.log("loadentries function call")
+    console.log("loadentries function call");
     try {
       setLoading(true);
-
       let loadedEntries;
-
       if (selectedDate) {
+        console.log("Before fetchJournalsByDate");
         loadedEntries = await fetchJournalsByDate(selectedDate);
+        console.log("After fetchJournalsByDate");
       } else {
-        console.log("Loading recent entries");
+        console.log("Before fetchRecentJournalEntries");
         loadedEntries = await fetchRecentJournalEntries(10);
+        console.log("After fetchRecentJournalEntries", loadedEntries);
       }
-
+      console.log("Before setEntries");
       setEntries(loadedEntries || []);
-
-      // Await updateUnsyncedCount to ensure all async ops are handled
+      console.log("After setEntries");
+      console.log("Before updateUnsyncedCount");
       await updateUnsyncedCount();
-
+      console.log("After updateUnsyncedCount");
       console.log("loading entries check");
     } catch (error) {
       console.error("Error loading entries:", error);
-      // Check if it's a database lock error
       if (error && error.message && error.message.includes('database is locked')) {
         Alert.alert(
           "Database Busy",
           "The database is currently busy. Please try again in a moment.",
-          [{ text: "Retry", onPress: () => setTimeout(() => loadEntries(), 1000) }]
+          [{ text: "Retry", onPress: () => setTimeout(() =>  loadEntries(), 1000) }]
         );
       } else {
         Alert.alert("Error", "Failed to load journal entries: " + (error && error.message ? error.message : "Unknown error"));
       }
     } finally {
+      console.log("In finally block, about to setLoading(false)");
       setLoading(false);
       setTimeout(() => {
-        console.log('loading value in finally', loading);
+        console.log("After setLoading(false), loading state:", loading);
       }, 0);
     }
   };
@@ -435,7 +436,7 @@ export default function JournalScreen() {
             console.error("Error deleting entry:", error);
             Alert.alert("Error", "Failed to delete entry");
             // Refresh the list to show the entry again if deletion failed
-            loadEntries();
+            await loadEntries();
           }
         },
       },

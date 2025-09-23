@@ -80,11 +80,13 @@ async function runMigrations() {
   let currentVersion = result.user_version || 0;
 
   // List of all migrations in order
-  const migrations = [v1, v2, v3];
+  // v3 does not exist, only use v1 and v2
+  // const migrations = [v1, v2]; after new version addition
+  const migrations = [v1,v2];
 
   for (let i = currentVersion; i < migrations.length; i++) {
     console.log(`Running migration v${i + 1}`);
-    await migrations[i].migrate(db);
+    await migrations[i].migrate();
     await db.execAsync(`PRAGMA user_version = ${i + 1};`);
   }
 

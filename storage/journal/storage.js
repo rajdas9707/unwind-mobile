@@ -1,7 +1,8 @@
 import { Alert } from "react-native";
-import * as db from "./db";
+
 import { createJournalEntry, deleteJournalEntry } from "../../api/client";
 import { useNetworkStatus } from "../../utils/networkUtils";
+import { deleteJournalEntryById, getJournalEntriesByDate, getJournalEntriesCountForDate, getJournalEntryById, getRecentJournalEntries, getSyncAttemptsCountToday, getUnsyncedJournalEntries, insertJournalEntry, markJournalEntrySynced, updateJournalEntry } from "./db";
 
 // Business logic and validation layer for journal entries
 
@@ -57,7 +58,7 @@ export const createJournalEntryLocal = async ({ title, content }) => {
     
     // Check daily limit (3 entries per day)
     const today = new Date().toISOString().split('T')[0];
-    const todayCount = await db.getJournalEntriesCountForDate(today);
+    const todayCount = await getJournalEntriesCountForDate(today);
     
     if (todayCount >= 3) {
       throw new Error("You can only create 3 journal entries per day. Try again tomorrow!");
@@ -67,7 +68,7 @@ export const createJournalEntryLocal = async ({ title, content }) => {
     const now = new Date().toISOString();
     
     // Insert locally first
-    const localEntry = await db.insertJournalEntry({
+    const localEntry = await insertJournalEntry({
       title: validatedData.title,
       content: validatedData.content,
       created_at: now,
@@ -101,7 +102,7 @@ export const syncJournalEntryToServer = async ({ entry }) => {
     });
     
     // Mark as synced locally
-    const syncedEntry = await db.markJournalEntrySynced({
+    const syncedEntry = await markJournalEntrySynced({
       id: entry.id,
       server_id: serverEntry._id,
       server_meta: {
@@ -125,12 +126,12 @@ export const syncAllJournalEntries = async () => {
     // idToken removed, now handled in client.js
     
     // Check daily sync limit (3 syncs per day)
-    const todaySyncCount = await db.getSyncAttemptsCountToday();
+    const todaySyncCount = await getSyncAttemptsCountToday();
     if (todaySyncCount >= 3) {
       throw new Error("You can only sync 3 times per day. Try again tomorrow!");
     }
     
-    const unsyncedEntries = await db.getUnsyncedJournalEntries();
+    const unsyncedEntries = await getUnsyncedJournalEntries();
     
     if (unsyncedEntries.length === 0) {
       return { syncedCount: 0, failedCount: 0 };
@@ -166,7 +167,9 @@ export const syncAllJournalEntries = async () => {
 // Fetch recent journal entries with sentiment
 export const fetchRecentJournalEntries = async (limit = 10) => {
   try {
-    const entries = await db.getRecentJournalEntries(limit);
+    const entries = await getRecentJournalEntries(limit);
+
+    console.log("Recent entries fetched/storage/journal/storage.js:", entries);
     
     return entries.map(entry => ({
       ...entry,
@@ -184,7 +187,7 @@ export const fetchRecentJournalEntries = async (limit = 10) => {
 // Fetch journal entries by date with sentiment
 export const fetchJournalsByDate = async (date) => {
   try {
-    const entries = await db.getJournalEntriesByDate(date);
+    const entries = await getJournalEntriesByDate(date);
     
     return entries.map(entry => ({
       ...entry,
@@ -202,7 +205,7 @@ export const fetchJournalsByDate = async (date) => {
 // Get single journal entry by ID
 export const fetchJournalEntryById = async (id) => {
   try {
-    const entry = await db.getJournalEntryById(id);
+    const entry = await getJournalEntryById(id);
     
     if (!entry) return null;
     
@@ -222,7 +225,7 @@ export const updateJournalEntryLocal = async ({ id, title, content }) => {
     // Validate input
     const validatedData = validateJournalEntry(content, title);
     
-    const updatedEntry = await db.updateJournalEntry({
+    const updatedEntry = await updateJournalEntry({
       id,
       title: validatedData.title,
       content: validatedData.content,
@@ -243,7 +246,7 @@ export const updateJournalEntryLocal = async ({ id, title, content }) => {
 export const deleteJournalEntryLocal = async ({ entry }) => {
   try {
     // Delete from local database first
-    await db.deleteJournalEntryById(entry.id);
+    await deleteJournalEntryById(entry.id);
     
     // If entry was synced, also delete from server
     if (entry.synced && entry.server_id) {
@@ -264,7 +267,7 @@ export const deleteJournalEntryLocal = async ({ entry }) => {
 // Get unsynced entries count
 export const getUnsyncedCount = async () => {
   try {
-    const unsyncedEntries = await db.getUnsyncedJournalEntries();
+    const unsyncedEntries = await getUnsyncedJournalEntries();
     return unsyncedEntries.length;
   } catch (error) {
     console.error("Error getting unsynced count:", error);
@@ -276,7 +279,7 @@ export const getUnsyncedCount = async () => {
 export const canCreateEntryToday = async () => {
   try {
     const today = new Date().toISOString().split('T')[0];
-    const todayCount = await db.getJournalEntriesCountForDate(today);
+    const todayCount = await getJournalEntriesCountForDate(today);
     return todayCount < 3;
   } catch (error) {
     console.error("Error checking daily limit:", error);
@@ -287,7 +290,7 @@ export const canCreateEntryToday = async () => {
 // Check if user can sync today
 export const canSyncToday = async () => {
   try {
-    const todaySyncCount = await db.getSyncAttemptsCountToday();
+    const todaySyncCount = await getSyncAttemptsCountToday();
     return todaySyncCount < 3;
   } catch (error) {
     console.error("Error checking sync limit:", error);
