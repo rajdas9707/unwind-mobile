@@ -58,6 +58,8 @@ const initializeDatabase = async () => {
       enableChangeListener: false, // Disable change listener to prevent locks
     });
 
+     await runMigrations()
+
     console.log("✅ unwind database initialized successfully");
     return db;
   } catch (error) {
@@ -67,3 +69,26 @@ const initializeDatabase = async () => {
     throw error;
   }
 };
+
+
+
+async function runMigrations() {
+  try {
+    const db=await openDB()
+ 
+  const result = await db.getFirstAsync("PRAGMA user_version");
+  let currentVersion = result.user_version || 0;
+
+  // List of all migrations in order
+  const migrations = [v1, v2, v3];
+
+  for (let i = currentVersion; i < migrations.length; i++) {
+    console.log(`Running migration v${i + 1}`);
+    await migrations[i].migrate(db);
+    await db.execAsync(`PRAGMA user_version = ${i + 1};`);
+  }
+
+   } catch (error) {
+    console.log("error from mainDB/RUNMIGRATION.js",error);
+  }
+}

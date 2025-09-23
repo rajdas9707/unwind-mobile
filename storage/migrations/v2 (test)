@@ -1,0 +1,15 @@
+// import { openDB } from "../mainDb";
+
+// // Add "mood" column to journal
+// export async function migrate() {
+//     try {
+//         const db=await openDB()
+//           await db.execAsync(`
+//     ALTER TABLE journal ADD COLUMN mood TEXT DEFAULT 'neutral';
+//   `);
+//     } catch (error) {
+//         console.log("error from virgare/v2.js",error);
+        
+//     }
+
+// }
