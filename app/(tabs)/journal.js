@@ -42,6 +42,11 @@ import {
 
 export default function JournalScreen() {
   // const { isReady } = useDatabaseReady();
+
+  // Debug: Log loading state changes
+  useEffect(() => {
+    console.log('loading changed:', loading);
+  }, [loading]);
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(null);
 
@@ -109,7 +114,7 @@ export default function JournalScreen() {
         }
         
         // Refresh the list
-        loadEntries();
+        await loadEntries();
       } catch (error) {
         console.error("Error syncing all entries:", error);
         Alert.alert("Sync Failed", error.message || "Failed to sync entries. Please try again later.");
@@ -183,18 +188,20 @@ export default function JournalScreen() {
   // Load entries when the component mounts or when selectedDate changes
   useEffect(() => {
    
-      loadEntries();
+    loadEntries();
     
   }, [ selectedDate]);
   
   // Refresh data when the screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      
-        loadEntries();
-        updateUnsyncedCount();
-      
-      
+      // Wrap async logic in an inner function
+      const fetchData = async () => {
+        await loadEntries();
+        await updateUnsyncedCount();
+      };
+      fetchData();
+
       // Cleanup function
       return () => {
         console.log("Screen is losing focus, resetting selectedDate to null.");
@@ -204,52 +211,54 @@ export default function JournalScreen() {
   );
   
   // Update unsynced count periodically
-  useEffect(() => {
+  // useEffect(() => {
    
     
-    const interval = setInterval(() => {
-      updateUnsyncedCount();
-    }, 10000); // Check every 10 seconds
+  //   const interval = setInterval(() => {
+  //     updateUnsyncedCount();
+  //   }, 10000); // Check every 10 seconds
     
-    return () => clearInterval(interval);
-  }, []);
+  //   return () => clearInterval(interval);
+  // }, []);
   // Load entries based on whether a date is selected or not
   const loadEntries = async () => {
+
+    console.log("loadentries function call")
     try {
       setLoading(true);
-      
-      // Database health checks removed
-      
+
       let loadedEntries;
-      
+
       if (selectedDate) {
-        // console.log("Loading entries for date:", selectedDate);
         loadedEntries = await fetchJournalsByDate(selectedDate);
       } else {
         console.log("Loading recent entries");
         loadedEntries = await fetchRecentJournalEntries(10);
       }
-      
-      // console.log("Loaded entries:", loadedEntries);
+
       setEntries(loadedEntries || []);
-      
-      // Update unsynced count
-      updateUnsyncedCount();
+
+      // Await updateUnsyncedCount to ensure all async ops are handled
+      await updateUnsyncedCount();
+
+      console.log("loading entries check");
     } catch (error) {
       console.error("Error loading entries:", error);
-      
       // Check if it's a database lock error
-      if (error.message && error.message.includes('database is locked')) {
+      if (error && error.message && error.message.includes('database is locked')) {
         Alert.alert(
-          "Database Busy", 
+          "Database Busy",
           "The database is currently busy. Please try again in a moment.",
           [{ text: "Retry", onPress: () => setTimeout(() => loadEntries(), 1000) }]
         );
       } else {
-        Alert.alert("Error", "Failed to load journal entries: " + (error.message || "Unknown error"));
+        Alert.alert("Error", "Failed to load journal entries: " + (error && error.message ? error.message : "Unknown error"));
       }
     } finally {
       setLoading(false);
+      setTimeout(() => {
+        console.log('loading value in finally', loading);
+      }, 0);
     }
   };
   
