@@ -89,30 +89,31 @@ export const createJournalEntryLocal = async ({ title, content }) => {
 export const syncJournalEntryToServer = async ({ entry }) => {
   try {
     // idToken removed, now handled in client.js
-    
     if (entry.synced) {
       return entry; // Already synced
     }
-    
     // Create entry on server
     const serverEntry = await createJournalEntry({
       content: entry.content,
       date: entry.created_at.split('T')[0],
       title: entry.title
     });
-    
+    console.log("Server entry created:", serverEntry);
+    if (!serverEntry || !serverEntry._id) {
+      return null
+      // throw new Error("Failed to sync entry to server");
+    }
     // Mark as synced locally
     const syncedEntry = await markJournalEntrySynced({
       id: entry.id,
-      server_id: serverEntry._id,
+      server_id: serverEntry?._id,
       server_meta: {
-        createdAt: serverEntry.createdAt,
-        updatedAt: serverEntry.updatedAt,
-        tags: serverEntry.tags || [],
-        mood: serverEntry.mood || null
+        createdAt: serverEntry?.createdAt,
+        updatedAt: serverEntry?.updatedAt,
+        tags: serverEntry?.tags || [],
+        mood: serverEntry?.mood || null
       }
     });
-    
     return syncedEntry;
   } catch (error) {
     console.error("Error syncing journal entry to server:", error);

@@ -11,13 +11,7 @@ import {
   ActivityIndicator,
   Share,
 } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  Easing,
-} from "react-native-reanimated";
+// Removed animation imports
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -46,26 +40,7 @@ export default function JournalDetailScreen() {
   const [editContent, setEditContent] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // Spinning animation for sync icon
-  const spinValue = useSharedValue(0);
-
-  const spinStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate: `${spinValue.value}deg` }],
-    };
-  });
-
-  // Start spinning animation when syncing
-  useEffect(() => {
-    if (isSyncing) {
-      spinValue.value = withRepeat(
-        withTiming(360, { duration: 1000, easing: Easing.linear }),
-        -1
-      );
-    } else {
-      spinValue.value = withTiming(0, { duration: 0 });
-    }
-  }, [isSyncing]);
+  // Removed animation logic
 
   // Load entry data
   useEffect(() => {
@@ -129,7 +104,11 @@ export default function JournalDetailScreen() {
       if (isOnline) {
         try {
           setIsSyncing(true);
-          await syncJournalEntryToServer({ entry: updatedEntry });
+          const synced=await syncJournalEntryToServer({ entry: updatedEntry });
+                  if(!synced){
+                     Alert.alert("Sync Failed", "Entry saved locally but couldn't be synced. You can try again later.");
+                     return
+                   } 
           await loadEntry(); // Refresh to show synced status
         } catch (syncError) {
           console.warn("Failed to sync updated entry:", syncError);
@@ -197,7 +176,14 @@ export default function JournalDetailScreen() {
       }
       
       setIsSyncing(true);
-  await syncJournalEntryToServer({ entry });
+      
+ const synced=await syncJournalEntryToServer({ entry });
+                   
+ if(!synced)
+ {
+                            Alert.alert("Sync Failed", "Failed to sync entry. Please try again later.");
+                            return;
+                          }
       await loadEntry(); // Refresh to show synced status
       
       Alert.alert("Success", "Entry synced to cloud successfully!");
@@ -349,13 +335,11 @@ export default function JournalDetailScreen() {
                   onPress={handleSync}
                   disabled={isSyncing}
                 >
-                  <Animated.View style={isSyncing ? spinStyle : {}}>
-                    <Ionicons 
-                      name={isSyncing ? "sync" : "cloud-upload-outline"} 
-                      size={16} 
-                      color={isSyncing ? "#9CA3AF" : "#F59E0B"} 
-                    />
-                  </Animated.View>
+                  <Ionicons 
+                    name={isSyncing ? "sync-outline" : "cloud-upload-outline"} 
+                    size={16} 
+                    color={isSyncing ? "#9CA3AF" : "#F59E0B"} 
+                  />
                   <Text style={styles.unsyncedText}>
                     {isSyncing ? "Syncing..." : "Tap to sync"}
                   </Text>

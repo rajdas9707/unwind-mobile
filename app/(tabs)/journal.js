@@ -10,13 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  Easing,
-} from "react-native-reanimated";
+// Removed animation imports
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -62,26 +56,7 @@ export default function JournalScreen() {
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   // const { idToken } = useContext(AuthContext); // removed, now handled in client.js
   
-  // Spinning animation for sync icon
-  const spinValue = useSharedValue(0);
-
-  const spinStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate: `${spinValue.value}deg` }],
-    };
-  });
-
-  // Start spinning animation when syncing
-  useEffect(() => {
-    if (syncingEntries.size > 0 || isSyncingAll) {
-      spinValue.value = withRepeat(
-        withTiming(360, { duration: 1000, easing: Easing.linear }),
-        -1
-      );
-    } else {
-      spinValue.value = withTiming(0, { duration: 0 });
-    }
-  }, [syncingEntries.size, isSyncingAll]);
+  // Removed animation logic
 
   // Sync all pending entries
   const syncPendingEntries = async () => {
@@ -228,28 +203,29 @@ export default function JournalScreen() {
       setLoading(true);
       let loadedEntries;
       if (selectedDate) {
-        console.log("Before fetchJournalsByDate");
+        // console.log("Before fetchJournalsByDate");
         loadedEntries = await fetchJournalsByDate(selectedDate);
-        console.log("After fetchJournalsByDate");
+        // console.log("After fetchJournalsByDate");
       } else {
-        console.log("Before fetchRecentJournalEntries");
+        // console.log("Before fetchRecentJournalEntries");
         loadedEntries = await fetchRecentJournalEntries(10);
-        console.log("After fetchRecentJournalEntries", loadedEntries);
+        // console.log("After fetchRecentJournalEntries", loadedEntries);
       }
-      console.log("Before setEntries");
+      // console.log("Before setEntries");
       setEntries(loadedEntries || []);
-      console.log("After setEntries");
-      console.log("Before updateUnsyncedCount");
+      // console.log("After setEntries");
+      // console.log("Before updateUnsyncedCount");
       await updateUnsyncedCount();
-      console.log("After updateUnsyncedCount");
-      console.log("loading entries check");
+      // console.log("After updateUnsyncedCount");
+      // console.log("loading entries check");
     } catch (error) {
       console.error("Error loading entries:", error);
       if (error && error.message && error.message.includes('database is locked')) {
         Alert.alert(
           "Database Busy",
           "The database is currently busy. Please try again in a moment.",
-          [{ text: "Retry", onPress: () => setTimeout(() =>  loadEntries(), 1000) }]
+          [{ text: "Retry", onPress: () => 
+             loadEntries() }]
         );
       } else {
         Alert.alert("Error", "Failed to load journal entries: " + (error && error.message ? error.message : "Unknown error"));
@@ -257,9 +233,7 @@ export default function JournalScreen() {
     } finally {
       console.log("In finally block, about to setLoading(false)");
       setLoading(false);
-      setTimeout(() => {
-        console.log("After setLoading(false), loading state:", loading);
-      }, 0);
+    
     }
   };
   
@@ -307,12 +281,16 @@ export default function JournalScreen() {
       setSyncingEntries((prev) => new Set(prev).add(entry.id));
 
       // Use the new sync function
-  await syncJournalEntryToServer({ entry });
-      
+      const synced=await syncJournalEntryToServer({ entry });
       // Refresh the entries list
-      await loadEntries();
-
-      // Show success message
+       if(!synced)
+        
+        {
+          Alert.alert("Sync Failed", "Failed to sync entry. Please try again later.");
+          return;
+        }
+        await loadEntries();
+      // Show success message only if no error was thrown
       Alert.alert(
         "Sync Successful",
         "Your journal entry has been saved to the cloud!",
@@ -354,7 +332,7 @@ export default function JournalScreen() {
   const addEntry = async () => {
     try {
      
-      
+        console.log("Attempting to add new entry");
       if (!newEntry.trim()) {
         Alert.alert("Error", "Please write something in your journal");
         return;
@@ -392,8 +370,13 @@ export default function JournalScreen() {
       if (isOnline) {
         try {
           setSyncingEntries((prev) => new Set(prev).add(entry.id));
-          await syncJournalEntryToServer({ entry });
-          await loadEntries(); // Refresh the list
+         const synced= await syncJournalEntryToServer({ entry });
+         if(!synced){
+            Alert.alert("Sync Failed", "Entry saved locally but couldn't be synced. You can try again later.");
+            return
+          } 
+         
+         await loadEntries(); // Refresh the list
         } catch (syncError) {
           console.error("Failed to sync new entry:", syncError);
           Alert.alert(
@@ -491,13 +474,7 @@ export default function JournalScreen() {
               onPress={syncPendingEntries}
               disabled={isSyncingAll}
             >
-              {isSyncingAll ? (
-                <Animated.View style={spinStyle}>
-                  <Ionicons name="sync" size={16} color="#FFFFFF" />
-                </Animated.View>
-              ) : (
-                <Ionicons name="cloud-upload" size={16} color="#FFFFFF" />
-              )}
+              <Ionicons name={isSyncingAll ? "sync-outline" : "cloud-upload"} size={16} color="#FFFFFF" />
               <Text style={styles.syncAllText}>{pendingSyncCount}</Text>
             </TouchableOpacity>
           )}
@@ -597,13 +574,11 @@ export default function JournalScreen() {
                         style={styles.actionButton}
                         disabled={syncingEntries.has(entry.id)}
                       >
-                        <Animated.View style={syncingEntries.has(entry.id) ? spinStyle : {}}>
-                          <Ionicons
-                            name={syncingEntries.has(entry.id) ? "sync" : "cloud-upload-outline"}
-                            size={18}
-                            color={syncingEntries.has(entry.id) ? "#9CA3AF" : "#3B82F6"}
-                          />
-                        </Animated.View>
+                        <Ionicons
+                          name={syncingEntries.has(entry.id) ? "sync-outline" : "cloud-upload-outline"}
+                          size={18}
+                          color={syncingEntries.has(entry.id) ? "#9CA3AF" : "#3B82F6"}
+                        />
                       </TouchableOpacity>
                     )}
                   </View>

@@ -2,13 +2,55 @@
 import axios from "axios";
 import { auth } from "../firebaseConfig";
 import { Alert } from "react-native";
+// import { useNetworkStatus } from "../utils/networkUtils";
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || "http://192.168.29.225:5000";
 
-const client = axios.create({
+
+const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
+  timeout: 1000, // 1 seconds timeout for all requests
 });
+
+
+
+//to check whether my server is up and running
+
+// {Response interceptor for centralized error handling}
+
+apiClient.interceptors.response.use(
+  response => response,
+  
+
+  error => {
+
+    console.log("error",error)
+    // Handle network/server errors
+    if (!error.response) {
+      // No response means network/server unreachable
+      Alert.alert('Server Error', 'Cannot reach the server. Please try again later.');
+    } else {
+      // Server responded with a status code
+      const status = error.response.status;
+
+      if (status >= 500) {
+        Alert.alert('Server Error', 'Something went wrong on the server.');
+      } else if (status === 401) {
+        Alert.alert('Unauthorized', 'Your session has expired. Please login again.');
+        // Optionally, logout user here
+      } else if (status === 400) {
+        Alert.alert('Bad Request', error.response.data.message || 'Invalid request');
+      } else {
+        Alert.alert('Error', error.response.data.message || 'An error occurred');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+export const client=apiClient
+
+
 
 export async function signup({ uid, email, name, trialStart }) {
   console.log("Signup called with:", { uid, email, name, trialStart });
@@ -39,8 +81,10 @@ export async function getProfile({ uid }) {
 
 export async function authorizedFetch(path, options = {}) {
   let token;
+
   try {
-    console.log("currentuser", await auth.currentUser);
+  
+    // console.log("currentuser", await auth.currentUser);
     token = await auth.currentUser.getIdToken();
   } catch (error) {
     console.log("Failed to retrieve authentication token", error);
