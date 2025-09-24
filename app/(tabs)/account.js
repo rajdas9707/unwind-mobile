@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,12 +17,19 @@ import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { auth } from "../../firebaseConfig";
 import { authorizedFetch } from "../../api/client";
+import * as FileSystem from "expo-file-system/legacy";
+import * as SQLite from "expo-sqlite";
+import { closeDB, openDB } from "../../storage/mainDb";
+import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 // import { exportDatabase } from "../testDb";
 
 export default function AccountScreen() {
   const [userInfo, setUserInfo] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(userInfo.name);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [stats, setStats] = useState({
     journalEntries: 0,
     overthinkingLogs: 0,
@@ -51,25 +60,21 @@ export default function AccountScreen() {
     }
   };
 
-  const getIdToken = async () => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return null;
-      return await currentUser.getIdToken();
-    } catch (e) {
-      return null;
-    }
-  };
+  // const getIdToken = async () => {
+  //   try {
+  //     const currentUser = auth.currentUser;
+  //     if (!currentUser) return null;
+  //     return await currentUser.getIdToken();
+  //   } catch (e) {
+  //     return null;
+  //   }
+  // };
 
   const fetchProfile = async () => {
     try {
-      const idToken = await getIdToken();
-      if (!idToken) return;
-      const data = await authorizedFetch(
-        "/api/auth/profile",
-        { method: "GET" },
-        idToken
-      );
+      const data = await authorizedFetch("/api/auth/profile", {
+        method: "GET",
+      });
       // Optionally store/merge user info from backend
       if (data?.user) {
         const updatedInfo = {
@@ -141,7 +146,7 @@ export default function AccountScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await AsyncStorage.removeItem("userToken");
+            await AsyncStorage.removeItem("userInfo");
             router.replace("/auth");
           } catch (error) {
             console.error("Error signing out:", error);
@@ -152,30 +157,82 @@ export default function AccountScreen() {
   };
 
   const clearAllData = () => {
-    Alert.alert(
-      "Clear All Data",
-      "This will permanently delete all your journal entries, overthinking logs, and mistake records. This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear Data",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await AsyncStorage.multiRemove([
-                "journalEntries",
-                "overthinkingEntries",
-                "mistakeEntries",
-              ]);
-              loadUserStats();
-              Alert.alert("Success", "All data has been cleared");
-            } catch (error) {
-              Alert.alert("Error", "Failed to clear data");
-            }
-          },
-        },
-      ]
-    );
+    setConfirmPassword("");
+    setConfirmVisible(true);
+  };
+
+  const wipeAppSandbox = async () => {
+    try {
+      // Close connection and delete SQLite database (primary and journal files)
+      try {
+        await closeDB();
+        await SQLite.deleteDatabaseAsync("unwind.db");
+      } catch (e) {
+        // Fallback: remove files directly if API unavailable
+        const base = `${FileSystem.documentDirectory}SQLite/`;
+        await FileSystem.deleteAsync(`${base}unwind.db`, { idempotent: true });
+        await FileSystem.deleteAsync(`${base}unwind.db-wal`, {
+          idempotent: true,
+        });
+        await FileSystem.deleteAsync(`${base}unwind.db-shm`, {
+          idempotent: true,
+        });
+      }
+
+      // Delete app-managed file folders
+      await FileSystem.deleteAsync(`${FileSystem.documentDirectory}docs/`, {
+        idempotent: true,
+      });
+      await FileSystem.deleteAsync(`${FileSystem.documentDirectory}files/`, {
+        idempotent: true,
+      });
+    } catch (e) {
+      throw e;
+    }
+  };
+
+  const confirmDeleteAll = async () => {
+    if (!auth?.currentUser) {
+      Alert.alert("Not signed in", "Please sign in again and retry.");
+      return;
+    }
+    if (!confirmPassword.trim()) {
+      Alert.alert(
+        "Password required",
+        "Enter your account password to proceed."
+      );
+      return;
+    }
+    try {
+      setDeleting(true);
+      const email = userInfo?.email || auth.currentUser.email;
+      const credential = EmailAuthProvider.credential(email, confirmPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+
+      await wipeAppSandbox();
+      // Re-open a fresh empty DB to reset any in-memory references
+      try {
+        await openDB();
+      } catch {}
+      setConfirmVisible(false);
+      setConfirmPassword("");
+      loadUserStats();
+      Alert.alert("Deleted", "All in-app data and files have been deleted.");
+    } catch (error) {
+      if (
+        error?.code === "auth/invalid-credential" ||
+        error?.code === "auth/wrong-password"
+      ) {
+        Alert.alert(
+          "Incorrect password",
+          "The password you entered is incorrect."
+        );
+      } else {
+        Alert.alert("Error", "Failed to delete data. Please try again.");
+      }
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -381,7 +438,12 @@ export default function AccountScreen() {
         </View>
 
         {/* Export Database Button */}
-        <TouchableOpacity style={styles.exportButton} onPress={() => {console.log("Export Database Pressed")}}>
+        <TouchableOpacity
+          style={styles.exportButton}
+          onPress={() => {
+            console.log("Export Database Pressed");
+          }}
+        >
           <Ionicons name="download" size={20} color="#FFFFFF" />
           <Text style={styles.exportText}>Export Database</Text>
         </TouchableOpacity>
@@ -392,6 +454,111 @@ export default function AccountScreen() {
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Confirm Delete Modal */}
+      <Modal
+        visible={confirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.6)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "88%",
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              padding: 20,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <Ionicons name="warning" size={22} color="#DC2626" />
+              <Text
+                style={{
+                  marginLeft: 8,
+                  fontSize: 18,
+                  fontWeight: "700",
+                  color: "#111827",
+                }}
+              >
+                Delete All Data
+              </Text>
+            </View>
+            <Text
+              style={{ color: "#374151", lineHeight: 20, marginBottom: 14 }}
+            >
+              This will permanently delete your in-app database and files stored
+              in this app's sandbox. Your phone storage outside the app won't be
+              touched. This action cannot be undone.
+            </Text>
+            <Text style={{ color: "#6B7280", fontSize: 13, marginBottom: 8 }}>
+              Confirm with your account password
+            </Text>
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Enter password"
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry
+              style={{
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+                borderRadius: 10,
+                padding: 12,
+                marginBottom: 16,
+              }}
+              editable={!deleting}
+            />
+            <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+              <TouchableOpacity
+                onPress={() => setConfirmVisible(false)}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 10,
+                  backgroundColor: "#F3F4F6",
+                  marginRight: 8,
+                }}
+                disabled={deleting}
+              >
+                <Text style={{ color: "#374151", fontWeight: "700" }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmDeleteAll}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 10,
+                  backgroundColor: "#DC2626",
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
+                disabled={deleting}
+              >
+                {deleting && (
+                  <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
+                )}
+                <Text style={{ color: "#fff", fontWeight: "700" }}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

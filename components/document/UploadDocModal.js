@@ -78,9 +78,8 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: "Images",
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true, // Always allow editing/cropping
-        allowsMultipleSelection: false, // Take one photo at a time for better editing experience
         quality: 0.7,
       });
 
@@ -207,7 +206,7 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
             borderRadius: 24,
             padding: 24,
             borderWidth: 1,
-            borderColor: '#E5E7EB',
+            borderColor: "#E5E7EB",
             // No box shadow for a clean, modern look
           }}
         >
@@ -291,8 +290,8 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
                 height: 54,
                 width: 54,
                 marginRight: 6,
-                backgroundColor: '#6366F1',
-                shadowColor: '#6366F1',
+                backgroundColor: "#6366F1",
+                shadowColor: "#6366F1",
                 shadowOpacity: 0.08,
                 shadowRadius: 4,
                 elevation: 1,
@@ -311,8 +310,8 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
                 height: 54,
                 width: 54,
                 marginLeft: 6,
-                backgroundColor: '#22C55E',
-                shadowColor: '#22C55E',
+                backgroundColor: "#22C55E",
+                shadowColor: "#22C55E",
                 shadowOpacity: 0.08,
                 shadowRadius: 4,
                 elevation: 1,
@@ -339,11 +338,11 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
                       flexDirection: "row",
                       alignItems: "center",
                       marginBottom: 8,
-                      backgroundColor: '#F3F4F6',
+                      backgroundColor: "#F3F4F6",
                       borderRadius: 10,
                       padding: 8,
                       borderWidth: 1,
-                      borderColor: '#E5E7EB',
+                      borderColor: "#E5E7EB",
                     }}
                   >
                     {isPdf ? (
@@ -367,12 +366,32 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
                     )}
                     <Text
                       numberOfLines={1}
-                      style={{ flex: 1, marginLeft: 2, color: "#374151", fontSize: 14 }}
+                      style={{
+                        flex: 1,
+                        marginLeft: 2,
+                        color: "#374151",
+                        fontSize: 14,
+                      }}
                     >
                       {item.name || uri}
                     </Text>
-                    <TouchableOpacity onPress={() => removeFile(index)} style={{ marginLeft: 8, padding: 6, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#FCA5A5' }} accessibilityLabel="Remove File">
-                      <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                    <TouchableOpacity
+                      onPress={() => removeFile(index)}
+                      style={{
+                        marginLeft: 8,
+                        padding: 6,
+                        borderRadius: 8,
+                        backgroundColor: "#fff",
+                        borderWidth: 1,
+                        borderColor: "#FCA5A5",
+                      }}
+                      accessibilityLabel="Remove File"
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={18}
+                        color="#DC2626"
+                      />
                     </TouchableOpacity>
                   </View>
                 );
@@ -394,8 +413,8 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
                 borderRadius: 14,
                 height: 48,
                 minWidth: 100,
-                alignItems: 'center',
-                justifyContent: 'center',
+                alignItems: "center",
+                justifyContent: "center",
                 backgroundColor: "#F3F4F6",
                 marginLeft: 0,
                 paddingHorizontal: 18,
@@ -404,7 +423,11 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
               onPress={onClose}
               activeOpacity={0.85}
             >
-              <Text style={{ fontSize: 15, fontWeight: "700", color: "#374151" }}>Cancel</Text>
+              <Text
+                style={{ fontSize: 15, fontWeight: "700", color: "#374151" }}
+              >
+                Cancel
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -412,20 +435,23 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
                 borderRadius: 14,
                 height: 48,
                 minWidth: 110,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#6366F1',
-                flexDirection: 'row',
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "#6366F1",
+                flexDirection: "row",
                 paddingHorizontal: 22,
                 marginLeft: 0,
               }}
               onPress={handleSubmit}
               activeOpacity={0.85}
             >
-              <Ionicons name="save-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-              <Text
-                style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}
-              >
+              <Ionicons
+                name="save-outline"
+                size={20}
+                color="#fff"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>
                 {docId ? "Update" : "Save"}
               </Text>
             </TouchableOpacity>

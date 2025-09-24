@@ -1,5 +1,5 @@
-
 import * as SQLite from "expo-sqlite";
+import * as v1 from "./migrations/v1";
 
 // Singleton database connection
 let dbInstance = null;
@@ -40,6 +40,22 @@ export const openDB = async () => {
   }
 };
 
+// Close and reset the singleton DB instance
+export const closeDB = async () => {
+  try {
+    if (dbInstance) {
+      try {
+        await dbInstance.closeAsync();
+      } catch (e) {
+        // ignore
+      }
+      dbInstance = null;
+    }
+  } finally {
+    dbPromise = null;
+  }
+};
+
 // Initialize database with tables and indexes
 const initializeDatabase = async () => {
   try {
@@ -58,8 +74,11 @@ const initializeDatabase = async () => {
     const db = await SQLite.openDatabaseAsync("unwind.db", {
       enableChangeListener: false, // Disable change listener to prevent locks
     });
-
-     await runMigrations(db)
+    if (!db) {
+      Alert.alert("Error", "Failed to open database");
+      return;
+    }
+    await runMigrations(db);
 
     console.log("✅ unwind database initialized successfully");
     return db;
@@ -71,27 +90,25 @@ const initializeDatabase = async () => {
   }
 };
 
-
-
 async function runMigrations(db) {
   try {
-  
- 
-  const result = await db.getFirstAsync("PRAGMA user_version");
-  let currentVersion = result.user_version || 0;
+    const result = await db.getFirstAsync("PRAGMA user_version");
+    let currentVersion = result.user_version || 0;
 
-  // List of all migrations in order
-  // v3 does not exist, only use v1 and v2
-  // const migrations = [v1, v2]; after new version addition
-  const migrations = [v1,v2];
+    // List of all migrations in order
+    // v3 does not exist, only use v1 and v2
+    // const migrations = [v1, v2]; after new version addition
+    console.log("v1", v1);
+    const migrations = [v1];
 
-  for (let i = currentVersion; i < migrations.length; i++) {
-    console.log(`Running migration v${i + 1}`);
-    await migrations[i].migrate(db);
-    await db.execAsync(`PRAGMA user_version = ${i + 1};`);
-  }
+    console.log("Migrations", migrations);
 
-   } catch (error) {
-    console.log("error from mainDB/RUNMIGRATION.js",error);
+    for (let i = currentVersion; i < migrations.length; i++) {
+      console.log(`Running migration v${i + 1}`);
+      await migrations[i].migrate(db);
+      await db.execAsync(`PRAGMA user_version = ${i + 1};`);
+    }
+  } catch (error) {
+    console.log("error from mainDB/RUNMIGRATION.js", error);
   }
 }

@@ -3,8 +3,15 @@ import { openDB } from "../mainDb";
 // Initialize database with tables and indexes
 export const initJournalsTable = async (db) => {
   try {
+    console.log("Initializing journal database");
     // const db = await openDB();
-
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     // Create journals table with required schema
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS journals (
@@ -44,13 +51,21 @@ export const insertJournalEntry = async ({
 }) => {
   try {
     const db = await openDB();
-    const result = await db.runAsync(
+
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
+    const result = await db?.runAsync(
       "INSERT INTO journals (title, content, created_at, updated_at, synced) VALUES (?, ?, ?, ?, 0)",
       [title, content, created_at, updated_at]
     );
 
     // Return the newly created entry
-    const newEntry = await db.getFirstAsync(
+    const newEntry = await db?.getFirstAsync(
       "SELECT * FROM journals WHERE id = ?",
       [result.lastInsertRowId]
     );
@@ -71,6 +86,13 @@ export const insertJournalEntry = async ({
 export const getRecentJournalEntries = async (limit = 10) => {
   try {
     const db = await openDB();
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     const rows = await db.getAllAsync(
       "SELECT * FROM journals ORDER BY created_at DESC LIMIT ?",
       [limit]
@@ -91,6 +113,13 @@ export const getRecentJournalEntries = async (limit = 10) => {
 export const getJournalEntriesByDate = async (date) => {
   try {
     const db = await openDB();
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     const startOfDay = `${date}T00:00:00.000Z`;
     const endOfDay = `${date}T23:59:59.999Z`;
 
@@ -114,6 +143,13 @@ export const getJournalEntriesByDate = async (date) => {
 export const getJournalEntryById = async (id) => {
   try {
     const db = await openDB();
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     const row = await db.getFirstAsync("SELECT * FROM journals WHERE id = ?", [
       id,
     ]);
@@ -140,6 +176,14 @@ export const updateJournalEntry = async ({
 }) => {
   try {
     const db = await openDB();
+
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     await db.runAsync(
       "UPDATE journals SET title = ?, content = ?, updated_at = ?, synced = 0 WHERE id = ?",
       [title, content, updated_at, id]
@@ -160,6 +204,13 @@ export const markJournalEntrySynced = async ({
 }) => {
   try {
     const db = await openDB();
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     const metaJson = server_meta ? JSON.stringify(server_meta) : null;
 
     await db.runAsync(
@@ -178,6 +229,14 @@ export const markJournalEntrySynced = async ({
 export const getUnsyncedJournalEntries = async () => {
   try {
     const db = await openDB();
+
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     const rows = await db.getAllAsync(
       "SELECT * FROM journals WHERE synced = 0 ORDER BY created_at ASC"
     );
@@ -197,6 +256,13 @@ export const getUnsyncedJournalEntries = async () => {
 export const deleteJournalEntryById = async (id) => {
   try {
     const db = await openDB();
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     await db.runAsync("DELETE FROM journals WHERE id = ?", [id]);
     return true;
   } catch (error) {
@@ -216,6 +282,13 @@ export const upsertJournalFromServer = async ({
 }) => {
   try {
     const db = await openDB();
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     const metaJson = server_meta ? JSON.stringify(server_meta) : null;
 
     // Check if entry with this server_id already exists
@@ -249,6 +322,13 @@ export const upsertJournalFromServer = async ({
 export const getJournalEntriesCountForDate = async (date) => {
   try {
     const db = await openDB();
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     const startOfDay = `${date}T00:00:00.000Z`;
     const endOfDay = `${date}T23:59:59.999Z`;
 
@@ -272,6 +352,13 @@ export const getSyncAttemptsCountToday = async () => {
     const endOfDay = `${today}T23:59:59.999Z`;
 
     const db = await openDB();
+    if (!db) {
+      Alert.alert(
+        "Error initializing journal database",
+        "Failed to open database"
+      );
+      return;
+    }
     // Count entries that were synced today (became synced today)
     const result = await db.getFirstAsync(
       "SELECT COUNT(*) as count FROM journals WHERE synced = 1 AND server_meta IS NOT NULL",

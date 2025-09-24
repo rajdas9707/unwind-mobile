@@ -116,7 +116,6 @@ export default function NewIdeaModal({
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        allowsMultipleSelection: true, // Enable multiple photo selection
         quality: 0.7,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
