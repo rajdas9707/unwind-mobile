@@ -207,6 +207,10 @@ export async function authorizedFetch(path, options = {}) {
 
 export { API_BASE_URL };
 
+export function getHelpCenterUrl() {
+  return `${API_BASE_URL}/help-center`;
+}
+
 // Journal endpoints
 export async function listJournalEntries({
   date,

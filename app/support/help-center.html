@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Help Center</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --brand: #3b82f6;
+      --brand-2: #8b5cf6;
+      --card: #0b1220;
+      --ring: #1f2937;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 6px 30px rgba(2, 6, 23, 0.35);
+      --grid-gap: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 18px 16px 40px; }
+
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 16px; border-radius: var(--radius);
+      background: radial-gradient(1200px 500px at 0% -10%, rgba(59,130,246,0.35), transparent 35%),
+                  radial-gradient(1200px 600px at 100% 10%, rgba(139,92,246,0.28), transparent 42%),
+                  linear-gradient(180deg, #0b1220, #0a0f1a 60%);
+      border: 1px solid #172032; box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .badge { padding: 6px 10px; border-radius: 999px; background: #0a1326; color: #93c5fd; font-size: 12px; border: 1px solid #13203a; }
+    .title { font-size: 20px; font-weight: 800; letter-spacing: 0.2px; }
+
+    .hero { display: grid; grid-template-columns: 1fr; gap: var(--grid-gap); }
+    .panel {
+      background: linear-gradient(180deg, #0a0f1a, #0a0f1a 60%);
+      border: 1px solid #172032; border-radius: var(--radius);
+      padding: 18px; box-shadow: var(--shadow);
+    }
+
+    .search { display: flex; gap: 10px; }
+    .search input {
+      flex: 1; background: #0b1324; color: var(--text);
+      border: 1px solid #1d2841; border-radius: 12px; padding: 12px 14px;
+      outline: none; box-shadow: inset 0 0 0 9999px rgba(59,130,246,0); transition: box-shadow .2s ease;
+    }
+    .search input:focus { box-shadow: 0 0 0 2px rgba(59,130,246,.35); }
+    .search button {
+      background: linear-gradient(180deg, #2563eb, #1d4ed8);
+      color: white; border: none; padding: 12px 14px; border-radius: 12px; font-weight: 700;
+      box-shadow: 0 4px 18px rgba(37, 99, 235, .35); cursor: pointer;
+    }
+
+    .grid { display: grid; grid-template-columns: 1fr; gap: var(--grid-gap); margin-top: 16px; }
+    @media(min-width: 680px) { .grid { grid-template-columns: 1fr 1fr; } }
+    @media(min-width: 980px) { .grid { grid-template-columns: 1.5fr 1fr; } }
+
+    .card {
+      background: radial-gradient(1200px 400px at 0% -10%, rgba(59,130,246,0.09), transparent 48%),
+                  radial-gradient(1200px 400px at 100% 10%, rgba(139,92,246,0.07), transparent 50%),
+                  linear-gradient(180deg, #0b1220, #0a0f1a 68%);
+      border: 1px solid #182235; border-radius: var(--radius);
+      padding: 18px; box-shadow: var(--shadow);
+    }
+    .card h3 { margin: 0 0 8px; font-size: 16px; font-weight: 800; }
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .category-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+    @media(min-width: 680px) { .category-list { grid-template-columns: repeat(3, 1fr); } }
+    .chip {
+      background: linear-gradient(180deg, #0b1324, #0a1222);
+      border: 1px solid #1a2440; color: #cbd5e1; padding: 10px 12px; border-radius: 12px; font-size: 13px; text-align: center;
+    }
+
+    .faq-item { border: 1px solid #1a2440; border-radius: 12px; overflow: hidden; background: #0b1324; }
+    .faq-q {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 14px; cursor: pointer; user-select: none;
+    }
+    .faq-q:hover { background: #0d1630; }
+    .faq-a { display: none; border-top: 1px solid #1a2440; padding: 12px 14px; color: #cbd5e1; }
+    .faq-item.open .faq-a { display: block; }
+
+    .cta {
+      display: grid; gap: 12px;
+    }
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 12px 14px; border-radius: 12px; border: 1px solid #1a2440; cursor: pointer;
+      background: linear-gradient(180deg, #0b1324, #0a1222); color: #e5e7eb; text-decoration: none;
+    }
+    .btn.primary { background: linear-gradient(180deg, #2563eb, #1d4ed8); border-color: #1d4ed8; box-shadow: 0 6px 24px rgba(37,99,235,.35); }
+    .btn.success { background: linear-gradient(180deg, #10b981, #0ea5a0); border-color: #0ea5a0; box-shadow: 0 6px 24px rgba(16,185,129,.28); }
+
+    .footer { margin-top: 24px; color: var(--muted); font-size: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand">
+        <span class="badge">Help</span>
+        <div class="title">Help Center</div>
+      </div>
+      <div class="muted">Find answers, tips, and contact options</div>
+    </div>
+
+    <div class="hero">
+      <div class="panel">
+        <div class="search">
+          <input id="search" placeholder="Search topics, e.g. syncing, account, offline..." />
+          <button id="searchBtn">Search</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card" id="faqCard">
+        <h3>Popular FAQs</h3>
+        <div class="muted">Tap a question to view the answer</div>
+        <div id="faqList" style="display:grid; gap: 10px; margin-top: 12px;"></div>
+      </div>
+
+      <div class="card">
+        <h3>Categories</h3>
+        <div class="muted">Browse by topic</div>
+        <div class="category-list">
+          <div class="chip">Getting Started</div>
+          <div class="chip">Account</div>
+          <div class="chip">Sync & Offline</div>
+          <div class="chip">Privacy</div>
+          <div class="chip">Notifications</div>
+          <div class="chip">Billing</div>
+        </div>
+        <div class="cta" style="margin-top:14px;">
+          <a class="btn primary" href="#" id="contactBtn">Contact Support</a>
+          <a class="btn success" href="#" id="statusBtn">System Status</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">© <span id="year"></span> MyApp. All rights reserved.</div>
+  </div>
+
+  <script>
+    // Demo FAQ data
+    const FAQS = [
+      {
+        q: "How do I sync my entries?",
+        a: "Entries created offline are saved locally and will sync automatically when you're online. You can also trigger a manual sync from the header cloud icon.",
+        tags: ["sync", "offline", "entries"],
+      },
+      {
+        q: "Why am I not receiving notifications?",
+        a: "Ensure notifications are enabled in your device settings and that you've granted permission to the app. In-app notification preferences are under Settings → Notifications.",
+        tags: ["notifications", "permissions"],
+      },
+      {
+        q: "How can I export my data?",
+        a: "Go to Account → Export Data to generate a backup of your database. You can share or store it in your preferred cloud storage.",
+        tags: ["export", "backup", "data"],
+      },
+      {
+        q: "How do I delete my account?",
+        a: "Please contact support to request account deletion. We'll verify ownership and proceed according to our data retention policy.",
+        tags: ["account", "privacy", "delete"],
+      },
+      {
+        q: "Is my data private?",
+        a: "We take privacy seriously. Your data is stored securely and only used to provide the app's features. See our Privacy Policy for details.",
+        tags: ["privacy", "security"],
+      },
+    ];
+
+    const faqList = document.getElementById('faqList');
+    const year = document.getElementById('year');
+    const search = document.getElementById('search');
+    const searchBtn = document.getElementById('searchBtn');
+
+    year.textContent = new Date().getFullYear();
+
+    function renderFaq(items) {
+      faqList.innerHTML = '';
+      items.forEach((item, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'faq-item';
+        wrap.innerHTML = `
+          <div class="faq-q">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:8px;height:8px;border-radius:999px;background:${idx%2? '#8b5cf6':'#3b82f6'}"></div>
+              <div style="font-weight:700;">${item.q}</div>
+            </div>
+            <div style="opacity:.7;">+</div>
+          </div>
+          <div class="faq-a">${item.a}</div>
+        `;
+        wrap.querySelector('.faq-q').addEventListener('click', () => {
+          wrap.classList.toggle('open');
+        });
+        faqList.appendChild(wrap);
+      });
+    }
+
+    function doSearch() {
+      const q = (search.value || '').toLowerCase().trim();
+      if (!q) { renderFaq(FAQS); return; }
+      const filtered = FAQS.filter(item =>
+        item.q.toLowerCase().includes(q) ||
+        item.a.toLowerCase().includes(q) ||
+        (item.tags||[]).some(t => t.includes(q))
+      );
+      renderFaq(filtered);
+    }
+
+    search.addEventListener('input', () => {
+      // light debounce
+      clearTimeout(window.__s);
+      window.__s = setTimeout(doSearch, 120);
+    });
+    searchBtn.addEventListener('click', doSearch);
+
+    renderFaq(FAQS);
+
+    // CTA links (no backend needed)
+    document.getElementById('contactBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      // Use a mailto so this also works in WebView
+      window.location.href = 'mailto:support@myapp.com?subject=Support%20Request';
+    });
+    document.getElementById('statusBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      // Placeholder system status page
+      window.location.href = 'https://status.myapp.com';
+    });
+  </script>
+</body>
+</html>

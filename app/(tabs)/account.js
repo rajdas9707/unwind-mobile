@@ -9,6 +9,8 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  Platform,
+  Linking,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -179,6 +181,28 @@ export default function AccountScreen() {
   const clearAllData = () => {
     setConfirmPassword("");
     setConfirmVisible(true);
+  };
+
+  const openRateApp = async () => {
+    try {
+      const iosUrl =
+        "itms-apps://itunes.apple.com/app/idYOUR_APP_ID?action=write-review";
+      const androidUrl = "market://details?id=com.yourcompany.yourapp";
+      const androidHttpFallback =
+        "https://play.google.com/store/apps/details?id=com.yourcompany.yourapp";
+
+      if (Platform.OS === "ios") {
+        await Linking.openURL(iosUrl);
+      } else {
+        const canOpenMarket = await Linking.canOpenURL(androidUrl);
+        await Linking.openURL(canOpenMarket ? androidUrl : androidHttpFallback);
+      }
+    } catch (e) {
+      // Fallback: open a generic landing page if needed
+      try {
+        await Linking.openURL("https://myapp.com");
+      } catch {}
+    }
   };
 
   const wipeAppSandbox = async () => {
@@ -438,19 +462,25 @@ export default function AccountScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push("/support/help-center")}
+          >
             <Ionicons name="help-circle" size={20} color="#6B7280" />
             <Text style={styles.settingText}>Help Center</Text>
             <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push("/support/contact")}
+          >
             <Ionicons name="mail" size={20} color="#6B7280" />
             <Text style={styles.settingText}>Contact Us</Text>
             <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity style={styles.settingItem} onPress={openRateApp}>
             <Ionicons name="star" size={20} color="#6B7280" />
             <Text style={styles.settingText}>Rate App</Text>
             <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
