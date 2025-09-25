@@ -134,14 +134,14 @@ export const createMistakeEntryLocal = async ({
     const now = new Date().toISOString();
 
     // Insert locally first
- const localEntry = await db.insertMistakesEntry({
-  title: validatedData.title,
-  mistake: validatedData.mistake,
-  solution: validatedData.solution,
-  category: validatedData.category,
-  created_at: now,
-  updated_at: now,
-});
+    const localEntry = await db.insertMistakesEntry({
+      title: validatedData.title,
+      mistake: validatedData.mistake,
+      solution: validatedData.solution,
+      category: validatedData.category,
+      created_at: now,
+      updated_at: now,
+    });
 
     return {
       ...localEntry,
@@ -155,137 +155,111 @@ export const createMistakeEntryLocal = async ({
 
 // Sync single mistakes entry to server
 export const syncMistakesEntryToServer = async ({ entry }) => {
-  try {
-
-    if (entry.synced) {
-      return entry; // Already synced
-    }
-
-    // Create entry on server
-    const serverEntry = await createMistakeEntry({
-      mistake: entry.description,
-      solution: entry.lesson,
-      category: entry.category,
-      date: entry.created_at.split("T")[0],
-    });
-
-    // Mark as synced locally
-    const syncedEntry = await db.markMistakesEntrySynced({
-      id: entry.id,
-      server_id: serverEntry._id,
-      server_meta: {
-        createdAt: serverEntry.createdAt,
-        updatedAt: serverEntry.updatedAt,
-        tags: serverEntry.tags || [],
-        category: serverEntry.category || entry.category,
-      },
-    });
-
-    return syncedEntry;
-  } catch (error) {
-    console.error("Error syncing mistakes entry to server:", error);
-    throw error;
+  if (entry.synced) {
+    return entry; // Already synced
   }
+
+  // Create entry on server - error handling is now centralized
+  const serverEntry = await createMistakeEntry({
+    mistake: entry.description,
+    solution: entry.lesson,
+    category: entry.category,
+    date: entry.created_at.split("T")[0],
+  });
+
+  // Mark as synced locally
+  const syncedEntry = await db.markMistakesEntrySynced({
+    id: entry.id,
+    server_id: serverEntry._id,
+    server_meta: {
+      createdAt: serverEntry.createdAt,
+      updatedAt: serverEntry.updatedAt,
+      tags: serverEntry.tags || [],
+      category: serverEntry.category || entry.category,
+    },
+  });
+
+  return syncedEntry;
 };
 
+// Backwards-compatible singular export expected by components
+export const syncMistakeEntryToServer = syncMistakesEntryToServer;
+
 // Sync all unsynced mistakes entries with rate limiting
-export const syncAllMistakesEntries = async ({ 
-
- }) => {
-  try {
-
-    // Check daily sync limit (3 syncs per day)
-    const todaySyncCount = await db.getMistakesSyncAttemptsCountToday();
-    if (todaySyncCount >= 3) {
-      throw new Error("You can only sync 3 times per day. Try again tomorrow!");
-    }
-
-    const unsyncedEntries = await db.getUnsyncedMistakesEntries();
-
-    if (unsyncedEntries.length === 0) {
-      return { syncedCount: 0, failedCount: 0 };
-    }
-
-    let syncedCount = 0;
-    let failedCount = 0;
-    const errors = [];
-
-    for (const entry of unsyncedEntries) {
-      try {
-        await syncMistakesEntryToServer({ entry });
-        syncedCount++;
-      } catch (error) {
-        console.error(`Failed to sync mistakes entry ${entry.id}:`, error);
-        failedCount++;
-        errors.push(`Entry ${entry.id}: ${error.message}`);
-      }
-    }
-
-    return {
-      syncedCount,
-      failedCount,
-      errors,
-      total: unsyncedEntries.length,
-    };
-  } catch (error) {
-    console.error("Error syncing all mistakes entries:", error);
-    throw error;
+export const syncAllMistakesEntries = async () => {
+  // Check daily sync limit (3 syncs per day)
+  const todaySyncCount = await db.getMistakesSyncAttemptsCountToday();
+  if (todaySyncCount >= 3) {
+    throw new Error("You can only sync 3 times per day. Try again tomorrow!");
   }
+
+  const unsyncedEntries = await db.getUnsyncedMistakesEntries();
+
+  if (unsyncedEntries.length === 0) {
+    return { syncedCount: 0, failedCount: 0 };
+  }
+
+  let syncedCount = 0;
+  let failedCount = 0;
+  const errors = [];
+
+  for (const entry of unsyncedEntries) {
+    try {
+      await syncMistakesEntryToServer({ entry });
+      syncedCount++;
+    } catch (error) {
+      console.error(`Failed to sync mistakes entry ${entry.id}:`, error);
+      failedCount++;
+      errors.push(`Entry ${entry.id}: ${error.message}`);
+    }
+  }
+
+  return {
+    syncedCount,
+    failedCount,
+    errors,
+    total: unsyncedEntries.length,
+  };
 };
 
 // Fetch recent mistakes entries with learning emojis
-export const fetchRecentMistakesEntries = async (limit = 10) => {
-  try {
-    const entries = await db.getRecentMistakesEntries(limit);
+export const fetchRecentMistakesEntries = async (limit = 10, signal) => {
+  const entries = await db.getRecentMistakesEntries(limit);
 
-    return entries.map((entry) => ({
-      ...entry,
-      learning: getLearningEmoji(entry.category),
-      truncatedDescription:
-        entry.description && entry.description.length > 80
-          ? entry.description.substring(0, 80) + "..."
-          : entry.description || "",
-    }));
-  } catch (error) {
-    console.error("Error fetching recent mistakes entries:", error);
-    throw error;
-  }
+  return entries.map((entry) => ({
+    ...entry,
+    learning: getLearningEmoji(entry.category),
+    truncatedDescription:
+      entry.description && entry.description.length > 80
+        ? entry.description.substring(0, 80) + "..."
+        : entry.description || "",
+  }));
 };
 
 // Fetch mistakes entries by date with learning emojis
-export const fetchMistakesByDate = async (date) => {
-  try {
-    const entries = await db.getMistakesEntriesByDate(date);
+export const fetchMistakesByDate = async (date, signal) => {
+  const entries = await db.getMistakesEntriesByDate(date);
 
-    return entries.map((entry) => ({
-      ...entry,
-      learning: getLearningEmoji(entry.category),
-      truncatedDescription:
-        entry.description && entry.description.length > 80
-          ? entry.description.substring(0, 80) + "..."
-          : entry.description || "",
-    }));
-  } catch (error) {
-    console.error("Error fetching mistakes entries by date:", error);
-    throw error;
-  }
+  return entries.map((entry) => ({
+    ...entry,
+    learning: getLearningEmoji(entry.category),
+    truncatedDescription:
+      entry.description && entry.description.length > 80
+        ? entry.description.substring(0, 80) + "..."
+        : entry.description || "",
+  }));
 };
 
 // Get single mistakes entry by ID
 export const fetchMistakesEntryById = async (id) => {
-  try {
-    const entry = await db.getMistakesEntryById(id);
+  const entry = await db.getMistakesEntryById(id);
 
-    if (!entry) return null;
+  if (!entry) return null;
 
-    return {
-      ...entry,
-      learning: getLearningEmoji(entry.category),
-    };
-  } catch (error) {
-    console.error("Error fetching mistakes entry by ID:", error);
-    throw error;
-  }
+  return {
+    ...entry,
+    learning: getLearningEmoji(entry.category),
+  };
 };
 
 // Update mistakes entry with validation
@@ -296,104 +270,74 @@ export const updateMistakesEntryLocal = async ({
   solution,
   category,
 }) => {
-  try {
-    // Validate input
-    const validatedData = validateMistakesEntry(
-      mistake,
-      solution,
-      title,
-      category
-    );
+  // Validate input
+  const validatedData = validateMistakesEntry(
+    mistake,
+    solution,
+    title,
+    category
+  );
 
-    const updatedEntry = await db.updateMistakesEntry({
-      id,
-      title: validatedData.title,
-      mistake: validatedData.mistake,
-      solution: validatedData.solution,
-      category: validatedData.category,
-      updated_at: new Date().toISOString(),
-    });
+  const updatedEntry = await db.updateMistakesEntry({
+    id,
+    title: validatedData.title,
+    mistake: validatedData.mistake,
+    solution: validatedData.solution,
+    category: validatedData.category,
+    updated_at: new Date().toISOString(),
+  });
 
-    return {
-      ...updatedEntry,
-      learning: getLearningEmoji(validatedData.category),
-    };
-  } catch (error) {
-    console.error("Error updating mistakes entry:", error);
-    throw error;
-  }
+  return {
+    ...updatedEntry,
+    learning: getLearningEmoji(validatedData.category),
+  };
 };
 
 // Toggle avoided status for mistakes entry
 export const toggleMistakesAvoidedLocal = async ({ id, avoided }) => {
-  try {
-    const updatedEntry = await db.toggleMistakesAvoided({ id, avoided });
+  const updatedEntry = await db.toggleMistakesAvoided({ id, avoided });
 
-    return {
-      ...updatedEntry,
-      learning: getLearningEmoji(updatedEntry.category),
-    };
-  } catch (error) {
-    console.error("Error toggling mistakes avoided status:", error);
-    throw error;
-  }
+  return {
+    ...updatedEntry,
+    learning: getLearningEmoji(updatedEntry.category),
+  };
 };
 
 // Delete mistakes entry locally and from server
 export const deleteMistakesEntryLocal = async ({ entry }) => {
-  try {
-    // Delete from local database first
-    await db.deleteMistakesEntryById(entry.id);
+  // Delete from local database first
+  await db.deleteMistakesEntryById(entry.id);
 
-    // If entry was synced, also delete from server
-    if (entry.synced && entry.server_id ) {
-      try {
-        await deleteMistakeEntry({ id: entry.server_id });
-      } catch (serverError) {
-        console.warn(
-          "Failed to delete from server, but local deletion succeeded:",
-          serverError
-        );
-      }
+  // If entry was synced, also delete from server
+  if (entry.synced && entry.server_id) {
+    try {
+      await deleteMistakeEntry({ id: entry.server_id });
+    } catch (serverError) {
+      console.warn(
+        "Failed to delete from server, but local deletion succeeded:",
+        serverError
+      );
     }
-
-    return true;
-  } catch (error) {
-    console.error("Error deleting mistakes entry:", error);
-    throw error;
   }
+
+  return true;
 };
 
 // Get unsynced entries count
 export const getUnsyncedMistakesCount = async () => {
-  try {
-    const unsyncedEntries = await db.getUnsyncedMistakesEntries();
-    return unsyncedEntries.length;
-  } catch (error) {
-    console.error("Error getting unsynced mistakes count:", error);
-    return 0;
-  }
+  const unsyncedEntries = await db.getUnsyncedMistakesEntries();
+  return unsyncedEntries.length;
 };
 
 // Check if user can create more entries today
 export const canCreateMistakeEntryToday = async () => {
-  try {
-    const today = new Date().toISOString().split("T")[0];
-    const todayCount = await db.getMistakesEntriesCountForDate(today);
-    return todayCount < 3;
-  } catch (error) {
-    console.error("Error checking daily mistakes limit:", error);
-    return false;
-  }
+  const today = new Date().toISOString().split("T")[0];
+  const todayCount = await db.getMistakesEntriesCountForDate(today);
+  return todayCount < 3;
 };
 
 // Check if user can sync today
 export const canSyncMistakesToday = async () => {
-  try {
-    const todaySyncCount = await db.getMistakesSyncAttemptsCountToday();
-    return todaySyncCount < 3;
-  } catch (error) {
-    console.error("Error checking mistakes sync limit:", error);
-    return false;
-  }
+  const todaySyncCount = await db.getMistakesSyncAttemptsCountToday();
+  return todaySyncCount < 3;
 };

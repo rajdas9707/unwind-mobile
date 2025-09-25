@@ -16,7 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { auth } from "../../firebaseConfig";
-import { authorizedFetch } from "../../api/client";
+import { getProfile } from "../../api/client";
 import * as FileSystem from "expo-file-system/legacy";
 import * as SQLite from "expo-sqlite";
 import { closeDB, openDB } from "../../storage/mainDb";
@@ -38,9 +38,27 @@ export default function AccountScreen() {
   });
 
   useEffect(() => {
-    loadUserInfo();
-    loadUserStats();
-    fetchProfile();
+    let isMounted = true;
+
+    const loadData = async () => {
+      if (!isMounted) return;
+
+      try {
+        await loadUserInfo();
+        await loadUserStats();
+        await fetchProfile();
+      } catch (error) {
+        if (!isMounted) return;
+
+        console.error("Error loading account data:", error);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const loadUserInfo = async () => {
@@ -72,9 +90,7 @@ export default function AccountScreen() {
 
   const fetchProfile = async () => {
     try {
-      const data = await authorizedFetch("/api/auth/profile", {
-        method: "GET",
-      });
+      const data = await getProfile();
       // Optionally store/merge user info from backend
       if (data?.user) {
         const updatedInfo = {
@@ -85,6 +101,10 @@ export default function AccountScreen() {
       }
     } catch (e) {
       // Ignore if unauthorized or network error; UI already works offline
+      console.log(
+        "Profile fetch failed (expected for offline mode):",
+        e.message
+      );
     }
   };
 

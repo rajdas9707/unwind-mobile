@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import {
   View,
   Text,
@@ -28,7 +28,7 @@ import {
   deleteJournalEntryLocal,
   getUnsyncedCount,
   canCreateEntryToday,
-  canSyncToday
+  canSyncToday,
 } from "../../storage/journal/storage";
 
 // Import database health check
@@ -39,7 +39,7 @@ export default function JournalScreen() {
 
   // Debug: Log loading state changes
   useEffect(() => {
-    console.log('loading changed:', loading);
+    console.log("loading changed:", loading);
   }, [loading]);
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(null);
@@ -54,12 +54,30 @@ export default function JournalScreen() {
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
   const [isSyncingAll, setIsSyncingAll] = useState(false);
+
+  // Additional loading states for different operations
+  const [isAddingEntry, setIsAddingEntry] = useState(false);
+  const [isDeletingEntry, setIsDeletingEntry] = useState(new Set());
+  const [isUpdatingUnsyncedCount, setIsUpdatingUnsyncedCount] = useState(false);
   // const { idToken } = useContext(AuthContext); // removed, now handled in client.js
-  
+
+  const isScreenActiveRef = useRef(true);
+  const showAlert = (title, message, buttons) => {
+    if (!isScreenActiveRef.current) return;
+    Alert.alert(title, message, buttons);
+  };
+  const logError = (...args) => {
+    if (!isScreenActiveRef.current) return;
+    // eslint-disable-next-line no-console
+    console.error(...args);
+  };
+
   // Removed animation logic
 
   // Sync all pending entries
   const syncPendingEntries = async () => {
+    let isMounted = true;
+
     try {
       // Check if online
       if (!isOnline) {
@@ -70,29 +88,53 @@ export default function JournalScreen() {
         );
         return;
       }
-      
-    
-      
+
       // Start syncing
       setIsSyncingAll(true);
-      
+
       try {
-  const result = await syncAllJournalEntries();
-        
+        const result = await syncAllJournalEntries();
+
         if (result.syncedCount > 0 || result.failedCount > 0) {
-          Alert.alert(
+          showAlert(
             "Sync Complete",
-            `Successfully synced ${result.syncedCount} entries. ${result.failedCount > 0 ? `Failed to sync ${result.failedCount} entries.` : ''}`
+            `Successfully synced ${result.syncedCount} entries. ${
+              result.failedCount > 0
+                ? `Failed to sync ${result.failedCount} entries.`
+                : ""
+            }`
           );
         } else {
-          Alert.alert("No Entries to Sync", "All your entries are already synced.");
+          showAlert(
+            "No Entries to Sync",
+            "All your entries are already synced."
+          );
         }
-        
+
         // Refresh the list
-        await loadEntries();
+        if (isMounted) {
+          setLoading(true);
+          try {
+            let loadedEntries;
+            if (selectedDate) {
+              loadedEntries = await fetchJournalsByDate(selectedDate);
+            } else {
+              loadedEntries = await fetchRecentJournalEntries(10);
+            }
+            setEntries(loadedEntries || []);
+            await updateUnsyncedCount();
+          } catch (error) {
+            console.error("Error refreshing entries:", error);
+          } finally {
+            setLoading(false);
+          }
+        }
       } catch (error) {
         console.error("Error syncing all entries:", error);
-        Alert.alert("Sync Failed", error.message || "Failed to sync entries. Please try again later.");
+        showAlert(
+          "Sync Failed",
+          error.message || "Failed to sync entries. Please try again later."
+        );
       } finally {
         setIsSyncingAll(false);
       }
@@ -162,88 +204,92 @@ export default function JournalScreen() {
 
   // Load entries when the component mounts or when selectedDate changes
   useEffect(() => {
-   
-    loadEntries();
-    
-  }, [ selectedDate]);
-  
+    let isMounted = true;
+
+    const loadEntriesWithAbort = async () => {
+      if (!isMounted) return;
+
+      console.log("loadentries function call");
+      setLoading(true);
+
+      try {
+        let loadedEntries;
+        if (selectedDate) {
+          loadedEntries = await fetchJournalsByDate(selectedDate);
+        } else {
+          loadedEntries = await fetchRecentJournalEntries(10);
+        }
+
+        if (isMounted) {
+          setEntries(loadedEntries || []);
+          await updateUnsyncedCount();
+        }
+      } catch (error) {
+        if (!isMounted) return;
+
+        console.error("Error loading entries:", error);
+        if (
+          error &&
+          error.message &&
+          error.message.includes("database is locked")
+        ) {
+          showAlert(
+            "Database Busy",
+            "The database is currently busy. Please try again in a moment.",
+            [{ text: "Retry", onPress: () => loadEntriesWithAbort() }]
+          );
+        } else {
+          showAlert(
+            "Error",
+            "Failed to load journal entries: " +
+              (error && error.message ? error.message : "Unknown error")
+          );
+        }
+      } finally {
+        if (isMounted) {
+          console.log("In finally block, about to setLoading(false)");
+          setLoading(false);
+        }
+      }
+    };
+
+    loadEntriesWithAbort();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDate]);
+
   // Refresh data when the screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      // Wrap async logic in an inner function
-      const fetchData = async () => {
-        await loadEntries();
-        await updateUnsyncedCount();
-      };
-      fetchData();
-
-      // Cleanup function
+      isScreenActiveRef.current = true;
       return () => {
-        console.log("Screen is losing focus, resetting selectedDate to null.");
-        setSelectedDate(null);
+        isScreenActiveRef.current = false;
       };
     }, [])
   );
-  
+
   // Update unsynced count periodically
   // useEffect(() => {
-   
-    
+
   //   const interval = setInterval(() => {
   //     updateUnsyncedCount();
   //   }, 10000); // Check every 10 seconds
-    
+
   //   return () => clearInterval(interval);
   // }, []);
-  // Load entries based on whether a date is selected or not
-  const loadEntries = async () => {
 
-    console.log("loadentries function call");
-    try {
-      setLoading(true);
-      let loadedEntries;
-      if (selectedDate) {
-        // console.log("Before fetchJournalsByDate");
-        loadedEntries = await fetchJournalsByDate(selectedDate);
-        // console.log("After fetchJournalsByDate");
-      } else {
-        // console.log("Before fetchRecentJournalEntries");
-        loadedEntries = await fetchRecentJournalEntries(10);
-        // console.log("After fetchRecentJournalEntries", loadedEntries);
-      }
-      // console.log("Before setEntries");
-      setEntries(loadedEntries || []);
-      // console.log("After setEntries");
-      // console.log("Before updateUnsyncedCount");
-      await updateUnsyncedCount();
-      // console.log("After updateUnsyncedCount");
-      // console.log("loading entries check");
-    } catch (error) {
-      console.error("Error loading entries:", error);
-      if (error && error.message && error.message.includes('database is locked')) {
-        Alert.alert(
-          "Database Busy",
-          "The database is currently busy. Please try again in a moment.",
-          [{ text: "Retry", onPress: () => 
-             loadEntries() }]
-        );
-      } else {
-        Alert.alert("Error", "Failed to load journal entries: " + (error && error.message ? error.message : "Unknown error"));
-      }
-    } finally {
-      console.log("In finally block, about to setLoading(false)");
-      setLoading(false);
-    
-    }
-  };
-  
   // Update the count of unsynced entries
   const updateUnsyncedCount = async () => {
+    setIsUpdatingUnsyncedCount(true);
     try {
       const count = await getUnsyncedCount();
       setPendingSyncCount(count);
     } catch (error) {
       console.error("Error updating unsynced count:", error);
+    } finally {
+      setIsUpdatingUnsyncedCount(false);
     }
   };
 
@@ -255,7 +301,7 @@ export default function JournalScreen() {
 
     // Check network status before attempting sync
     if (!isOnline) {
-      Alert.alert(
+      showAlert(
         "No Network Connection",
         "Please check your internet connection and try again.",
         [{ text: "OK" }]
@@ -263,42 +309,57 @@ export default function JournalScreen() {
       return;
     }
 
-    try {
-      // idToken check removed, handled in client.js
+    // Check daily sync limit
+    const canSync = await canSyncToday();
+    if (!canSync) {
+      showAlert(
+        "Sync Limit Reached",
+        "You can only sync 3 times per day. Try again tomorrow.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
 
-      // Check daily sync limit
-      const canSync = await canSyncToday();
-      if (!canSync) {
-        Alert.alert(
-          "Sync Limit Reached",
-          "You can only sync 3 times per day. Try again tomorrow.",
-          [{ text: "OK" }]
+    // Set loading state for this entry
+    setSyncingEntries((prev) => new Set(prev).add(entry.id));
+
+    try {
+      // Use the new sync function - error handling is now centralized
+      const synced = await syncJournalEntryToServer({ entry });
+
+      if (!synced) {
+        showAlert(
+          "Sync Failed",
+          "Failed to sync entry. Please try again later."
         );
         return;
       }
 
-      // Set loading state for this entry
-      setSyncingEntries((prev) => new Set(prev).add(entry.id));
-
-      // Use the new sync function
-      const synced=await syncJournalEntryToServer({ entry });
-      // Refresh the entries list
-       if(!synced)
-        
-        {
-          Alert.alert("Sync Failed", "Failed to sync entry. Please try again later.");
-          return;
+      // Refresh entries
+      setLoading(true);
+      try {
+        let loadedEntries;
+        if (selectedDate) {
+          loadedEntries = await fetchJournalsByDate(selectedDate);
+        } else {
+          loadedEntries = await fetchRecentJournalEntries(10);
         }
-        await loadEntries();
-      // Show success message only if no error was thrown
-      Alert.alert(
+        setEntries(loadedEntries || []);
+        await updateUnsyncedCount();
+      } catch (error) {
+        console.error("Error refreshing entries:", error);
+      } finally {
+        setLoading(false);
+      }
+
+      showAlert(
         "Sync Successful",
         "Your journal entry has been saved to the cloud!",
         [{ text: "OK" }]
       );
     } catch (error) {
-      console.error("Sync error:", error);
-      Alert.alert(
+      logError("Sync error:", error);
+      showAlert(
         "Sync Failed",
         error.message || "Failed to sync entry. Please try again later.",
         [{ text: "OK" }]
@@ -312,7 +373,7 @@ export default function JournalScreen() {
       });
     }
   };
-  
+
   // Navigate to journal detail screen
   const viewJournalEntry = (entry) => {
     router.push(`/journal/${entry.id}`);
@@ -330,56 +391,75 @@ export default function JournalScreen() {
 
   // Add a new journal entry
   const addEntry = async () => {
+    console.log("Attempting to add new entry");
+    if (!newEntry.trim()) {
+      showAlert("Error", "Please write something in your journal");
+      return;
+    }
+
+    setIsAddingEntry(true);
+
     try {
-     
-        console.log("Attempting to add new entry");
-      if (!newEntry.trim()) {
-        Alert.alert("Error", "Please write something in your journal");
-        return;
-      }
-      
-      // Create entry locally
+      // Create entry locally - error handling is now centralized
       const entry = await createJournalEntryLocal({
         title: newEntryTitle.trim(),
         content: newEntry.trim(),
-  // idToken removed
       });
-      
+
       // Reset form and close modal
       setNewEntry("");
       setNewEntryTitle("");
       setShowAddModal(false);
-      
+
       // Add to current entries list
       setEntries([entry, ...entries]);
-      
+
       // Update unsynced count
-      updateUnsyncedCount();
-      
+      await updateUnsyncedCount();
+
       // Show appropriate alert based on network status
       if (!isOnline) {
-        Alert.alert(
+        showAlert(
           "Entry Saved Offline",
           "Your journal entry has been saved locally. It will be synced when you're back online.",
           [{ text: "OK" }]
         );
         return;
       }
-      
+
       // Try to sync immediately if online
       if (isOnline) {
+        setSyncingEntries((prev) => new Set(prev).add(entry.id));
+
         try {
-          setSyncingEntries((prev) => new Set(prev).add(entry.id));
-         const synced= await syncJournalEntryToServer({ entry });
-         if(!synced){
-            Alert.alert("Sync Failed", "Entry saved locally but couldn't be synced. You can try again later.");
-            return
-          } 
-         
-         await loadEntries(); // Refresh the list
+          const synced = await syncJournalEntryToServer({ entry });
+          if (!synced) {
+            showAlert(
+              "Sync Failed",
+              "Entry saved locally but couldn't be synced. You can try again later."
+            );
+            return;
+          }
+
+          // Refresh the list
+          setLoading(true);
+          try {
+            let loadedEntries;
+            if (selectedDate) {
+              loadedEntries = await fetchJournalsByDate(selectedDate);
+            } else {
+              loadedEntries = await fetchRecentJournalEntries(10);
+            }
+            setEntries(loadedEntries || []);
+            await updateUnsyncedCount();
+          } catch (error) {
+            console.error("Error refreshing entries:", error);
+          } finally {
+            setLoading(false);
+          }
         } catch (syncError) {
-          console.error("Failed to sync new entry:", syncError);
-          Alert.alert(
+          logError("Failed to sync new entry:", syncError);
+          showAlert(
             "Sync Failed",
             "Entry saved locally but couldn't be synced. You can try again later.",
             [{ text: "OK" }]
@@ -394,32 +474,58 @@ export default function JournalScreen() {
       }
     } catch (error) {
       console.error("Error adding entry:", error);
-      Alert.alert("Error", error.message || "Failed to create journal entry");
+      showAlert("Error", error.message || "Failed to create journal entry");
+    } finally {
+      setIsAddingEntry(false);
     }
   };
 
   // Delete a journal entry
   const deleteEntry = (entry) => {
-    Alert.alert("Delete Entry", "Are you sure you want to delete this entry?", [
+    showAlert("Delete Entry", "Are you sure you want to delete this entry?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
+          // Set loading state for this specific entry
+          setIsDeletingEntry((prev) => new Set(prev).add(entry.id));
+
+          // Remove from UI immediately for responsive feel
+          setEntries(entries.filter((e) => e.id !== entry.id));
+
           try {
-            // Remove from UI immediately for responsive feel
-            setEntries(entries.filter((e) => e.id !== entry.id));
-            
-            // Delete from storage
+            // Delete from storage - error handling is now centralized
             await deleteJournalEntryLocal({ entry });
-            
+
             // Update unsynced count
-            updateUnsyncedCount();
+            await updateUnsyncedCount();
           } catch (error) {
             console.error("Error deleting entry:", error);
-            Alert.alert("Error", "Failed to delete entry");
+            showAlert("Error", "Failed to delete entry");
             // Refresh the list to show the entry again if deletion failed
-            await loadEntries();
+            setLoading(true);
+            try {
+              let loadedEntries;
+              if (selectedDate) {
+                loadedEntries = await fetchJournalsByDate(selectedDate);
+              } else {
+                loadedEntries = await fetchRecentJournalEntries(10);
+              }
+              setEntries(loadedEntries || []);
+              await updateUnsyncedCount();
+            } catch (error) {
+              console.error("Error refreshing entries:", error);
+            } finally {
+              setLoading(false);
+            }
+          } finally {
+            // Clear loading state for this entry
+            setIsDeletingEntry((prev) => {
+              const newSet = new Set(prev);
+              newSet.delete(entry.id);
+              return newSet;
+            });
           }
         },
       },
@@ -474,7 +580,11 @@ export default function JournalScreen() {
               onPress={syncPendingEntries}
               disabled={isSyncingAll}
             >
-              <Ionicons name={isSyncingAll ? "sync-outline" : "cloud-upload"} size={16} color="#FFFFFF" />
+              {isSyncingAll ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="cloud-upload" size={16} color="#FFFFFF" />
+              )}
               <Text style={styles.syncAllText}>{pendingSyncCount}</Text>
             </TouchableOpacity>
           )}
@@ -484,7 +594,7 @@ export default function JournalScreen() {
           >
             <Ionicons name="calendar" size={20} color="#3B82F6" />
           </TouchableOpacity>
-          
+
           {/* Removed test button */}
         </View>
       </View>
@@ -507,9 +617,16 @@ export default function JournalScreen() {
           >
             {isOnline ? "Online" : "Offline"}
           </Text>
+          {isUpdatingUnsyncedCount && (
+            <ActivityIndicator
+              size="small"
+              color="#3B82F6"
+              style={{ marginLeft: 8 }}
+            />
+          )}
         </View>
       </View>
-      
+
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
@@ -553,7 +670,7 @@ export default function JournalScreen() {
                       })}
                     </Text>
                   </View>
-                  
+
                   <View style={styles.actionsRow}>
                     <TouchableOpacity
                       onPress={(e) => {
@@ -561,10 +678,19 @@ export default function JournalScreen() {
                         deleteEntry(entry);
                       }}
                       style={styles.actionButton}
+                      disabled={isDeletingEntry.has(entry.id)}
                     >
-                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      {isDeletingEntry.has(entry.id) ? (
+                        <ActivityIndicator size="small" color="#EF4444" />
+                      ) : (
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color="#EF4444"
+                        />
+                      )}
                     </TouchableOpacity>
-                    
+
                     {!entry.synced && (
                       <TouchableOpacity
                         onPress={(e) => {
@@ -574,45 +700,59 @@ export default function JournalScreen() {
                         style={styles.actionButton}
                         disabled={syncingEntries.has(entry.id)}
                       >
-                        <Ionicons
-                          name={syncingEntries.has(entry.id) ? "sync-outline" : "cloud-upload-outline"}
-                          size={18}
-                          color={syncingEntries.has(entry.id) ? "#9CA3AF" : "#3B82F6"}
-                        />
+                        {syncingEntries.has(entry.id) ? (
+                          <ActivityIndicator size="small" color="#3B82F6" />
+                        ) : (
+                          <Ionicons
+                            name="cloud-upload-outline"
+                            size={18}
+                            color="#3B82F6"
+                          />
+                        )}
                       </TouchableOpacity>
                     )}
                   </View>
                 </View>
-                
+
                 {entry.title ? (
                   <Text style={styles.entryTitle}>{entry.title}</Text>
                 ) : null}
-                
+
                 <View style={styles.contentRow}>
                   <Text style={styles.sentimentEmoji}>{entry.sentiment}</Text>
-                  <Text style={styles.entryContent}>{entry.truncatedContent}</Text>
+                  <Text style={styles.entryContent}>
+                    {entry.truncatedContent}
+                  </Text>
                 </View>
-                
+
                 <View style={styles.entryFooter}>
-                  {entry.synced ?(
+                  {entry.synced ? (
                     <View style={styles.syncStatus}>
-                      <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={14}
+                        color="#10B981"
+                      />
                       <Text style={styles.syncedText}>Synced</Text>
                     </View>
-                  ): (
+                  ) : syncingEntries.has(entry.id) ? (
+                    <View style={styles.syncStatus}>
+                      <ActivityIndicator size="small" color="#3B82F6" />
+                      <Text style={styles.syncingText}>Syncing...</Text>
+                    </View>
+                  ) : (
                     <View style={styles.syncStatus}>
                       <Ionicons name="time-outline" size={14} color="#F59E0B" />
                       <Text style={styles.unsyncedText}>Pending sync</Text>
                     </View>
                   )}
-                 
                 </View>
               </TouchableOpacity>
             ))
           )}
         </ScrollView>
       )}
-      
+
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => setShowAddModal(true)}
@@ -636,11 +776,22 @@ export default function JournalScreen() {
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>New Journal Entry</Text>
-            <TouchableOpacity onPress={addEntry} style={styles.saveButton}>
-              <Text style={styles.saveButtonText}>Save</Text>
+            <TouchableOpacity
+              onPress={addEntry}
+              style={[
+                styles.saveButton,
+                isAddingEntry && styles.saveButtonDisabled,
+              ]}
+              disabled={isAddingEntry}
+            >
+              {isAddingEntry ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save</Text>
+              )}
             </TouchableOpacity>
           </View>
-          
+
           <TextInput
             style={styles.titleInput}
             placeholder="Title (optional)"
@@ -889,6 +1040,11 @@ const styles = StyleSheet.create({
     color: "#10B981",
     fontWeight: "500",
   },
+  syncingText: {
+    fontSize: 12,
+    color: "#3B82F6",
+    fontWeight: "500",
+  },
   addButton: {
     position: "absolute",
     bottom: 30,
@@ -936,6 +1092,10 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: "#FFFFFF",
     fontWeight: "600",
+  },
+  saveButtonDisabled: {
+    backgroundColor: "#9CA3AF",
+    opacity: 0.7,
   },
   placeholder: {
     width: 40,

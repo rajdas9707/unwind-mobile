@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import {
   View,
   Text,
@@ -37,7 +37,7 @@ import {
   canSyncMistakesToday,
   getMistakeCategories,
   getCategoryColor,
-  getCategoryEmoji
+  getCategoryEmoji,
 } from "../../storage/mistakes/storage";
 
 // Removed database health utilities
@@ -58,8 +58,13 @@ export default function MistakesScreen() {
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingEntries, setSyncingEntries] = useState(new Set());
   const [isSyncingAll, setIsSyncingAll] = useState(false);
+
+  // Additional loading states for different operations
+  const [isAddingEntry, setIsAddingEntry] = useState(false);
+  const [isDeletingEntry, setIsDeletingEntry] = useState(new Set());
+  const [isUpdatingUnsyncedCount, setIsUpdatingUnsyncedCount] = useState(false);
   // const { idToken } = useContext(AuthContext); // removed, now handled in client.js
-  
+
   // Spinning animation for sync icon
   const spinValue = useSharedValue(0);
 
@@ -83,85 +88,160 @@ export default function MistakesScreen() {
 
   // Load entries when the component mounts or when selectedDate changes
   useEffect(() => {
-   
-      loadEntries();
-    
-  }, [ selectedDate]);
-  
+    let isMounted = true;
+
+    const loadEntriesWithGuard = async () => {
+      if (!isMounted) return;
+
+      setLoading(true);
+
+      try {
+        let loadedEntries;
+
+        if (selectedDate) {
+          console.log("Loading mistakes entries for date:", selectedDate);
+          loadedEntries = await fetchMistakesByDate(selectedDate);
+        } else {
+          console.log("Loading recent mistakes entries");
+          loadedEntries = await fetchRecentMistakesEntries(10);
+        }
+
+        if (isMounted) {
+          console.log("Loaded mistakes entries:", loadedEntries);
+          setEntries(loadedEntries || []);
+
+          // Update unsynced count
+          await updateUnsyncedCount();
+        }
+      } catch (error) {
+        if (!isMounted) return;
+
+        console.error("Error loading mistakes entries:", error);
+
+        // Check if it's a database lock error
+        if (error.message && error.message.includes("database is locked")) {
+          showAlert(
+            "Database Busy",
+            "The database is currently busy. Please try again in a moment.",
+            [
+              {
+                text: "Retry",
+                onPress: () => setTimeout(() => loadEntriesWithGuard(), 1000),
+              },
+            ]
+          );
+        } else {
+          showAlert(
+            "Error",
+            "Failed to load mistakes entries: " +
+              (error.message || "Unknown error")
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadEntriesWithGuard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDate]);
+
   // Refresh data when the screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      
-        loadEntries();
-        updateUnsyncedCount();
-      
-      
+      isScreenActiveRef.current = true;
+      let isMounted = true;
+
+      const fetchData = async () => {
+        if (!isMounted) return;
+
+        setLoading(true);
+
+        try {
+          let loadedEntries;
+
+          if (selectedDate) {
+            console.log("Loading mistakes entries for date:", selectedDate);
+            loadedEntries = await fetchMistakesByDate(selectedDate);
+          } else {
+            console.log("Loading recent mistakes entries");
+            loadedEntries = await fetchRecentMistakesEntries(10);
+          }
+
+          if (isMounted) {
+            console.log("Loaded mistakes entries:", loadedEntries);
+            setEntries(loadedEntries || []);
+
+            // Update unsynced count
+            await updateUnsyncedCount();
+          }
+        } catch (error) {
+          if (!isMounted) return;
+
+          console.error("Error loading mistakes entries:", error);
+
+          // Check if it's a database lock error
+          if (error.message && error.message.includes("database is locked")) {
+            showAlert(
+              "Database Busy",
+              "The database is currently busy. Please try again in a moment.",
+              [
+                {
+                  text: "Retry",
+                  onPress: () => setTimeout(() => fetchData(), 1000),
+                },
+              ]
+            );
+          } else {
+            showAlert(
+              "Error",
+              "Failed to load mistakes entries: " +
+                (error.message || "Unknown error")
+            );
+          }
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
+        }
+      };
+
+      fetchData();
+
       // Cleanup function
       return () => {
+        isMounted = false;
+        isScreenActiveRef.current = false;
         console.log("Screen is losing focus, resetting selectedDate to null.");
         setSelectedDate(null);
       };
-    }, [])
+    }, [selectedDate])
   );
-  
+
   // Update unsynced count periodically
   useEffect(() => {
-    
-    
     const interval = setInterval(() => {
       updateUnsyncedCount();
     }, 10000); // Check every 10 seconds
-    
+
     return () => clearInterval(interval);
   }, []);
 
-  // Load entries based on whether a date is selected or not
-  const loadEntries = async () => {
-    try {
-      setLoading(true);
-      
-      // Database health checks removed
-      
-      let loadedEntries;
-      
-      if (selectedDate) {
-        console.log("Loading mistakes entries for date:", selectedDate);
-        loadedEntries = await fetchMistakesByDate(selectedDate);
-      } else {
-        console.log("Loading recent mistakes entries");
-        loadedEntries = await fetchRecentMistakesEntries(10);
-      }
-      
-      console.log("Loaded mistakes entries:", loadedEntries);
-      setEntries(loadedEntries || []);
-      
-      // Update unsynced count
-      updateUnsyncedCount();
-    } catch (error) {
-      console.error("Error loading mistakes entries:", error);
-      
-      // Check if it's a database lock error
-      if (error.message && error.message.includes('database is locked')) {
-        Alert.alert(
-          "Database Busy", 
-          "The database is currently busy. Please try again in a moment.",
-          [{ text: "Retry", onPress: () => setTimeout(() => loadEntries(), 1000) }]
-        );
-      } else {
-        Alert.alert("Error", "Failed to load mistakes entries: " + (error.message || "Unknown error"));
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-  
   // Update the count of unsynced entries
   const updateUnsyncedCount = async () => {
+    setIsUpdatingUnsyncedCount(true);
     try {
       const count = await getUnsyncedMistakesCount();
       setPendingSyncCount(count);
     } catch (error) {
       console.error("Error updating unsynced mistakes count:", error);
+    } finally {
+      setIsUpdatingUnsyncedCount(false);
     }
   };
 
@@ -170,41 +250,72 @@ export default function MistakesScreen() {
     try {
       // Check if online
       if (!isOnline) {
-        Alert.alert(
+        showAlert(
           "No Internet Connection",
           "Please check your connection and try again.",
           [{ text: "OK" }]
         );
         return;
       }
-      
+
       // idToken check removed, handled in client.js
-      
+
       // Start syncing
       setIsSyncingAll(true);
-      
+
       try {
-  const result = await syncAllMistakesEntries();
-        
+        const result = await syncAllMistakesEntries();
+
         if (result.syncedCount > 0 || result.failedCount > 0) {
-          Alert.alert(
+          showAlert(
             "Sync Complete",
-            `Successfully synced ${result.syncedCount} entries. ${result.failedCount > 0 ? `Failed to sync ${result.failedCount} entries.` : ''}`
+            `Successfully synced ${result.syncedCount} entries. ${
+              result.failedCount > 0
+                ? `Failed to sync ${result.failedCount} entries.`
+                : ""
+            }`
           );
         } else {
-          Alert.alert("No Entries to Sync", "All your entries are already synced.");
+          showAlert(
+            "No Entries to Sync",
+            "All your entries are already synced."
+          );
         }
-        
+
         // Refresh the list
-        loadEntries();
+        setLoading(true);
+        try {
+          let loadedEntries;
+
+          if (selectedDate) {
+            console.log("Loading mistakes entries for date:", selectedDate);
+            loadedEntries = await fetchMistakesByDate(selectedDate);
+          } else {
+            console.log("Loading recent mistakes entries");
+            loadedEntries = await fetchRecentMistakesEntries(10);
+          }
+
+          console.log("Loaded mistakes entries:", loadedEntries);
+          setEntries(loadedEntries || []);
+
+          // Update unsynced count
+          await updateUnsyncedCount();
+        } catch (error) {
+          logError("Error loading mistakes entries:", error);
+        } finally {
+          setLoading(false);
+        }
       } catch (error) {
-        console.error("Error syncing all entries:", error);
-        Alert.alert("Sync Failed", error.message || "Failed to sync entries. Please try again later.");
+        logError("Error syncing all entries:", error);
+        showAlert(
+          "Sync Failed",
+          error.message || "Failed to sync entries. Please try again later."
+        );
       } finally {
         setIsSyncingAll(false);
       }
     } catch (e) {
-      console.error("Error in syncPendingEntries:", e);
+      logError("Error in syncPendingEntries:", e);
       setIsSyncingAll(false);
     }
   };
@@ -217,7 +328,7 @@ export default function MistakesScreen() {
 
     // Check network status before attempting sync
     if (!isOnline) {
-      Alert.alert(
+      showAlert(
         "No Network Connection",
         "Please check your internet connection and try again.",
         [{ text: "OK" }]
@@ -229,7 +340,7 @@ export default function MistakesScreen() {
       // Check daily sync limit
       const canSync = await canSyncMistakesToday();
       if (!canSync) {
-        Alert.alert(
+        showAlert(
           "Sync Limit Reached",
           "You can only sync 3 times per day. Try again tomorrow.",
           [{ text: "OK" }]
@@ -242,19 +353,40 @@ export default function MistakesScreen() {
 
       // Use the new sync function
       await syncMistakeEntryToServer({ entry });
-      
+
       // Refresh the entries list
-      await loadEntries();
+      setLoading(true);
+      try {
+        let loadedEntries;
+
+        if (selectedDate) {
+          console.log("Loading mistakes entries for date:", selectedDate);
+          loadedEntries = await fetchMistakesByDate(selectedDate);
+        } else {
+          console.log("Loading recent mistakes entries");
+          loadedEntries = await fetchRecentMistakesEntries(10);
+        }
+
+        console.log("Loaded mistakes entries:", loadedEntries);
+        setEntries(loadedEntries || []);
+
+        // Update unsynced count
+        await updateUnsyncedCount();
+      } catch (error) {
+        logError("Error loading mistakes entries:", error);
+      } finally {
+        setLoading(false);
+      }
 
       // Show success message
-      Alert.alert(
+      showAlert(
         "Sync Successful",
         "Your mistake entry has been saved to the cloud!",
         [{ text: "OK" }]
       );
     } catch (error) {
-      console.error("Sync error:", error);
-      Alert.alert(
+      logError("Sync error:", error);
+      showAlert(
         "Sync Failed",
         error.message || "Failed to sync entry. Please try again later.",
         [{ text: "OK" }]
@@ -268,7 +400,7 @@ export default function MistakesScreen() {
       });
     }
   };
-  
+
   // Navigate to mistake detail screen
   const viewMistakeEntry = (entry) => {
     router.push(`/mistakes/${entry.id}`);
@@ -276,52 +408,75 @@ export default function MistakesScreen() {
 
   // Add a new mistake entry
   const addEntry = async () => {
+    if (!newDescription.trim()) {
+      showAlert("Error", "Please describe what happened");
+      return;
+    }
+
+    setIsAddingEntry(true);
+
     try {
-    
-      
-      if (!newDescription.trim()) {
-        Alert.alert("Error", "Please describe what happened");
-        return;
-      }
-      
-      // Create entry locally
+      // Create entry locally - error handling is now centralized
       const entry = await createMistakeEntryLocal({
         description: newDescription.trim(),
         lesson: newLesson.trim(),
-        category: newCategory
+        category: newCategory,
       });
-      
+
       // Reset form and close modal
       setNewDescription("");
       setNewLesson("");
       setNewCategory("Other");
       setShowAddModal(false);
-      
+
       // Add to current entries list
       setEntries([entry, ...entries]);
-      
+
       // Update unsynced count
-      updateUnsyncedCount();
-      
+      await updateUnsyncedCount();
+
       // Show appropriate alert based on network status
       if (!isOnline) {
-        Alert.alert(
+        showAlert(
           "Entry Saved Offline",
           "Your mistake entry has been saved locally. It will be synced when you're back online.",
           [{ text: "OK" }]
         );
         return;
       }
-      
+
       // Try to sync immediately if online
       if (isOnline) {
+        setSyncingEntries((prev) => new Set(prev).add(entry.id));
+
         try {
-          setSyncingEntries((prev) => new Set(prev).add(entry.id));
           await syncMistakeEntryToServer({ entry });
-          await loadEntries(); // Refresh the list
+          // Refresh the list
+          setLoading(true);
+          try {
+            let loadedEntries;
+
+            if (selectedDate) {
+              console.log("Loading mistakes entries for date:", selectedDate);
+              loadedEntries = await fetchMistakesByDate(selectedDate);
+            } else {
+              console.log("Loading recent mistakes entries");
+              loadedEntries = await fetchRecentMistakesEntries(10);
+            }
+
+            console.log("Loaded mistakes entries:", loadedEntries);
+            setEntries(loadedEntries || []);
+
+            // Update unsynced count
+            await updateUnsyncedCount();
+          } catch (error) {
+            logError("Error loading mistakes entries:", error);
+          } finally {
+            setLoading(false);
+          }
         } catch (syncError) {
-          console.log("Failed to sync new entry:", syncError);
-          Alert.alert(
+          logError("Failed to sync new entry:", syncError);
+          showAlert(
             "Sync Failed",
             "Entry saved locally but couldn't be synced. You can try again later.",
             [{ text: "OK" }]
@@ -335,33 +490,66 @@ export default function MistakesScreen() {
         }
       }
     } catch (error) {
-      console.error("Error adding entry:", error);
-      Alert.alert("Error", error.message || "Failed to create mistake entry");
+      logError("Error adding entry:", error);
+      showAlert("Error", error.message || "Failed to create mistake entry");
+    } finally {
+      setIsAddingEntry(false);
     }
   };
 
   // Delete a mistake entry
   const deleteEntry = (entry) => {
-    Alert.alert("Delete Entry", "Are you sure you want to delete this entry?", [
+    showAlert("Delete Entry", "Are you sure you want to delete this entry?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
+          // Set loading state for this specific entry
+          setIsDeletingEntry((prev) => new Set(prev).add(entry.id));
+
+          // Remove from UI immediately for responsive feel
+          setEntries(entries.filter((e) => e.id !== entry.id));
+
           try {
-            // Remove from UI immediately for responsive feel
-            setEntries(entries.filter((e) => e.id !== entry.id));
-            
-            // Delete from storage
+            // Delete from storage - error handling is now centralized
             await deleteMistakeEntryLocal({ entry });
-            
+
             // Update unsynced count
-            updateUnsyncedCount();
+            await updateUnsyncedCount();
           } catch (error) {
-            console.error("Error deleting entry:", error);
-            Alert.alert("Error", "Failed to delete entry");
+            logError("Error deleting entry:", error);
+            showAlert("Error", "Failed to delete entry");
             // Refresh the list to show the entry again if deletion failed
-            loadEntries();
+            setLoading(true);
+            try {
+              let loadedEntries;
+
+              if (selectedDate) {
+                console.log("Loading mistakes entries for date:", selectedDate);
+                loadedEntries = await fetchMistakesByDate(selectedDate);
+              } else {
+                console.log("Loading recent mistakes entries");
+                loadedEntries = await fetchRecentMistakesEntries(10);
+              }
+
+              console.log("Loaded mistakes entries:", loadedEntries);
+              setEntries(loadedEntries || []);
+
+              // Update unsynced count
+              await updateUnsyncedCount();
+            } catch (error) {
+              logError("Error loading mistakes entries:", error);
+            } finally {
+              setLoading(false);
+            }
+          } finally {
+            // Clear loading state for this entry
+            setIsDeletingEntry((prev) => {
+              const newSet = new Set(prev);
+              newSet.delete(entry.id);
+              return newSet;
+            });
           }
         },
       },
@@ -381,7 +569,7 @@ export default function MistakesScreen() {
   const getMarkedDates = () => {
     const marked = {};
     entries.forEach((entry) => {
-      const date = entry.created_at.split('T')[0];
+      const date = entry.created_at.split("T")[0];
       marked[date] = {
         marked: true,
         dotColor: "#F59E0B",
@@ -412,7 +600,9 @@ export default function MistakesScreen() {
             ]}
             onPress={() => setNewCategory(category)}
           >
-            <Text style={styles.categoryEmoji}>{getCategoryEmoji(category)}</Text>
+            <Text style={styles.categoryEmoji}>
+              {getCategoryEmoji(category)}
+            </Text>
             <Text style={styles.categoryText}>
               {category.charAt(0).toUpperCase() + category.slice(1)}
             </Text>
@@ -421,6 +611,26 @@ export default function MistakesScreen() {
       </View>
     );
   };
+
+  const isScreenActiveRef = useRef(true);
+  const showAlert = (title, message, buttons) => {
+    if (!isScreenActiveRef.current) return;
+    Alert.alert(title, message, buttons);
+  };
+  const logError = (...args) => {
+    if (!isScreenActiveRef.current) return;
+    // eslint-disable-next-line no-console
+    console.error(...args);
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      isScreenActiveRef.current = true;
+      return () => {
+        isScreenActiveRef.current = false;
+      };
+    }, [])
+  );
 
   return (
     <View style={styles.container}>
@@ -472,9 +682,16 @@ export default function MistakesScreen() {
           >
             {isOnline ? "Online" : "Offline"}
           </Text>
+          {isUpdatingUnsyncedCount && (
+            <ActivityIndicator
+              size="small"
+              color="#F59E0B"
+              style={{ marginLeft: 8 }}
+            />
+          )}
         </View>
       </View>
-      
+
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#F59E0B" />
@@ -487,10 +704,12 @@ export default function MistakesScreen() {
         >
           {entries.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="shield-checkmark-outline" size={48} color="#9CA3AF" />
-              <Text style={styles.emptyStateText}>
-                No mistake entries yet
-              </Text>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={48}
+                color="#9CA3AF"
+              />
+              <Text style={styles.emptyStateText}>No mistake entries yet</Text>
               <Text style={styles.emptyStateSubtext}>
                 Learn and grow from your experiences
               </Text>
@@ -520,7 +739,7 @@ export default function MistakesScreen() {
                       })}
                     </Text>
                   </View>
-                  
+
                   <View style={styles.actionsRow}>
                     <TouchableOpacity
                       onPress={(e) => {
@@ -528,10 +747,19 @@ export default function MistakesScreen() {
                         deleteEntry(entry);
                       }}
                       style={styles.actionButton}
+                      disabled={isDeletingEntry.has(entry.id)}
                     >
-                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      {isDeletingEntry.has(entry.id) ? (
+                        <ActivityIndicator size="small" color="#EF4444" />
+                      ) : (
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color="#EF4444"
+                        />
+                      )}
                     </TouchableOpacity>
-                    
+
                     {!entry.synced && (
                       <TouchableOpacity
                         onPress={(e) => {
@@ -541,32 +769,37 @@ export default function MistakesScreen() {
                         style={styles.actionButton}
                         disabled={syncingEntries.has(entry.id)}
                       >
-                        <Animated.View style={syncingEntries.has(entry.id) ? spinStyle : {}}>
+                        {syncingEntries.has(entry.id) ? (
+                          <ActivityIndicator size="small" color="#F59E0B" />
+                        ) : (
                           <Ionicons
-                            name={syncingEntries.has(entry.id) ? "sync" : "cloud-upload-outline"}
+                            name="cloud-upload-outline"
                             size={18}
-                            color={syncingEntries.has(entry.id) ? "#9CA3AF" : "#F59E0B"}
+                            color="#F59E0B"
                           />
-                        </Animated.View>
+                        )}
                       </TouchableOpacity>
                     )}
                   </View>
                 </View>
-                
+
                 <View style={styles.categoryRow}>
-                  <View style={[
-                    styles.categoryBadge,
-                    { backgroundColor: getCategoryColor(entry.category) }
-                  ]}>
+                  <View
+                    style={[
+                      styles.categoryBadge,
+                      { backgroundColor: getCategoryColor(entry.category) },
+                    ]}
+                  >
                     <Text style={styles.categoryBadgeEmoji}>
                       {getCategoryEmoji(entry.category)}
                     </Text>
                     <Text style={styles.categoryBadgeText}>
-                      {entry.category.charAt(0).toUpperCase() + entry.category.slice(1)}
+                      {entry.category.charAt(0).toUpperCase() +
+                        entry.category.slice(1)}
                     </Text>
                   </View>
                 </View>
-                
+
                 <View style={styles.contentSection}>
                   <Text style={styles.contentLabel}>What happened:</Text>
                   <Text style={styles.contentText}>{entry.description}</Text>
@@ -583,16 +816,28 @@ export default function MistakesScreen() {
                   <View style={styles.syncStatusContainer}>
                     {entry.synced ? (
                       <View style={styles.syncStatus}>
-                        <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={14}
+                          color="#10B981"
+                        />
                         <Text style={styles.syncedText}>Synced</Text>
                       </View>
-                    ): (
+                    ) : syncingEntries.has(entry.id) ? (
                       <View style={styles.syncStatus}>
-                        <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                        <ActivityIndicator size="small" color="#F59E0B" />
+                        <Text style={styles.syncingText}>Syncing...</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.syncStatus}>
+                        <Ionicons
+                          name="time-outline"
+                          size={14}
+                          color="#F59E0B"
+                        />
                         <Text style={styles.unsyncedText}>Pending sync</Text>
                       </View>
                     )}
-                 
                   </View>
                 </View>
               </TouchableOpacity>
@@ -600,7 +845,7 @@ export default function MistakesScreen() {
           )}
         </ScrollView>
       )}
-      
+
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => setShowAddModal(true)}
@@ -624,8 +869,19 @@ export default function MistakesScreen() {
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Log Mistake</Text>
-            <TouchableOpacity onPress={addEntry} style={styles.saveButton}>
-              <Text style={styles.saveButtonText}>Save</Text>
+            <TouchableOpacity
+              onPress={addEntry}
+              style={[
+                styles.saveButton,
+                isAddingEntry && styles.saveButtonDisabled,
+              ]}
+              disabled={isAddingEntry}
+            >
+              {isAddingEntry ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -636,9 +892,7 @@ export default function MistakesScreen() {
             </View>
 
             <View style={styles.inputSection}>
-              <Text style={styles.inputLabel}>
-                What happened?
-              </Text>
+              <Text style={styles.inputLabel}>What happened?</Text>
               <TextInput
                 style={styles.textInput}
                 placeholder="Describe what went wrong..."
@@ -966,6 +1220,15 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: "#FFFFFF",
     fontWeight: "600",
+  },
+  saveButtonDisabled: {
+    backgroundColor: "#9CA3AF",
+    opacity: 0.7,
+  },
+  syncingText: {
+    fontSize: 12,
+    color: "#F59E0B",
+    fontWeight: "500",
   },
   placeholder: {
     width: 40,
