@@ -10,20 +10,21 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  // idToken state removed, now handled in client.js
   const [loading, setLoading] = useState(true);
   const isOnline = useNetworkStatus();
 
   const fetchUserDetailsFromBackend = async () => {
-    getProfile({ uid: auth.currentUser.uid })
-      .then((data) => {
-        console.log("Fetched user details from backend:", data);
-        setUser(data.user); // Assuming backend returns user details in data.user
-      })
-      .catch((error) => {
-        console.log("Error fetching user details from backend:", error);
-      });
+    try {
+      if (!auth.currentUser) return;
+      const data = await getProfile({ uid: auth.currentUser.uid });
+      if (data?.user) {
+        setUser((prev) => ({ ...(prev || {}), ...data.user }));
+      }
+    } catch (error) {
+      console.log("Error fetching user details from backend:", error);
+    }
   };
+
   useEffect(() => {
     if (isOnline && auth.currentUser) {
       fetchUserDetailsFromBackend();
@@ -31,21 +32,29 @@ export const AuthProvider = ({ children }) => {
   }, [isOnline]);
 
   useEffect(() => {
-    const fetchAndSetToken = async () => {
+    const bootstrap = async () => {
       try {
-        let userInfo = await AsyncStorage.getItem("userInfo");
-        setUser(userInfo);
-        setLoading(false);
+        const stored = await AsyncStorage.getItem("userInfo");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            setUser(parsed);
+          } catch {
+            // if it was stored as a string previously
+            setUser(stored);
+          }
+        } else {
+          setUser(null);
+        }
       } catch (error) {
-        console.log("error from authprovider useeffect", error.message);
+        console.log("AuthProvider bootstrap error:", error?.message);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchAndSetToken();
-    // Optionally, listen for auth state changes and refresh token
-    // return () => unsubscribe && unsubscribe();
+    bootstrap();
   }, [isOnline]);
-
-  // Optionally, expose a manual refreshToken function if needed
 
   if (loading) {
     return (

@@ -1,26 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AuthContext } from "../context/AuthProvider";
 
 export default function Index() {
   const [isLoading, setIsLoading] = useState(true);
-  console.log("Checking onboarding status...");
+  const { user } = useContext(AuthContext);
 
   useEffect(() => {
     checkOnboardingStatus();
-  }, []);
+  }, [user]);
 
   const checkOnboardingStatus = async () => {
     try {
       const hasSeenOnboarding = await AsyncStorage.getItem("hasSeenOnboarding");
-      console.log("Has seen onboarding:", hasSeenOnboarding);
-
-      const userToken = await AsyncStorage.getItem("userToken");
+      const userInfo = user || (await AsyncStorage.getItem("userInfo"));
 
       if (!hasSeenOnboarding) {
         router.replace("/onboarding");
-      } else if (!userToken) {
+      } else if (!userInfo) {
         router.replace("/auth");
       } else {
         router.replace("/(tabs)");

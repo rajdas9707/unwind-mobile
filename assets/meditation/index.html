@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Meditation • Offline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --radius:16px;--shadow:0 8px 40px rgba(2,6,23,.30);
+      --accent:#10b981;--accent-2:#06b6d4;
+      --text:#0f172a;--muted:#64748b;--bg:#f8fafc;--panel:#ffffff;
+      --ring:rgba(16,185,129,.35);
+      --space:22px;--space-sm:16px;--card-pad:18px;--btn-min:120px;
+      --title-size:22px;--time-size:42px;
+      --screen-w:100vw;--screen-h:100vh;--dpr:1;
+    }
+    body.theme-dark{--text:#e5e7eb;--muted:#94a3b8;--bg:#0b1020;--panel:#0e1528;--ring:rgba(59,130,246,.28)}
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Manrope,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto;touch-action:manipulation;max-width:100vw;overflow-x:hidden}
+    .wrap{width:100%;max-width:min(1040px, 100%);margin:0 auto;padding:var(--space) var(--space-sm) calc(var(--space)*2)}
+    .header{display:flex;align-items:center;justify-content:space-between;padding:18px;border-radius:var(--radius);background:
+      radial-gradient(1400px 520px at -10% -20%, rgba(16,185,129,.20), transparent 40%),
+      linear-gradient(180deg,var(--panel),rgba(255,255,255,.65));
+      border:1px solid rgba(15,23,42,.08);box-shadow:var(--shadow);gap:16px;overflow:hidden}
+    .ttl{display:flex;align-items:center;gap:12px}
+    .badge{padding:6px 10px;border-radius:999px;background:rgba(16,185,129,.12);color:#065f46;border:1px solid rgba(5,150,105,.35);font-size:12px}
+    body.theme-dark .badge{background:rgba(16,185,129,.16);color:#a7f3d0;border-color:#115e59}
+    .title{font-size:var(--title-size);font-weight:800}
+    .muted{color:var(--muted);font-size:13px}
+
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;margin-top:18px}
+    @media (max-width:1024px){.grid{grid-template-columns:1fr;gap:14px}}
+
+    .card{background:var(--panel);border:1px solid rgba(15,23,42,.08);border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--card-pad);overflow:hidden}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+
+    .clock-wrap{display:flex;align-items:center;justify-content:center;position:relative;width:100%;height:clamp(240px, 55vmin, 520px);border-radius:18px;background:
+      radial-gradient(800px 400px at 50% 0%, rgba(16,185,129,.08), transparent 50%),
+      linear-gradient(180deg,rgba(2,6,23,.02),transparent 60%)}
+    .breath{
+      position:relative;
+      width:min(90vw, 90vmin, calc(min(var(--screen-w), var(--screen-h)) * 0.6), 440px);
+      height:min(90vw, 90vmin, calc(min(var(--screen-w), var(--screen-h)) * 0.6), 440px);
+      border-radius:50%;
+      background:conic-gradient(from 0deg at 50% 50%, rgba(16,185,129,.25), rgba(6,182,212,.25), rgba(16,185,129,.25));
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 0 0 12px rgba(16,185,129,.08), 0 20px 60px rgba(2,6,23,.25);
+      animation:breathing 6s ease-in-out infinite;
+    }
+    .breath::before{content:"";position:absolute;inset:14px;border-radius:50%;background:radial-gradient(circle at 50% 30%, rgba(255,255,255,.85), rgba(255,255,255,.6) 40%, rgba(255,255,255,.25) 70%, transparent 80%)}
+    body.theme-dark .breath::before{background:radial-gradient(circle at 50% 30%, rgba(255,255,255,.18), rgba(255,255,255,.10) 35%, rgba(255,255,255,.06) 60%, transparent 75%)}
+    .time{position:relative;font-size:var(--time-size);font-weight:800;letter-spacing:1px;color:#0f172a}
+    body.theme-dark .time{color:#e5e7eb}
+
+    @keyframes breathing{
+      0%,100%{transform:scale(0.96); box-shadow:0 0 0 10px rgba(16,185,129,.06), 0 20px 60px rgba(2,6,23,.25)}
+      50%{transform:scale(1.06); box-shadow:0 0 0 18px var(--ring), 0 30px 80px rgba(2,6,23,.35)}
+    }
+
+    .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .btn{flex:1;min-width:var(--btn-min);display:flex;align-items:center;justify-content:center;padding:12px 14px;border-radius:12px;border:1px solid rgba(2,6,23,.12);
+      background:linear-gradient(180deg,#ffffff,#f5f7fb);color:#0f172a;cursor:pointer;transition:transform .12s ease, box-shadow .2s ease}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(15,23,42,.08)}
+    .btn.primary{background:linear-gradient(180deg,#10b981,#059669);border-color:#059669;box-shadow:0 12px 26px rgba(16,185,129,.28);color:white}
+    .btn:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
+    body.theme-dark .btn{background:linear-gradient(180deg,#0f172a,#0e1627);color:#e5e7eb;border-color:#1f2a44}
+    body.theme-dark .btn.primary{box-shadow:0 12px 26px rgba(16,185,129,.28)}
+
+    .form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+    @media (max-width:900px){.form{grid-template-columns:1fr}}
+    .field{display:flex;flex-direction:column;gap:8px}
+    .label{font-size:12px;color:var(--muted);font-weight:600}
+    .panel{display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,#ffffff,#f7fafc);border:1px solid rgba(2,6,23,.08);border-radius:12px;padding:10px 12px}
+    body.theme-dark .panel{background:linear-gradient(180deg,#0e1528,#0c1222);border-color:#1a2440}
+    input[type=range]{width:100%}
+    select{flex:1;background:transparent;border:none;color:inherit;outline:none}
+
+    .theme-toggle{display:flex;align-items:center;gap:8px}
+    .switch{position:relative;width:48px;height:28px;background:#e2e8f0;border-radius:999px;border:1px solid rgba(2,6,23,.08);cursor:pointer;transition:background .2s}
+    .switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;background:white;border-radius:50%;box-shadow:0 4px 10px rgba(2,6,23,.2);transition:left .2s}
+    .switch.active{background:#111827}
+    .switch.active::after{left:23px;background:#0b1220}
+
+    .stars{pointer-events:none;position:absolute;inset:0;opacity:.9;mix-blend-mode:screen;display:none}
+    body.theme-dark .stars{display:block}
+    .stars::before, .stars::after{content:"";position:absolute;inset:-20% -10%;background-repeat:repeat;background-size:contain;filter:blur(.2px)}
+    .stars::before{background-image:radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.9) 60%, transparent 62%),
+      radial-gradient(1.5px 1.5px at 60% 70%, rgba(255,255,255,.6) 60%, transparent 62%),
+      radial-gradient(1.5px 1.5px at 80% 20%, rgba(255,255,255,.75) 60%, transparent 62%),
+      radial-gradient(1px 1px at 30% 80%, rgba(255,255,255,.8) 60%, transparent 62%)}
+    .stars::after{background-image:radial-gradient(1.2px 1.2px at 40% 40%, rgba(255,255,255,.7) 60%, transparent 62%),
+      radial-gradient(1.2px 1.2px at 70% 30%, rgba(255,255,255,.5) 60%, transparent 62%),
+      radial-gradient(1.2px 1.2px at 15% 60%, rgba(255,255,255,.6) 60%, transparent 62%)}
+
+    .status{display:inline-block;margin-top:10px;padding:6px 10px;border-radius:999px;background:rgba(2,6,23,.04);border:1px solid rgba(2,6,23,.08);color:var(--muted);font-size:12px}
+    body.theme-dark .status{background:rgba(255,255,255,.04);border-color:#1a2440}
+    .audio-controls{display:flex;gap:10px}
+    .seg{display:flex;gap:8px;background:rgba(2,6,23,.05);border:1px solid rgba(2,6,23,.08);border-radius:999px;padding:4px}
+    body.theme-dark .seg{background:#0e1528;border-color:#1a2440}
+    .seg button{padding:8px 12px;border-radius:999px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-weight:700}
+    .seg button.active{background:linear-gradient(180deg,#10b981,#059669);color:white}
+
+    .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+    .fade-enter{animation:fadeIn .35s ease both}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+    @media (max-width:860px){
+      :root{ --space:18px; --space-sm:14px; --card-pad:16px; --btn-min:110px; --title-size:20px; --time-size:clamp(28px, 8vw, 40px); }
+      .header{padding:14px}
+    }
+    @media (max-width:640px){
+      :root{ --space:16px; --space-sm:12px; --card-pad:14px; --btn-min:100px; --title-size:18px; --time-size:clamp(26px, 9vw, 36px); }
+      .controls .btn{padding:12px}
+    }
+    @media (max-width:420px){
+      :root{ --space:14px; --space-sm:10px; --card-pad:12px; --btn-min:92px; --title-size:17px; --time-size:clamp(24px, 10vw, 34px); }
+      .row{gap:8px}
+      .seg button{padding:7px 10px}
+    }
+  </style>
+</head>
+<body class="theme-light">
+  <div class="wrap">
+    <div class="header">
+      <div class="ttl">
+        <span class="badge">Meditation</span>
+        <div class="title">Guided Timer</div>
+      </div>
+      <div class="theme-toggle">
+        <span class="muted">Day</span>
+        <div id="switch" class="switch" role="switch" aria-label="Toggle dark mode"></div>
+        <span class="muted">Night</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card fade-enter">
+        <div class="clock-wrap">
+          <div class="stars"></div>
+          <div class="breath">
+            <div id="time" class="time">05:00</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="start" class="btn primary">Start</button>
+          <button id="pause" class="btn">Pause</button>
+          <button id="reset" class="btn">Reset</button>
+        </div>
+        <span id="status" class="status" aria-live="polite">Ready</span>
+      </div>
+
+      <div class="card fade-enter">
+        <div class="form">
+          <div class="field">
+            <label class="label">Meditation length (minutes)</label>
+            <div class="panel">
+              <input id="minutes" type="range" min="1" max="60" value="5" />
+              <div class="muted" id="minutesLabel">5 min</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label">Mood</label>
+            <div class="panel audio-controls" style="justify-content:space-between;">
+              <div class="seg" role="tablist" aria-label="Mood selector">
+                <button class="active" data-mood="calm" role="tab" aria-selected="true">Calm</button>
+                <button data-mood="focused" role="tab">Focused</button>
+                <button data-mood="relaxed" role="tab">Relaxed</button>
+                <button data-mood="energetic" role="tab">Energetic</button>
+              </div>
+              <button id="mute" class="btn" style="min-width:90px;flex:none">Mute</button>
+            </div>
+          </div>
+        </div>
+        <div class="footer">Tip: Close your eyes and follow the breathing circle.</div>
+      </div>
+    </div>
+  </div>
+
+  <audio id="audio-calm" loop preload="auto"></audio>
+  <audio id="audio-focused" loop preload="auto"></audio>
+  <audio id="audio-relaxed" loop preload="auto"></audio>
+  <audio id="audio-energetic" loop preload="auto"></audio>
+
+  <script>
+    // Read screen dimensions from query params (?w=..&h=..&dpr=..)
+    (function applyInitialDimensions(){
+      try{
+        const usp = new URLSearchParams(location.search);
+        const w = parseFloat(usp.get('w'));
+        const h = parseFloat(usp.get('h'));
+        const dpr = parseFloat(usp.get('dpr'));
+        // Local asset audio URIs from RN
+        const calm = usp.get('calm');
+        const focused = usp.get('focused');
+        const relaxed = usp.get('relaxed');
+        const energetic = usp.get('energetic');
+        if(calm) document.getElementById('audio-calm').src = calm;
+        if(focused) document.getElementById('audio-focused').src = focused;
+        if(relaxed) document.getElementById('audio-relaxed').src = relaxed;
+        if(energetic) document.getElementById('audio-energetic').src = energetic;
+        if(!isNaN(w)) document.documentElement.style.setProperty('--screen-w', w+'px');
+        if(!isNaN(h)) document.documentElement.style.setProperty('--screen-h', h+'px');
+        if(!isNaN(dpr)) document.documentElement.style.setProperty('--dpr', String(dpr));
+      }catch(e){}
+    })();
+    // Update CSS vars on orientation/resize inside WebView
+    window.addEventListener('resize', function(){
+      try{
+        document.documentElement.style.setProperty('--screen-w', window.innerWidth + 'px');
+        document.documentElement.style.setProperty('--screen-h', window.innerHeight + 'px');
+      }catch(e){}
+    });
+
+    const body = document.body;
+    const switchEl = document.getElementById('switch');
+    const timeEl = document.getElementById('time');
+    const statusEl = document.getElementById('status');
+    const startBtn = document.getElementById('start');
+    const pauseBtn = document.getElementById('pause');
+    const resetBtn = document.getElementById('reset');
+    const minutesSlider = document.getElementById('minutes');
+    const minutesLabel = document.getElementById('minutesLabel');
+    const muteBtn = document.getElementById('mute');
+
+    const moods = ['calm','focused','relaxed','energetic'];
+    const audios = {
+      calm: document.getElementById('audio-calm'),
+      focused: document.getElementById('audio-focused'),
+      relaxed: document.getElementById('audio-relaxed'),
+      energetic: document.getElementById('audio-energetic')
+    };
+    let currentMood = 'calm';
+    let isMuted = false;
+
+    let total = 5*60; let left = total; let running = false; let timerRef;
+    const fmt = (s)=>{const m=Math.floor(s/60),r=s%60;return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`};
+
+    function updateButtons(){
+      startBtn.disabled = running || left === 0;
+      pauseBtn.disabled = !running;
+      resetBtn.disabled = running && left === total ? true : false;
+      if(!running && left < total && left > 0){ startBtn.textContent = 'Resume'; }
+      else { startBtn.textContent = 'Start'; }
+    }
+
+    function setTimeFromMinutes(min){ total = Math.max(1, Math.min(60, Number(min))) * 60; left = total; timeEl.textContent = fmt(left); updateButtons(); }
+    function tick(){
+      if(!running) return;
+      left = Math.max(0, left - 1);
+      timeEl.textContent = fmt(left);
+      if(left === 0){ running = false; statusEl.textContent = 'Completed'; pauseAudio(); updateButtons(); return; }
+      timerRef = setTimeout(tick, 1000);
+    }
+    function start(){ if(!running){ running = true; statusEl.textContent = 'Running'; playAudio(); updateButtons(); tick(); } }
+    function pause(){ running = false; clearTimeout(timerRef); statusEl.textContent = 'Paused'; pauseAudio(); updateButtons(); }
+    function reset(){ running = false; clearTimeout(timerRef); left = total; timeEl.textContent = fmt(left); statusEl.textContent = 'Ready'; pauseAudio(true); updateButtons(); }
+
+    function selectMood(mood){
+      if(!moods.includes(mood)) return;
+      currentMood = mood;
+      document.querySelectorAll('.seg button').forEach(b=>{ b.classList.toggle('active', b.dataset.mood === mood); });
+      if(running && !isMuted){ playAudio(true); }
+    }
+    function playAudio(restart=false){
+      Object.entries(audios).forEach(([k,a])=>{ if(k !== currentMood) { try{ a.pause(); a.currentTime = 0; }catch(_){} } });
+      const a = audios[currentMood]; if(!a) return;
+      if(isMuted){ try{ a.pause(); }catch(_){} return; }
+      try{ if(restart){ a.currentTime = 0; } a.volume = 0.6; a.play().catch(()=>{}); }catch(_){}
+    }
+    function pauseAudio(stopAll=false){ Object.values(audios).forEach(a=>{ try{ a.pause(); if(stopAll){ a.currentTime = 0; } }catch(_){} }); }
+
+    const prefersDark = (typeof window !== 'undefined') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if(prefersDark){ body.classList.remove('theme-light'); body.classList.add('theme-dark'); switchEl.classList.add('active'); }
+    switchEl.addEventListener('click', ()=>{
+      const dark = body.classList.toggle('theme-dark');
+      if(dark){ body.classList.remove('theme-light'); switchEl.classList.add('active'); } else { body.classList.add('theme-light'); switchEl.classList.remove('active'); }
+    });
+
+    minutesSlider.addEventListener('input', (e)=>{ const v = Number(e.target.value); minutesLabel.textContent = `${v} min`; });
+    minutesSlider.addEventListener('change', (e)=>{ setTimeFromMinutes(e.target.value); });
+
+    document.querySelectorAll('.seg button').forEach(btn=>{ btn.addEventListener('click', ()=> selectMood(btn.dataset.mood)); });
+    muteBtn.addEventListener('click', ()=>{ isMuted = !isMuted; muteBtn.textContent = isMuted ? 'Unmute' : 'Mute'; if(isMuted){ pauseAudio(); } else if(running){ playAudio(true); } });
+
+    // Prevent double-tap zoom on iOS
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e)=>{
+      const now = Date.now();
+      if(now - lastTouchEnd <= 300){ e.preventDefault(); }
+      lastTouchEnd = now;
+    }, { passive:false });
+
+    setTimeFromMinutes(5);
+    updateButtons();
+  </script>
+</body>
+</html>

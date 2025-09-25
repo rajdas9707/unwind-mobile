@@ -211,6 +211,8 @@ export function getHelpCenterUrl() {
   return `${API_BASE_URL}/help-center`;
 }
 
+// Meditation is now served locally inside the app; no remote URL
+
 // Journal endpoints
 export async function listJournalEntries({
   date,
