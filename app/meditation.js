@@ -29,37 +29,28 @@ export default function MeditationScreen() {
   }, []);
 
   const audioParams = (() => {
+    let focused, fallback;
     try {
-      const calm = Asset.fromModule(
-        require("../assets/meditation/calm.mp3")
+      focused = Asset.fromModule(
+        require("../assets/focus-sound.mp3")
       ).uri;
-      const focused = Asset.fromModule(
-        require("../assets/meditation/focused.mp3")
+    } catch {}
+    try {
+      fallback = Asset.fromModule(
+        require("../assets/relax-sound.mp3")
       ).uri;
-      const relaxed = Asset.fromModule(
-        require("../assets/meditation/relaxed.mp3")
-      ).uri;
-      const energetic = Asset.fromModule(
-        require("../assets/meditation/energetic.mp3")
-      ).uri;
-      const qp = new URLSearchParams({
-        w: String(width),
-        h: String(height),
-        dpr: String(scale),
-      });
-      if (calm) qp.set("calm", calm);
-      if (focused) qp.set("focused", focused);
-      if (relaxed) qp.set("relaxed", relaxed);
-      if (energetic) qp.set("energetic", energetic);
-      return `?${qp.toString()}`;
-    } catch {
-      const qp = new URLSearchParams({
-        w: String(width),
-        h: String(height),
-        dpr: String(scale),
-      });
-      return `?${qp.toString()}`;
+    } catch {}
+    const qp = new URLSearchParams({
+      w: String(width),
+      h: String(height),
+      dpr: String(scale),
+    });
+    if (focused) {
+      qp.set("focused", focused);
+    } else if (fallback) {
+      qp.set("focused", fallback);
     }
+    return `?${qp.toString()}`;
   })();
 
   const source = localUri
