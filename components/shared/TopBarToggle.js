@@ -20,6 +20,10 @@ export default function TopBarToggle({
   haptics = true,
   leftText,
   rightText,
+  activeTextColor = "#FFFFFF",
+  inactiveTextColor = "#374151",
+  backgroundColor = "#EEF2F7",
+  borderColor = "#E5E7EB",
 }) {
   const [containerWidth, setContainerWidth] = useState(0);
   const segmentWidth = containerWidth > 0 ? containerWidth / 2 : 0;
@@ -58,7 +62,19 @@ export default function TopBarToggle({
 
   return (
     <View
-      style={[styles.container, containerStyle]}
+      style={[
+        styles.container,
+        {
+          backgroundColor,
+          borderColor,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          elevation: 3,
+        },
+        containerStyle,
+      ]}
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
     >
       {segmentWidth > 0 && (
@@ -70,6 +86,11 @@ export default function TopBarToggle({
               width: segmentWidth,
               transform: [{ translateX }],
               backgroundColor: primaryColor,
+              shadowColor: primaryColor,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 10,
+              elevation: 4,
             },
           ]}
         />
@@ -83,7 +104,7 @@ export default function TopBarToggle({
         <Text
           style={[
             styles.label,
-            selected === "today" ? styles.labelActive : styles.labelInactive,
+            { color: selected === "today" ? activeTextColor : inactiveTextColor },
           ]}
           numberOfLines={1}
         >
@@ -104,7 +125,7 @@ export default function TopBarToggle({
         <Text
           style={[
             styles.label,
-            selected === "backlogs" ? styles.labelActive : styles.labelInactive,
+            { color: selected === "backlogs" ? activeTextColor : inactiveTextColor },
           ]}
           numberOfLines={1}
         >
@@ -124,15 +145,13 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#EEF2F7",
     borderRadius: 999,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
   segment: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -142,14 +161,8 @@ const styles = StyleSheet.create({
   },
   segmentRight: {},
   label: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  labelInactive: {
-    color: "#374151",
-  },
-  labelActive: {
-    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
   },
   slider: {
     position: "absolute",

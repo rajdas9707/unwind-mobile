@@ -278,8 +278,12 @@ export default function ReminderScreen() {
             leftText="Upcoming"
             rightText="Missed"
             counts={{ left: upcoming.length, right: missed.length }}
-            primaryColor="#ffffff"
-            containerStyle={{ width: 240, alignSelf: "center", backgroundColor: "rgba(255,255,255,0.85)" }}
+            primaryColor="#111827"
+            activeTextColor="#FFFFFF"
+            inactiveTextColor="#111827"
+            backgroundColor="#FFFFFF"
+            borderColor="#E5E7EB"
+            containerStyle={{ width: 260, alignSelf: "center" }}
             onChange={(val) => setSelectedKey(val)}
           />
         </View>
