@@ -11,6 +11,7 @@ import {
   Dimensions,
   ScrollView,
   Animated,
+  Alert,
 } from "react-native";
 import * as SQLite from "expo-sqlite";
 import * as Notifications from "expo-notifications";
@@ -166,10 +167,25 @@ export default function ReminderScreen() {
 
   // Add or update reminder
   const addReminder = async () => {
-    if (!taskName.trim() || !selectedDate) return;
+    if (!taskName.trim()) {
+      Alert.alert("Missing Field", "Task name is required.");
+      return;
+    }
+    if (!selectedDate) {
+      Alert.alert("Missing Field", "Please select a date.");
+      return;
+    }
+    if (!hour || !minute) {
+      Alert.alert("Missing Field", "Please select a valid time.");
+      return;
+    }
 
     const datetime = `${selectedDate}T${hour}:${minute}:00`;
     const reminderDate = new Date(datetime);
+    if (isNaN(reminderDate.getTime())) {
+      Alert.alert("Invalid Date/Time", "Please choose a valid date and time.");
+      return;
+    }
 
     try {
       const db = await getDatabase();
