@@ -363,7 +363,7 @@ export default function CategoryTasks() {
       <View
         style={[
           styles.headerContainer,
-          { backgroundColor: `${categoryColor}30` },
+          { backgroundColor: `${categoryColor}10` },
         ]}
       >
         <View style={styles.headerRow}>
@@ -372,17 +372,19 @@ export default function CategoryTasks() {
               console.log("Navigating back to main task list");
               router.back();
             }}
+            style={[styles.iconButton, { borderColor: categoryColor }]}
           >
-            <Ionicons name="arrow-back" size={24} color={categoryColor} />
+            <Ionicons name="arrow-back" size={20} color={categoryColor} />
           </TouchableOpacity>
-          <Text style={[styles.header, { color: categoryColor }]}>
-            {category} Tasks
-          </Text>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitleTop}>{category}</Text>
+            <Text style={[styles.headerTitleBottom, { color: categoryColor }]}>Tasks</Text>
+          </View>
           <TouchableOpacity
             onPress={() => router.push(`/tasks/${category}/carried-over`)}
-            style={styles.headerLinkButton}
+            style={[styles.headerLinkButton, { borderColor: categoryColor }]}
           >
-            <Ionicons name="time-outline" size={20} color={categoryColor} />
+            <Ionicons name="time-outline" size={16} color={categoryColor} />
             <Text style={[styles.headerLinkText, { color: categoryColor }]}>Carried</Text>
           </TouchableOpacity>
         </View>
@@ -598,16 +600,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     backgroundColor: "#FFFFFF",
     borderRadius: 999,
+    borderWidth: 1,
   },
   headerLinkText: {
     fontSize: 12,
     fontWeight: "700",
   },
-  header: {
-    fontSize: 30,
-    fontWeight: "800",
-    textAlign: "center",
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  headerTitleContainer: {
     flex: 1,
+    alignItems: "center",
+  },
+  headerTitleTop: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#6B7280",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  headerTitleBottom: {
+    marginTop: 2,
+    fontSize: 22,
+    fontWeight: "800",
   },
   networkStatus: {
     flexDirection: "row",
