@@ -184,11 +184,12 @@ export default function CategoryTasks() {
   const categoryColor = categoryColors[category] || "#10B981";
   const categoryEmoji = getCategoryEmoji(category);
 
-  const { pendingCount, completedCount } = useMemo(() => {
-    const pending = tasks.filter((t) => !t.completed).length;
-    const completed = tasks.filter((t) => t.completed).length;
-    return { pendingCount: pending, completedCount: completed };
-  }, [tasks]);
+  const { currentPendingCount, currentCompletedCount } = useMemo(() => {
+    const source = topSelection === "backlogs" ? backlogs : tasks;
+    const pending = source.filter((t) => !t.completed).length;
+    const completed = source.filter((t) => t.completed).length;
+    return { currentPendingCount: pending, currentCompletedCount: completed };
+  }, [tasks, backlogs, topSelection]);
 
   useEffect(() => {
     (async () => {
@@ -498,7 +499,7 @@ export default function CategoryTasks() {
                 statusFilter === "pending" && styles.segmentTextActive,
               ]}
             >
-              {`⏳ Pending (${pendingCount})`}
+              {`⏳ Pending (${currentPendingCount})`}
             </Text>
             <View
               style={[
@@ -512,7 +513,7 @@ export default function CategoryTasks() {
                   statusFilter === "pending" ? styles.badgeTextActive : styles.badgeTextInactive,
                 ]}
               >
-                {pendingCount}
+                {currentPendingCount}
               </Text>
             </View>
           </View>
@@ -535,7 +536,7 @@ export default function CategoryTasks() {
                 statusFilter === "completed" && styles.segmentTextActive,
               ]}
             >
-              {`✅ Completed (${completedCount})`}
+              {`✅ Completed (${currentCompletedCount})`}
             </Text>
             <View
               style={[
@@ -549,7 +550,7 @@ export default function CategoryTasks() {
                   statusFilter === "completed" ? styles.badgeTextActive : styles.badgeTextInactive,
                 ]}
               >
-                {completedCount}
+                {currentCompletedCount}
               </Text>
             </View>
           </View>
