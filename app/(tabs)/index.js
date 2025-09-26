@@ -210,8 +210,11 @@ export default function IdeaScreen() {
       setQuantity(reminder.quantity);
     } else {
       // Reset to defaults
-      setStartTime("08:00");
-      setEndTime("20:00");
+      const now = new Date();
+      const hh = now.getHours().toString().padStart(2, "0");
+      const mm = now.getMinutes().toString().padStart(2, "0");
+      setStartTime(`${hh}:${mm}`);
+      setEndTime(`${hh}:${mm}`);
       setIntervalValue(2);
       setIntervalUnit("hours");
       setQuantity(250);

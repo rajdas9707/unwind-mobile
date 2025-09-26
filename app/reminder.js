@@ -124,6 +124,11 @@ export default function ReminderScreen() {
     console.log("Opening modal...");
     setModalVisible(true);
     modalAnimation.setValue(0);
+    // Set defaults to current date and time when opening
+    const now = new Date();
+    setSelectedDate(now.toISOString().split("T")[0]);
+    setHour(now.getHours().toString().padStart(2, "0"));
+    setMinute(now.getMinutes().toString().padStart(2, "0"));
     Animated.timing(modalAnimation, {
       toValue: 1,
       duration: 300,
