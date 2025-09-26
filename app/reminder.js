@@ -21,7 +21,7 @@ import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TopBarToggle from "../components/shared/TopBarToggle";
-import CircularTimePicker from "../components/shared/CircularTimePicker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 const { width, height } = Dimensions.get("window");
 
@@ -152,6 +152,16 @@ export default function ReminderScreen() {
     setSelectedDate(today.toISOString().split("T")[0]);
     setHour(today.getHours().toString().padStart(2, "0"));
     setMinute(today.getMinutes().toString().padStart(2, "0"));
+  };
+
+  const handleReminderTimeChange = (event, selectedTime) => {
+    if (event.type === "set" && selectedTime) {
+      const hours = selectedTime.getHours().toString().padStart(2, "0");
+      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
+      setHour(hours);
+      setMinute(minutes);
+    }
+    setShowTimePicker(false);
   };
 
   // Add or update reminder
@@ -619,27 +629,7 @@ export default function ReminderScreen() {
                 </View>
               )}
 
-              {/* Circular Time Picker */}
-              {showTimePicker && (
-                <View style={styles.clockContainer}>
-                  <Text style={styles.clockTitle}>🕐 Set Time</Text>
-                  <CircularTimePicker
-                    hour={hour}
-                    minute={minute}
-                    accentColor="#667eea"
-                    onChange={({ hour: h, minute: m }) => {
-                      setHour(h);
-                      setMinute(m);
-                    }}
-                  />
-                  <TouchableOpacity
-                    style={styles.clockDoneButton}
-                    onPress={() => setShowTimePicker(false)}
-                  >
-                    <Text style={styles.clockDoneText}>Done</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+              {/* Time picker handled by native modal below */}
             </View>
           </ScrollView>
 
@@ -663,6 +653,19 @@ export default function ReminderScreen() {
           </View>
         </View>
       </Modal>
+      {showTimePicker && (
+        <DateTimePicker
+          value={(() => {
+            const date = new Date();
+            date.setHours(parseInt(hour, 10) || 0, parseInt(minute, 10) || 0, 0, 0);
+            return date;
+          })()}
+          mode="time"
+          is24Hour={false}
+          display="default"
+          onChange={handleReminderTimeChange}
+        />
+      )}
     </View>
   );
 }
