@@ -63,8 +63,8 @@ const TaskItem = ({
     <View style={[styles.taskItem, { borderLeftColor: categoryColor }]}>
       <TouchableOpacity
         onPress={() => {
-          console.log(`Toggling task completion: ${item.localId}`);
-          toggleTaskCompletion(item.localId);
+          console.log(`Toggling task completion: ${item.id}`);
+          toggleTaskCompletion(item.id);
         }}
       >
         <Ionicons
@@ -76,7 +76,7 @@ const TaskItem = ({
       <TouchableOpacity
         style={styles.taskContent}
         onPress={() => {
-          console.log(`Opening edit modal for task: ${item.localId}`);
+          console.log(`Opening edit modal for task: ${item.id}`);
           openEditModal(item);
         }}
       >
@@ -94,8 +94,8 @@ const TaskItem = ({
         {!item.completed && (
           <TouchableOpacity
             onPress={() => {
-              console.log(`Moving task to carried over: ${item.localId}`);
-              moveToCarriedOver(item.localId);
+              console.log(`Moving task to carried over: ${item.id}`);
+              moveToCarriedOver(item.id);
             }}
           >
             <Ionicons name="time-outline" size={24} color="#F59E0B" />
@@ -103,8 +103,8 @@ const TaskItem = ({
         )}
         <TouchableOpacity
           onPress={() => {
-            console.log(`Deleting task: ${item.localId}`);
-            deleteTask(item.localId);
+            console.log(`Deleting task: ${item.id}`);
+            deleteTask(item.id);
           }}
         >
           <Ionicons name="trash-outline" size={24} color="#EF4444" />
@@ -246,7 +246,8 @@ export default function CategoryTasks() {
         return;
       }
 
-      await moveTaskToCarriedOverLocal(taskId);
+      // Ensure we pass the real DB id
+      await moveTaskToCarriedOverLocal(task.id);
       await loadTasks();
       Alert.alert("Task Moved", "Task has been moved to carried over tasks.", [
         { text: "OK" },
