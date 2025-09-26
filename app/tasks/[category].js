@@ -285,8 +285,8 @@ export default function CategoryTasks() {
         await loadBacklogs();
       }
 
-      // Try to sync if online
-      if (isOnline && task.synced) {
+      // Try to sync if online for regular tasks only
+      if (task && isOnline && task.synced && typeof updateTodoAPI === "function") {
         try {
           await updateTodoAPI({
             id: task.server_id,
