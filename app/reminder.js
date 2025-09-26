@@ -86,10 +86,13 @@ export default function ReminderScreen() {
   }, []);
 
   const initializeDefaults = () => {
-    const today = new Date();
-    setSelectedDate(today.toISOString().split("T")[0]);
-    setHour(today.getHours().toString().padStart(2, "0"));
-    setMinute(today.getMinutes().toString().padStart(2, "0"));
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = (now.getMonth() + 1).toString().padStart(2, "0");
+    const dd = now.getDate().toString().padStart(2, "0");
+    setSelectedDate(`${yyyy}-${mm}-${dd}`); // Local date (no UTC shift)
+    setHour(now.getHours().toString().padStart(2, "0"));
+    setMinute(now.getMinutes().toString().padStart(2, "0"));
   };
 
   // Fetch all reminders
@@ -124,9 +127,12 @@ export default function ReminderScreen() {
     console.log("Opening modal...");
     setModalVisible(true);
     modalAnimation.setValue(0);
-    // Set defaults to current date and time when opening
+    // Set defaults to current local date and time when opening
     const now = new Date();
-    setSelectedDate(now.toISOString().split("T")[0]);
+    const yyyy = now.getFullYear();
+    const mm = (now.getMonth() + 1).toString().padStart(2, "0");
+    const dd = now.getDate().toString().padStart(2, "0");
+    setSelectedDate(`${yyyy}-${mm}-${dd}`);
     setHour(now.getHours().toString().padStart(2, "0"));
     setMinute(now.getMinutes().toString().padStart(2, "0"));
     Animated.timing(modalAnimation, {
