@@ -400,7 +400,7 @@ export default function CategoryTasks() {
                 statusFilter === "pending" && styles.segmentTextActive,
               ]}
             >
-              Pending
+              {`Pending (${pendingCount})`}
             </Text>
             <View
               style={[
@@ -437,7 +437,7 @@ export default function CategoryTasks() {
                 statusFilter === "completed" && styles.segmentTextActive,
               ]}
             >
-              Completed
+              {`Completed (${completedCount})`}
             </Text>
             <View
               style={[
