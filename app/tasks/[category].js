@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import TopBarToggle from "../../components/shared/TopBarToggle";
 import {
   fetchTodosByCategory,
   fetchCarriedOverTodosByCategory,
@@ -393,26 +394,17 @@ export default function CategoryTasks() {
             <Text style={styles.headerTitleTop}>{category}</Text>
             <Text style={[styles.headerTitleBottom, { color: categoryColor }]}>Tasks</Text>
           </View>
-          <View style={[styles.headerToggle, { borderColor: categoryColor }]}>
-            <TouchableOpacity
-              style={[styles.headerToggleBtn, styles.headerToggleBtnLeft]}
-              onPress={() => router.replace(`/tasks/${category}`)}
-            >
-              <Text style={styles.headerToggleText}>Today</Text>
-              <View style={styles.headerBadgeNeutral}>
-                <Text style={styles.headerBadgeNeutralText}>{tasks.length}</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.headerToggleBtn, styles.headerToggleBtnRight]}
-              onPress={() => router.replace(`/tasks/${category}/carried-over`)}
-            >
-              <Text style={styles.headerToggleText}>Carried</Text>
-              <View style={[styles.headerBadge, { backgroundColor: categoryColor }]}>
-                <Text style={styles.headerBadgeText}>{carriedCount}</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+          <TopBarToggle
+            selected="today"
+            counts={{ today: tasks.length, backlogs: carriedCount }}
+            primaryColor={categoryColor}
+            containerStyle={{ width: 180 }}
+            onChange={(val) => {
+              if (val === "backlogs") {
+                router.replace(`/tasks/${category}/carried-over`);
+              }
+            }}
+          />
         </View>
       </View>
 
