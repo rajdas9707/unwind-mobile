@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -131,6 +131,12 @@ export default function CategoryTasks() {
   };
 
   const categoryColor = categoryColors[category] || "#10B981";
+
+  const { pendingCount, completedCount } = useMemo(() => {
+    const pending = tasks.filter((t) => !t.completed).length;
+    const completed = tasks.filter((t) => t.completed).length;
+    return { pendingCount: pending, completedCount: completed };
+  }, [tasks]);
 
   useEffect(() => {
     (async () => {
@@ -380,39 +386,75 @@ export default function CategoryTasks() {
           style={[
             styles.segmentButton,
             statusFilter === "pending" && styles.segmentButtonActive,
+            statusFilter === "pending" && { borderColor: categoryColor },
           ]}
           onPress={() => {
             setStatusFilter("pending");
             router.setParams({ status: "pending" });
           }}
         >
-          <Text
-            style={[
-              styles.segmentText,
-              statusFilter === "pending" && styles.segmentTextActive,
-            ]}
-          >
-            Pending
-          </Text>
+          <View style={styles.segmentButtonContent}>
+            <Text
+              style={[
+                styles.segmentText,
+                statusFilter === "pending" && styles.segmentTextActive,
+              ]}
+            >
+              Pending
+            </Text>
+            <View
+              style={[
+                styles.badge,
+                statusFilter === "pending" && { backgroundColor: categoryColor },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.badgeText,
+                  statusFilter === "pending" ? styles.badgeTextActive : styles.badgeTextInactive,
+                ]}
+              >
+                {pendingCount}
+              </Text>
+            </View>
+          </View>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.segmentButton,
             statusFilter === "completed" && styles.segmentButtonActive,
+            statusFilter === "completed" && { borderColor: categoryColor },
           ]}
           onPress={() => {
             setStatusFilter("completed");
             router.setParams({ status: "completed" });
           }}
         >
-          <Text
-            style={[
-              styles.segmentText,
-              statusFilter === "completed" && styles.segmentTextActive,
-            ]}
-          >
-            Completed
-          </Text>
+          <View style={styles.segmentButtonContent}>
+            <Text
+              style={[
+                styles.segmentText,
+                statusFilter === "completed" && styles.segmentTextActive,
+              ]}
+            >
+              Completed
+            </Text>
+            <View
+              style={[
+                styles.badge,
+                statusFilter === "completed" && { backgroundColor: categoryColor },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.badgeText,
+                  statusFilter === "completed" ? styles.badgeTextActive : styles.badgeTextInactive,
+                ]}
+              >
+                {completedCount}
+              </Text>
+            </View>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -736,9 +778,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   segmentButtonActive: {
     backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+  },
+  segmentButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   segmentText: {
     fontSize: 14,
@@ -747,5 +797,22 @@ const styles = StyleSheet.create({
   },
   segmentTextActive: {
     color: "#111827",
+  },
+  badge: {
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+    backgroundColor: "#FFFFFF",
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  badgeTextActive: {
+    color: "#FFFFFF",
+  },
+  badgeTextInactive: {
+    color: "#374151",
   },
 });
