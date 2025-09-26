@@ -8,6 +8,8 @@ import {
   Alert,
   Linking,
   ScrollView,
+  StyleSheet,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -117,7 +119,7 @@ export default function TopicDetail() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await toggleTopicCompletion(topicId);
       
-      // Reload data to check if card is completed
+      // Reload data to get updated completion status
       const [cardData, topicsData] = await Promise.all([
         getCard(Number(id)),
         getTopicsByCard(Number(id))
@@ -132,21 +134,13 @@ export default function TopicDetail() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
           '🎉 Congratulations!',
-          'You\'ve completed all topics in this card! The card will be removed now.',
+          'You\'ve completed all topics in this card!',
           [
             {
               text: 'Great!',
-              onPress: async () => {
-                try {
-                  // Delete the completed card
-                  await deleteCompletedCard(Number(id));
-                  // Navigate back immediately
-                  router.back();
-                } catch (error) {
-                  console.error('Failed to delete completed card:', error);
-                  // Still navigate back even if deletion fails
-                  router.back();
-                }
+              onPress: () => {
+                // Just reload data normally - keep the card
+                loadData();
               }
             }
           ]
@@ -220,7 +214,7 @@ export default function TopicDetail() {
     }
   };
 
-  const renderLink = (link, topicId) => (
+  const renderLink = (link, topicId, iconColor = '#3498db') => (
     <View
       key={link.id}
       style={{
@@ -240,7 +234,7 @@ export default function TopicDetail() {
         }}
         onPress={() => handleOpenLink(link.normalizedUrl)}
       >
-        <Ionicons name="link" size={16} color="#3498db" style={{ marginRight: 8 }} />
+        <Ionicons name="link" size={16} color={iconColor} style={{ marginRight: 8 }} />
         <View style={{ flex: 1 }}>
           <Text
             style={{
@@ -250,7 +244,7 @@ export default function TopicDetail() {
             }}
             numberOfLines={1}
           >
-            {link.title || link.url}
+            🔗 {link.title || link.url}
           </Text>
           {link.title && (
             <Text
@@ -265,7 +259,7 @@ export default function TopicDetail() {
             </Text>
           )}
         </View>
-        <Ionicons name="open-outline" size={16} color="#7f8c8d" style={{ marginLeft: 8 }} />
+        <Ionicons name="open-outline" size={16} color={iconColor} style={{ marginLeft: 8 }} />
       </TouchableOpacity>
       
       <View style={{ flexDirection: 'row', marginLeft: 8 }}>
@@ -278,7 +272,7 @@ export default function TopicDetail() {
           }}
           onPress={() => handleEditLink(link, topicId)}
         >
-          <Ionicons name="create-outline" size={14} color="#3498db" />
+          <Ionicons name="create-outline" size={14} color={iconColor} />
         </TouchableOpacity>
         <TouchableOpacity
           style={{
@@ -288,7 +282,7 @@ export default function TopicDetail() {
           }}
           onPress={() => handleDeleteLink(link)}
         >
-          <Ionicons name="trash-outline" size={14} color="#e74c3c" />
+          <Ionicons name="trash-outline" size={14} color={iconColor} />
         </TouchableOpacity>
       </View>
     </View>
@@ -305,6 +299,44 @@ export default function TopicDetail() {
     ];
     
     const gradient = gradients[index % gradients.length];
+    
+    // Get a contrasting color to the gradient for better icon visibility
+    const getContrastingColor = (gradient) => {
+      // Convert hex to RGB and calculate luminance
+      const hexToRgb = (hex) => {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16)
+        } : null;
+      };
+      
+      const getLuminance = (r, g, b) => {
+        const [rs, gs, bs] = [r, g, b].map(c => {
+          c = c / 255;
+          return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+      };
+      
+      // Get the average color of the gradient
+      const color1 = hexToRgb(gradient[0]);
+      const color2 = hexToRgb(gradient[1]);
+      
+      if (!color1 || !color2) return '#000000';
+      
+      const avgR = Math.round((color1.r + color2.r) / 2);
+      const avgG = Math.round((color1.g + color2.g) / 2);
+      const avgB = Math.round((color1.b + color2.b) / 2);
+      
+      const luminance = getLuminance(avgR, avgG, avgB);
+      
+      // Return white for dark gradients, black for light gradients
+      return luminance > 0.5 ? '#000000' : '#FFFFFF';
+    };
+    
+    const iconColor = getContrastingColor(gradient);
 
     return (
       <View style={{ marginBottom: 16 }}>
@@ -344,7 +376,7 @@ export default function TopicDetail() {
                   activeOpacity={0.7}
                 >
                   {topic.is_completed && (
-                    <Ionicons name="checkmark" size={16} color="#2e7d32" />
+                    <Ionicons name="checkmark" size={16} color={iconColor} />
                   )}
                 </TouchableOpacity>
                 <Text
@@ -361,7 +393,7 @@ export default function TopicDetail() {
                   }}
                   numberOfLines={2}
                 >
-                  {topic.name}
+                  {topic.is_completed ? '🎉 ' : '🚀 '}{topic.name}{topic.is_completed ? ' 👑' : ' ⭐'}
                 </Text>
               </View>
               {topic.description && (
@@ -403,7 +435,7 @@ export default function TopicDetail() {
                 }}
                 onPress={() => handleEditTopic(topic)}
               >
-                <Ionicons name="create-outline" size={20} color="rgba(255,255,255,0.9)" />
+                <Ionicons name="create-outline" size={20} color={iconColor} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={{
@@ -413,7 +445,7 @@ export default function TopicDetail() {
                 }}
                 onPress={() => handleDeleteTopic(topic)}
               >
-                <Ionicons name="trash-outline" size={20} color="rgba(255,255,255,0.9)" />
+                <Ionicons name="trash-outline" size={20} color={iconColor} />
               </TouchableOpacity>
             </View>
           </View>
@@ -438,7 +470,7 @@ export default function TopicDetail() {
                   textShadowRadius: 2,
                 }}
               >
-                Links ({topic.links.length})
+                🔗 Links ({topic.links.length})
               </Text>
               <TouchableOpacity
                 style={{
@@ -448,13 +480,13 @@ export default function TopicDetail() {
                 }}
                 onPress={() => handleAddLink(topic.id)}
               >
-                <Ionicons name="add" size={16} color="rgba(255,255,255,0.9)" />
+                <Ionicons name="add" size={16} color={iconColor} />
               </TouchableOpacity>
             </View>
             
             {topic.links.length > 0 ? (
               <View>
-                {topic.links.map((link) => renderLink(link, topic.id))}
+                {topic.links.map((link) => renderLink(link, topic.id, iconColor))}
               </View>
             ) : (
               <Text
@@ -466,7 +498,7 @@ export default function TopicDetail() {
                   paddingVertical: 8,
                 }}
               >
-                No links yet. Tap + to add one.
+                💡 No links yet. Tap + to add one.
               </Text>
             )}
           </View>
@@ -478,113 +510,228 @@ export default function TopicDetail() {
   if (!card) return null;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F4F6', padding: 16 }}>
-      {/* Header */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginBottom: 12,
-        }}
-      >
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        
-        <View style={{ flex: 1, marginLeft: 16 }}>
-          <Text
-            style={{
-              fontSize: 20,
-              fontWeight: 'bold',
-              color: '#2c3e50',
-            }}
-            numberOfLines={1}
-          >
-            {card.displayTitle}
-          </Text>
-          <Text style={{ fontSize: 14, color: '#7f8c8d', marginTop: 2 }}>
-            {topics.length === 0 ? 'No topics yet' : `${topics.length} topic${topics.length === 1 ? '' : 's'}`}
-          </Text>
+    <LinearGradient
+      colors={['#F8FAFC', '#F1F5F9', '#EEF2FF']}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#111827" />
+            </TouchableOpacity>
+            
+            <View style={styles.titleSection}>
+              <View style={styles.titleIcon}>
+              <Ionicons name="bookmark" size={20} color="#8B5CF6" />
+              </View>
+              <View style={styles.titleText}>
+                <Text style={styles.title} numberOfLines={1}>
+                {card.displayTitle}
+                </Text>
+                <Text style={styles.subtitle}>
+                  {topics.length === 0 ? '💡 No topics yet' : ` ${topics.length} topic${topics.length === 1 ? '' : 's'}`}
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
-      </View>
 
-      {loading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Ionicons name="refresh" size={40} color="#666" />
-          <Text style={{ fontSize: 18, color: '#95a5a6', marginTop: 16, fontWeight: '600' }}>
-            Loading topics...
-          </Text>
-        </View>
-      ) : topics.length === 0 ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Ionicons name="bookmark-outline" size={60} color="#ccc" />
-          <Text style={{ fontSize: 18, color: '#95a5a6', marginTop: 16, fontWeight: '600' }}>
-            No topics yet
-          </Text>
-          <Text style={{ fontSize: 14, color: '#bdc3c7', marginTop: 8, textAlign: 'center', paddingHorizontal: 40 }}>
-            Tap the + button to create your first topic
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={topics}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderTopic}
-          contentContainerStyle={{ paddingBottom: 100 }}
+
+        {/* Content */}
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-        />
-      )}
-
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={{
-          position: 'absolute',
-          bottom: 30,
-          right: 25,
-          width: 62,
-          height: 62,
-          borderRadius: 31,
-          shadowColor: '#000',
-          shadowOpacity: 0.25,
-          shadowRadius: 6,
-          elevation: 6,
-        }}
-        onPress={handleAddTopic}
-        activeOpacity={0.8}
-      >
-        <LinearGradient
-          colors={['#667eea', '#764ba2']}
-          style={{
-            width: 62,
-            height: 62,
-            borderRadius: 31,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
         >
-          <Ionicons name="add" size={30} color="#fff" />
-        </LinearGradient>
-      </TouchableOpacity>
+          {loading ? (
+            <View style={styles.loadingState}>
+              <Ionicons name="refresh" size={40} color="#8B5CF6" />
+              <Text style={styles.loadingText}>🔄 Loading topics...</Text>
+            </View>
+          ) : topics.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="bookmark-outline" size={60} color="#8B5CF6" />
+              <Text style={styles.emptyTitle}>📚 No topics yet</Text>
+              <Text style={styles.emptySubtitle}>
+                💡 Tap the + button to create your first topic
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={topics}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderTopic}
+              scrollEnabled={false}
+              contentContainerStyle={styles.listContent}
+            />
+          )}
+        </ScrollView>
 
-      {/* Topic Modal */}
-      <NewTopicModal
-        visible={topicModalVisible}
-        onClose={() => setTopicModalVisible(false)}
-        onSave={handleSaveTopic}
-        cardId={Number(id)}
-        topicId={editingTopic?.id}
-        initialTopic={editingTopic}
-      />
+        {/* Floating Action Button */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={handleAddTopic}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={['#8B5CF6', '#6366F1']}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="add" size={28} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
 
-      {/* Link Modal */}
-      <NewLinkModal
-        visible={linkModalVisible}
-        onClose={() => setLinkModalVisible(false)}
-        onSave={handleSaveLink}
-        topicId={linkTopicId}
-        linkId={editingLink?.id}
-        initialLink={editingLink}
-      />
-    </SafeAreaView>
+        {/* Topic Modal */}
+        <NewTopicModal
+          visible={topicModalVisible}
+          onClose={() => setTopicModalVisible(false)}
+          onSave={handleSaveTopic}
+          cardId={Number(id)}
+          topicId={editingTopic?.id}
+          initialTopic={editingTopic}
+        />
+
+        {/* Link Modal */}
+        <NewLinkModal
+          visible={linkModalVisible}
+          onClose={() => setLinkModalVisible(false)}
+          onSave={handleSaveLink}
+          topicId={linkTopicId}
+          linkId={editingLink?.id}
+          initialLink={editingLink}
+        />
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
+
+const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: "transparent",
+    paddingTop: Platform.OS === "android" ? 50 : 0,
+  },
+  header: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    backdropFilter: "blur(10px)",
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    marginRight: 16,
+  },
+  titleSection: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  titleIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  titleText: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 2,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+  },
+  loadingState: {
+    alignItems: "center",
+    marginTop: 60,
+    paddingHorizontal: 40,
+  },
+  loadingText: {
+    fontSize: 18,
+    color: "#8B5CF6",
+    marginTop: 16,
+    fontWeight: "600",
+  },
+  emptyState: {
+    alignItems: "center",
+    marginTop: 60,
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    color: "#8B5CF6",
+    marginTop: 16,
+    fontWeight: "600",
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  listContent: {
+    paddingTop: 20,
+    paddingBottom: 100,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 30,
+    right: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  fabGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

@@ -19,6 +19,22 @@ import {
 } from "../../../storage/todo/storage";
 // import runDatabaseTests from "../../../storage/testDb";
 
+// Helper function for safe date formatting
+const formatDate = (dateString) => {
+  if (!dateString) return 'Date not available';
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    return date.toLocaleDateString();
+  } catch (error) {
+    console.error('Date formatting error:', error);
+    return 'Date not available';
+  }
+};
+
 const CarriedOverTaskItem = ({
   item,
   index,
@@ -27,6 +43,15 @@ const CarriedOverTaskItem = ({
   categoryColor,
   openEditModal,
 }) => {
+  // Debug: Log the item structure to see available fields
+  console.log("CarriedOverTaskItem item structure:", {
+    id: item.id,
+    title: item.title,
+    carried_over_at: item.carried_over_at,
+    original_created_at: item.original_created_at,
+    allKeys: Object.keys(item)
+  });
+  
   return (
     <View style={[styles.taskItem, { borderLeftColor: categoryColor }]}>
       <TouchableOpacity
@@ -55,11 +80,10 @@ const CarriedOverTaskItem = ({
           Intention: {item.description || "None"}
         </Text>
         <Text style={styles.carriedOverText}>
-          Carried Over: {new Date(item.carried_over_at).toLocaleDateString()}
+          Carried Over: {formatDate(item.carried_over_at)}
         </Text>
         <Text style={styles.originalDateText}>
-          Originally Created:{" "}
-          {new Date(item.original_created_at).toLocaleDateString()}
+          Originally Created: {formatDate(item.original_created_at)}
         </Text>
       </TouchableOpacity>
       <View style={styles.taskActions}>
@@ -142,8 +166,12 @@ export default function CarriedOverTasks() {
 
   const toggleTaskCompletion = async (taskId) => {
     try {
-      const task = tasks.find((t) => t.id === taskId);
-      if (!task) return;
+      // Try to find task by both id and localId to handle different ID formats
+      const task = tasks.find((t) => t.id === taskId || t.localId === taskId);
+      if (!task) {
+        console.log("Task not found with ID:", taskId);
+        return;
+      }
 
       const newCompleted = !task.completed;
 
@@ -160,10 +188,24 @@ export default function CarriedOverTasks() {
 
   const deleteTask = async (taskId) => {
     try {
-      await deleteTodoEntryLocal(taskId);
+      // Try to find task by both id and localId to handle different ID formats
+      const task = tasks.find((t) => t.id === taskId || t.localId === taskId);
+      if (!task) {
+        console.log("Task not found with ID:", taskId);
+        Alert.alert("Error", "Task not found. Please try again.");
+        return;
+      }
+
+      console.log("Deleting task:", task);
+      console.log("Using task ID for deletion:", task.id);
+      
+      // Use the actual task.id for database deletion
+      await deleteTodoEntryLocal(task.id);
       await loadTasks();
+      console.log("Task deleted successfully");
     } catch (error) {
       console.error("Error deleting task:", error);
+      Alert.alert("Error", "Failed to delete task. Please try again.");
     }
   };
 
@@ -438,15 +480,23 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    paddingHorizontal: 24,
   },
   modalContent: {
-    marginHorizontal: 24,
-    borderRadius: 20,
+    marginHorizontal: 0,
+    borderRadius: 16,
     overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   modalGradient: {
     padding: 24,
+    backgroundColor: "#FFFFFF",
   },
   modalTitle: {
     fontSize: 24,
@@ -468,13 +518,14 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
+    marginTop: 16,
+    gap: 12,
   },
   modalButton: {
-    backgroundColor: "#E5E7EB",
+    backgroundColor: "#F3F4F6",
     borderRadius: 12,
     padding: 16,
     flex: 1,
-    marginHorizontal: 8,
   },
   addButton: {
     backgroundColor: "#10B981",

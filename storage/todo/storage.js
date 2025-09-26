@@ -98,6 +98,7 @@ export const createTodoEntryLocal = async ({ title, description, category, prior
     
     // Create timestamps
     const now = new Date().toISOString();
+    console.log("Creating todo with timestamp:", now);
     
     // Insert locally first
     const localEntry = await db.insertTodoEntry({
@@ -109,6 +110,8 @@ export const createTodoEntryLocal = async ({ title, description, category, prior
       created_at: now,
       updated_at: now
     });
+    
+    console.log("Created todo entry:", localEntry);
     
     return {
       ...localEntry,
@@ -145,6 +148,13 @@ export const fetchTodosByCategory = async (category) => {
   try {
     const entries = await db.getTodosByCategory(category);
     
+    console.log("Raw entries from database:", entries.map(entry => ({
+      id: entry.id,
+      title: entry.title,
+      created_at: entry.created_at,
+      updated_at: entry.updated_at
+    })));
+    
     return entries.map(entry => ({
       ...entry,
       priorityEmoji: getPriorityEmoji(entry.priority),
@@ -163,6 +173,13 @@ export const fetchTodosByCategory = async (category) => {
 export const fetchCarriedOverTodosByCategory = async (category) => {
   try {
     const entries = await db.getCarriedOverTodosByCategory(category);
+    
+    console.log("Raw carried-over entries from database:", entries.map(entry => ({
+      id: entry.id,
+      title: entry.title,
+      carried_over_at: entry.carried_over_at,
+      original_created_at: entry.original_created_at
+    })));
     
     return entries.map(entry => ({
       ...entry,
@@ -257,7 +274,12 @@ export const moveTaskToCarriedOverLocal = async (taskId) => {
 // Delete todo entry locally
 export const deleteTodoEntryLocal = async (id) => {
   try {
-    await db.deleteTodoEntryById(id);
+    console.log("deleteTodoEntryLocal called with ID:", id);
+    console.log("ID type:", typeof id);
+    
+    const result = await db.deleteTodoEntryById(id);
+    console.log("deleteTodoEntryById result:", result);
+    
     return true;
   } catch (error) {
     console.error("Error deleting todo entry:", error);

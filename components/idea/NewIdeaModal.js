@@ -7,6 +7,7 @@ import {
   Modal,
   StyleSheet,
   Image,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -25,6 +26,7 @@ export default function NewIdeaModal({
   ideaId,
   initialIdea,
 }) {
+  const [ideaName, setIdeaName] = useState(initialIdea?.name || "");
   const [newIdea, setNewIdea] = useState(initialIdea?.idea || "");
   const [urls, setUrls] = useState(initialIdea?.urls || []);
   const [newUrl, setNewUrl] = useState("");
@@ -34,10 +36,11 @@ export default function NewIdeaModal({
   const [files, setFiles] = useState(
     initialIdea?.files?.map((uri) => ({ uri })) || []
   );
-  // const [isListening, setIsListening] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   useEffect(() => {
     if (visible) {
+      setIdeaName(initialIdea?.name || "");
       setNewIdea(initialIdea?.idea || "");
       setUrls(initialIdea?.urls || []);
       setNewUrl("");
@@ -46,30 +49,32 @@ export default function NewIdeaModal({
     }
   }, [visible]);
 
-  // const startListening = async () => {
-  //   const available = await SpeechRecognizer.isAvailableAsync();
-  //   if (!available) {
-  //     alert(
-  //       "Speech recognition not available on this device. please contact developer"
-  //     );
-  //     return;
-  //   }
+  const startListening = async () => {
+    // TODO: Implement speech recognition
+    // const available = await SpeechRecognizer.isAvailableAsync();
+    // if (!available) {
+    //   alert(
+    //     "Speech recognition not available on this device. please contact developer"
+    //   );
+    //   return;
+    // }
 
-  //   setIsListening(true);
-  //   await SpeechRecognizer.startAsync({
-  //     onResult: (event) => {
-  //       setNewIdea(event.transcription.text);
-  //     },
-  //     onDone: () => {
-  //       setIsListening(false);
-  //     },
-  //   });
-  // };
+    setIsListening(true);
+    // await SpeechRecognizer.startAsync({
+    //   onResult: (event) => {
+    //     setNewIdea(event.transcription.text);
+    //   },
+    //   onDone: () => {
+    //     setIsListening(false);
+    //   },
+    // });
+  };
 
-  // const stopListening = async () => {
-  //   await SpeechRecognizer.stopAsync();
-  //   setIsListening(false);
-  // };
+  const stopListening = async () => {
+    // TODO: Implement speech recognition
+    // await SpeechRecognizer.stopAsync();
+    setIsListening(false);
+  };
 
   const tags = ["miscellaneous", "Work", "Personal", "Startup"];
 
@@ -151,8 +156,12 @@ export default function NewIdeaModal({
   };
 
   const handleSave = async () => {
+    if (!ideaName.trim()) {
+      Alert.alert("Error", "Idea name is required");
+      return;
+    }
     if (!newIdea.trim()) {
-      Alert.alert("Error", "Idea cannot be empty");
+      Alert.alert("Error", "Idea description cannot be empty");
       return;
     }
 
@@ -161,6 +170,7 @@ export default function NewIdeaModal({
       let id = ideaId;
       if (!id) {
         id = await insertIdea({
+          name: ideaName.trim(),
           idea: newIdea.trim(),
           urls,
           files: [],
@@ -181,6 +191,7 @@ export default function NewIdeaModal({
 
       await updateIdea({
         id,
+        name: ideaName.trim(),
         idea: newIdea.trim(),
         urls,
         files: finalFiles,
@@ -190,6 +201,7 @@ export default function NewIdeaModal({
       onSave &&
         onSave({
           id,
+          name: ideaName.trim(),
           idea: newIdea.trim(),
           urls,
           files: finalFiles,
@@ -197,6 +209,7 @@ export default function NewIdeaModal({
         });
 
       // Reset state
+      setIdeaName("");
       setNewIdea("");
       setNewUrl("");
       setUrls([]);
@@ -213,162 +226,179 @@ export default function NewIdeaModal({
     <Modal animationType="slide" transparent visible={visible}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalHeader}>New Idea </Text>
+          <Text style={styles.modalHeader}>New Idea</Text>
+          
+          <ScrollView 
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
 
-          {/* Idea input with mic button */}
-          <View style={styles.inputRow}>
+          {/* Idea Name Input */}
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>Idea Name *</Text>
             <TextInput
-              style={styles.textInput}
-              placeholder="Write or speak your idea..."
-              value={newIdea}
-              onChangeText={setNewIdea}
-              multiline
+              style={styles.nameInput}
+              placeholder="Give your idea a name..."
+              value={ideaName}
+              onChangeText={setIdeaName}
+              maxLength={100}
             />
-            {/* <TouchableOpacity
-              onPress={isListening ? stopListening : startListening}
-            >
-              <Ionicons
-                name={isListening ? "mic" : "mic-outline"}
-                size={26}
-                color={isListening ? "red" : "gray"}
+          </View>
+
+          {/* Idea Description with Mic */}
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>Idea Description</Text>
+            <View style={styles.textAreaContainer}>
+              <TextInput
+                style={styles.textArea}
+                placeholder="Describe your idea in detail..."
+                value={newIdea}
+                onChangeText={setNewIdea}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
               />
-            </TouchableOpacity> */}
+              <TouchableOpacity
+                style={styles.micButton}
+                onPress={isListening ? stopListening : startListening}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isListening ? "mic" : "mic-outline"}
+                  size={24}
+                  color={isListening ? "#EF4444" : "#6366F1"}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* URL input and list */}
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TextInput
-              style={[styles.urlInput, { flex: 1 }]}
-              placeholder="Paste URL here... (optional)"
-              value={newUrl}
-              onChangeText={setNewUrl}
-            />
-            <TouchableOpacity onPress={addUrl} style={{ marginLeft: 8 }}>
-              <Ionicons name="add-circle" size={28} color="#2563EB" />
-            </TouchableOpacity>
-          </View>
-          {urls.length > 0 && (
-            <FlatList
-              data={urls}
-              keyExtractor={(item, index) => `${item}-${index}`}
-              renderItem={({ item, index }) => (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    marginBottom: 6,
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Text numberOfLines={1} style={{ flex: 1, color: "#374151" }}>
-                    {item}
-                  </Text>
-                  <TouchableOpacity onPress={() => removeUrl(index)}>
-                    <Text style={{ color: "red" }}>Remove</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-          )}
-
-          {/* Photo Upload Options */}
-          <View style={styles.photoRow}>
-            <TouchableOpacity style={styles.photoButton} onPress={pickFiles}>
-              <Ionicons name="images-outline" size={22} color="#2563EB" />
-              <Text style={styles.photoText}>Upload</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
-              <Ionicons name="camera-outline" size={22} color="#2563EB" />
-              <Text style={styles.photoText}>Camera</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Files list with remove and edit */}
-          {files.length > 0 && (
-            <FlatList
-              data={files}
-              keyExtractor={(_, index) => `file-${index}`}
-              renderItem={({ item, index }) => {
-                const uri = item.uri || item.fileCopyUri || item.localUri;
-                const isPdf =
-                  typeof uri === "string" && uri.toLowerCase().endsWith(".pdf");
-                const isImage =
-                  !isPdf &&
-                  (uri.includes("image") ||
-                    uri.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i));
-                return (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginBottom: 8,
-                    }}
-                  >
-                    {isPdf ? (
-                      <Ionicons
-                        name="document-text-outline"
-                        size={28}
-                        color="#6B7280"
-                      />
-                    ) : (
-                      <Image
-                        source={{ uri }}
-                        style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 8,
-                          backgroundColor: "#eee",
-                        }}
-                      />
-                    )}
-                    <Text
-                      numberOfLines={1}
-                      style={{ flex: 1, marginLeft: 10, color: "#374151" }}
-                    >
-                      {uri}
+          {/* URL Section */}
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>Links (Optional)</Text>
+            <View style={styles.urlContainer}>
+              <TextInput
+                style={styles.urlInput}
+                placeholder="Paste URL here..."
+                value={newUrl}
+                onChangeText={setNewUrl}
+              />
+              <TouchableOpacity 
+                style={styles.addButton}
+                onPress={addUrl}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={20} color="#6366F1" />
+              </TouchableOpacity>
+            </View>
+            
+            {urls.length > 0 && (
+              <View style={styles.urlList}>
+                {urls.map((url, index) => (
+                  <View key={`${url}-${index}`} style={styles.urlItem}>
+                    <Ionicons name="link" size={16} color="#6366F1" style={styles.urlIcon} />
+                    <Text numberOfLines={1} style={styles.urlText}>
+                      {url}
                     </Text>
-                    <TouchableOpacity onPress={() => removeFile(index)}>
-                      <Text style={{ color: "red" }}>Remove</Text>
+                    <TouchableOpacity 
+                      onPress={() => removeUrl(index)}
+                      style={styles.removeButton}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#EF4444" />
                     </TouchableOpacity>
                   </View>
-                );
-              }}
-            />
-          )}
-
-          {/* Tags */}
-          <View style={styles.tagsRow}>
-            {tags.map((tag) => (
-              <TouchableOpacity
-                key={tag}
-                style={[styles.tag, selectedTag === tag && styles.activeTag]}
-                onPress={() => setSelectedTag(tag)}
-              >
-                <Text
-                  style={[
-                    styles.tagText,
-                    selectedTag === tag && { color: "#fff" },
-                  ]}
-                >
-                  {tag}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                ))}
+              </View>
+            )}
           </View>
 
-          {/* Save button */}
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
-              Save Idea
-            </Text>
-          </TouchableOpacity>
+          {/* Files Section */}
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>Files & Photos (Optional)</Text>
+            <View style={styles.photoRow}>
+              <TouchableOpacity style={styles.photoButton} onPress={pickFiles}>
+                <Ionicons name="images-outline" size={24} color="#6366F1" />
+                <Text style={styles.photoText}>Upload Files</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
+                <Ionicons name="camera-outline" size={24} color="#6366F1" />
+                <Text style={styles.photoText}>Take Photo</Text>
+              </TouchableOpacity>
+            </View>
 
-          {/* Cancel button */}
-          <TouchableOpacity onPress={onClose}>
-            <Text style={{ color: "red", marginTop: 12, textAlign: "center" }}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
+            {files.length > 0 && (
+              <View style={styles.filesList}>
+                {files.map((file, index) => {
+                  const uri = file.uri || file.fileCopyUri || file.localUri;
+                  const fileName = file.name || uri.split('/').pop() || `File ${index + 1}`;
+                  const isPdf = typeof uri === "string" && uri.toLowerCase().endsWith(".pdf");
+                  const isImage = !isPdf && (uri.includes("image") || uri.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i));
+                  
+                  return (
+                    <View key={`file-${index}`} style={styles.fileItem}>
+                      <View style={styles.fileIconContainer}>
+                        {isPdf ? (
+                          <Ionicons name="document-text-outline" size={24} color="#6366F1" />
+                        ) : isImage ? (
+                          <Image source={{ uri }} style={styles.fileThumbnail} />
+                        ) : (
+                          <Ionicons name="document-outline" size={24} color="#6366F1" />
+                        )}
+                      </View>
+                      <View style={styles.fileInfo}>
+                        <Text numberOfLines={1} style={styles.fileName}>
+                          {fileName}
+                        </Text>
+                        <Text style={styles.fileType}>
+                          {isPdf ? 'PDF' : isImage ? 'Image' : 'File'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity 
+                        onPress={() => removeFile(index)}
+                        style={styles.removeButton}
+                      >
+                        <Ionicons name="close-circle" size={20} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {/* Tags */}
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>Category</Text>
+            <View style={styles.tagsRow}>
+              {tags.map((tag) => (
+                <TouchableOpacity
+                  key={tag}
+                  style={[styles.tag, selectedTag === tag && styles.activeTag]}
+                  onPress={() => setSelectedTag(tag)}
+                >
+                  <Text
+                    style={[
+                      styles.tagText,
+                      selectedTag === tag && { color: "#fff" },
+                    ]}
+                  >
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+          </ScrollView>
+
+          {/* Action Buttons */}
+          <View style={styles.actionButtons}>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+              <Text style={styles.saveButtonText}>Save Idea</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -379,83 +409,240 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.3)",
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
   modalContent: {
     backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "90%",
+    flex: 1,
   },
   modalHeader: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 16,
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#111827",
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+    textAlign: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
-  inputRow: {
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+  inputSection: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  nameInput: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    backgroundColor: "#F9FAFB",
+  },
+  textAreaContainer: {
+    position: "relative",
+  },
+  textArea: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingRight: 50,
+    fontSize: 16,
+    backgroundColor: "#F9FAFB",
+    minHeight: 100,
+  },
+  micButton: {
+    position: "absolute",
+    right: 12,
+    top: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  urlContainer: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    paddingHorizontal: 10,
     marginBottom: 12,
   },
-  textInput: {
-    flex: 1,
-    paddingVertical: 10,
-  },
   urlInput: {
+    flex: 1,
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 16,
+    borderColor: "#D1D5DB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#F9FAFB",
+    marginRight: 8,
+  },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  urlList: {
+    marginTop: 8,
+  },
+  urlItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  urlIcon: {
+    marginRight: 8,
+  },
+  urlText: {
+    flex: 1,
+    color: "#374151",
+    fontSize: 14,
+    marginRight: 8,
+  },
+  removeButton: {
+    padding: 4,
   },
   photoRow: {
     flexDirection: "row",
     justifyContent: "space-around",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   photoButton: {
     alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    minWidth: 100,
   },
   photoText: {
     fontSize: 12,
-    color: "#2563EB",
+    color: "#6366F1",
     marginTop: 4,
+    fontWeight: "600",
   },
-  previewImage: {
-    width: "100%",
-    height: 160,
-    borderRadius: 10,
-    marginBottom: 16,
+  filesList: {
+    marginTop: 12,
+  },
+  fileItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  fileIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  fileThumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+  },
+  fileInfo: {
+    flex: 1,
+  },
+  fileName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 2,
+  },
+  fileType: {
+    fontSize: 12,
+    color: "#6B7280",
   },
   tagsRow: {
     flexDirection: "row",
-    marginBottom: 20,
+    flexWrap: "wrap",
+    gap: 8,
   },
   tag: {
     borderWidth: 1,
-    borderColor: "#2563EB",
+    borderColor: "#6366F1",
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#F8FAFC",
   },
   activeTag: {
-    backgroundColor: "#2563EB",
+    backgroundColor: "#6366F1",
   },
   tagText: {
-    color: "#2563EB",
-    fontSize: 13,
-    fontWeight: "500",
+    color: "#6366F1",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  actionButtons: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    backgroundColor: "#F8FAFC",
   },
   saveButton: {
-    backgroundColor: "#2563EB",
-    paddingVertical: 14,
+    backgroundColor: "#6366F1",
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#6366F1",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  saveButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  cancelButton: {
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: "#6B7280",
+    fontSize: 16,
+    fontWeight: "500",
   },
 });

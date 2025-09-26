@@ -14,12 +14,13 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import storage from '../storage/buyItems/storage.js';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import * as storage from '../storage/buyItems/storage.js';
 
 const { width } = Dimensions.get('window');
 
 export default function BuyItemsList() {
+  const router = useRouter();
   const params = useLocalSearchParams();
   const listId = parseInt(params.listId);
   const listName = params.listName || 'Shopping List';
@@ -244,7 +245,10 @@ export default function BuyItemsList() {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => {
+            console.log('Back button pressed');
+            router.back();
+          }}
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
@@ -500,7 +504,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E7EB',
   },
   backButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    minWidth: 40,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerContent: {
     flex: 1,

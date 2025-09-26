@@ -9,6 +9,7 @@ import {
   FlatList,
   Image,
   Animated,
+  StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 // import { LinearGradient } from "expo-linear-gradient";
@@ -16,13 +17,14 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { saveFiles } from "../../storage/document/storage";
 import { insertDocument, updateDocument } from "../../storage/document/db";
+import { getFormCategories, DEFAULT_CATEGORY } from "../../utils/categories";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
   const [docName, setDocName] = useState(initialDoc?.docName || "");
   const [selectedTag, setSelectedTag] = useState(
-    initialDoc?.tag || "miscellaneous"
+    initialDoc?.tag || DEFAULT_CATEGORY
   );
   const [files, setFiles] = useState(
     initialDoc?.files?.map((uri) => ({ uri })) || []
@@ -31,12 +33,12 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
   useEffect(() => {
     if (visible) {
       setDocName(initialDoc?.docName || "");
-      setSelectedTag(initialDoc?.tag || "miscellaneous");
+      setSelectedTag(initialDoc?.tag || DEFAULT_CATEGORY);
       setFiles(initialDoc?.files?.map((uri) => ({ uri })) || []);
     }
   }, [visible]);
 
-  const tags = ["miscellaneous", "Bank", "Work", "Personal", "ID"];
+  const tags = getFormCategories();
 
   const pickFiles = async () => {
     try {
@@ -180,7 +182,7 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
 
       // Reset state
       setDocName("");
-      setSelectedTag("miscellaneous");
+      setSelectedTag(DEFAULT_CATEGORY);
       setFiles([]);
       onClose && onClose();
     } catch (error) {
@@ -191,267 +193,173 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "rgba(0,0,0,0.6)",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <View
-          style={{
-            width: "90%",
-            backgroundColor: "#fff",
-            borderRadius: 24,
-            padding: 24,
-            borderWidth: 1,
-            borderColor: "#E5E7EB",
-            // No box shadow for a clean, modern look
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 20,
-              fontWeight: "700",
-              marginBottom: 16,
-              textAlign: "center",
-            }}
-          >
-            {docId ? "Edit Document" : "Upload Document"}
-          </Text>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          {/* Header */}
+          <View style={styles.modalHeader}>
+            <View style={styles.headerIcon}>
+              <Ionicons 
+                name={docId ? "create-outline" : "cloud-upload-outline"} 
+                size={24} 
+                color="#6366F1" 
+              />
+            </View>
+            <View style={styles.headerText}>
+              <Text style={styles.modalTitle}>
+                {docId ? "Edit Document" : "Upload Document"}
+              </Text>
+              <Text style={styles.modalSubtitle}>
+                {docId ? "Update your document details" : "Add files and organize your documents"}
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={onClose}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={20} color="#64748B" />
+            </TouchableOpacity>
+          </View>
 
           {/* Document name input */}
-          <TextInput
-            style={{
-              borderWidth: 1,
-              borderColor: "#ddd",
-              borderRadius: 12,
-              padding: 12,
-              marginBottom: 16,
-              fontSize: 16,
-            }}
-            value={docName}
-            onChangeText={setDocName}
-            placeholder="Enter document name"
-          />
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>Document Name</Text>
+            <TextInput
+              style={styles.textInput}
+              value={docName}
+              onChangeText={setDocName}
+              placeholder="Enter document name"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
 
           {/* Tags */}
-          <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 8 }}>
-            Select Tag
-          </Text>
-          <View
-            style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 16 }}
-          >
-            {tags.map((tag) => (
-              <TouchableOpacity
-                key={tag}
-                style={{
-                  paddingVertical: 6,
-                  paddingHorizontal: 14,
-                  borderRadius: 20,
-                  backgroundColor:
-                    selectedTag === tag ? "#0B5FFF20" : "#f0f0f0",
-                  borderWidth: selectedTag === tag ? 1 : 0,
-                  borderColor: selectedTag === tag ? "#0B5FFF" : "transparent",
-                  marginRight: 8,
-                  marginBottom: 8,
-                }}
-                onPress={() => setSelectedTag(tag)}
-              >
-                <Text
-                  style={{
-                    fontSize: 13,
-                    color: selectedTag === tag ? "#0B5FFF" : "#444",
-                    fontWeight: selectedTag === tag ? "600" : "400",
-                  }}
+          <View style={styles.tagSection}>
+            <Text style={styles.tagLabel}>Category</Text>
+            <View style={styles.tagContainer}>
+              {tags.map((tag) => (
+                <TouchableOpacity
+                  key={tag}
+                  style={[
+                    styles.tagButton,
+                    selectedTag === tag && styles.tagButtonActive
+                  ]}
+                  onPress={() => setSelectedTag(tag)}
                 >
-                  {tag}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.tagText,
+                      selectedTag === tag && styles.tagTextActive
+                    ]}
+                  >
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           {/* Upload and Camera Options */}
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginBottom: 18,
-              gap: 12,
-            }}
-          >
-            <TouchableOpacity
-              onPress={pickFiles}
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 18,
-                height: 54,
-                width: 54,
-                marginRight: 6,
-                backgroundColor: "#6366F1",
-                shadowColor: "#6366F1",
-                shadowOpacity: 0.08,
-                shadowRadius: 4,
-                elevation: 1,
-              }}
-              activeOpacity={0.85}
-              accessibilityLabel="Upload File"
-            >
-              <Ionicons name="cloud-upload-outline" size={30} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={takePhoto}
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 18,
-                height: 54,
-                width: 54,
-                marginLeft: 6,
-                backgroundColor: "#22C55E",
-                shadowColor: "#22C55E",
-                shadowOpacity: 0.08,
-                shadowRadius: 4,
-                elevation: 1,
-              }}
-              activeOpacity={0.85}
-              accessibilityLabel="Take Photo"
-            >
-              <Ionicons name="camera-outline" size={30} color="#fff" />
-            </TouchableOpacity>
+          <View style={styles.uploadSection}>
+            <Text style={styles.uploadLabel}>Add Files</Text>
+            <View style={styles.uploadButtons}>
+              <TouchableOpacity
+                onPress={pickFiles}
+                style={[styles.uploadButton, styles.uploadButtonPrimary]}
+                activeOpacity={0.7}
+                accessibilityLabel="Upload File"
+              >
+                <Ionicons name="cloud-upload-outline" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                onPress={takePhoto}
+                style={[styles.uploadButton, styles.uploadButtonSecondary]}
+                activeOpacity={0.7}
+                accessibilityLabel="Take Photo"
+              >
+                <Ionicons name="camera-outline" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Files list */}
           {files.length > 0 && (
-            <FlatList
-              data={files}
-              keyExtractor={(_, index) => `file-${index}`}
-              renderItem={({ item, index }) => {
-                const uri = item.uri || item.fileCopyUri || item.localUri;
-                const isPdf =
-                  typeof uri === "string" && uri.toLowerCase().endsWith(".pdf");
-                return (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginBottom: 8,
-                      backgroundColor: "#F3F4F6",
-                      borderRadius: 10,
-                      padding: 8,
-                      borderWidth: 1,
-                      borderColor: "#E5E7EB",
-                    }}
-                  >
-                    {isPdf ? (
-                      <Ionicons
-                        name="document-text-outline"
-                        size={26}
-                        color="#6366F1"
-                        style={{ marginRight: 6 }}
-                      />
-                    ) : (
-                      <Image
-                        source={{ uri }}
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 8,
-                          backgroundColor: "#eee",
-                          marginRight: 6,
-                        }}
-                      />
-                    )}
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        flex: 1,
-                        marginLeft: 2,
-                        color: "#374151",
-                        fontSize: 14,
-                      }}
-                    >
-                      {item.name || uri}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => removeFile(index)}
-                      style={{
-                        marginLeft: 8,
-                        padding: 6,
-                        borderRadius: 8,
-                        backgroundColor: "#fff",
-                        borderWidth: 1,
-                        borderColor: "#FCA5A5",
-                      }}
-                      accessibilityLabel="Remove File"
-                    >
-                      <Ionicons
-                        name="trash-outline"
-                        size={18}
-                        color="#DC2626"
-                      />
-                    </TouchableOpacity>
-                  </View>
-                );
-              }}
-            />
+            <View style={styles.filesSection}>
+              <Text style={styles.filesLabel}>
+                Selected Files ({files.length})
+              </Text>
+              <FlatList
+                data={files}
+                keyExtractor={(_, index) => `file-${index}`}
+                renderItem={({ item, index }) => {
+                  const uri = item.uri || item.fileCopyUri || item.localUri;
+                  const isPdf =
+                    typeof uri === "string" && uri.toLowerCase().endsWith(".pdf");
+                  return (
+                    <View style={styles.fileItem}>
+                      <View style={styles.fileIcon}>
+                        {isPdf ? (
+                          <Ionicons
+                            name="document-text-outline"
+                            size={20}
+                            color="#6366F1"
+                          />
+                        ) : (
+                          <Image
+                            source={{ uri }}
+                            style={styles.fileThumbnail}
+                          />
+                        )}
+                      </View>
+                      <View style={styles.fileInfo}>
+                        <Text style={styles.fileName} numberOfLines={1}>
+                          {item.name || uri}
+                        </Text>
+                        <Text style={styles.fileType}>
+                          {isPdf ? 'PDF Document' : 'Image'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => removeFile(index)}
+                        style={styles.removeButton}
+                        accessibilityLabel="Remove File"
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={16}
+                          color="#DC2626"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }}
+              />
+            </View>
           )}
 
           {/* Action buttons */}
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              marginTop: 18,
-              gap: 10,
-            }}
-          >
+          <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={{
-                borderRadius: 14,
-                height: 48,
-                minWidth: 100,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "#F3F4F6",
-                marginLeft: 0,
-                paddingHorizontal: 18,
-                marginRight: 6,
-              }}
+              style={styles.cancelButton}
               onPress={onClose}
               activeOpacity={0.85}
             >
-              <Text
-                style={{ fontSize: 15, fontWeight: "700", color: "#374151" }}
-              >
-                Cancel
-              </Text>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={{
-                borderRadius: 14,
-                height: 48,
-                minWidth: 110,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "#6366F1",
-                flexDirection: "row",
-                paddingHorizontal: 22,
-                marginLeft: 0,
-              }}
+              style={styles.saveButton}
               onPress={handleSubmit}
               activeOpacity={0.85}
             >
               <Ionicons
                 name="save-outline"
-                size={20}
+                size={18}
                 color="#fff"
-                style={{ marginRight: 8 }}
+                style={{ marginRight: 6 }}
               />
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>
+              <Text style={styles.saveButtonText}>
                 {docId ? "Update" : "Save"}
               </Text>
             </TouchableOpacity>
@@ -461,5 +369,311 @@ const UploadDocModal = ({ visible, onClose, onSave, docId, initialDoc }) => {
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  modalContainer: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    padding: 0,
+    borderWidth: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.25,
+    shadowRadius: 40,
+    elevation: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 28,
+    paddingBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    backgroundColor: "#FAFBFC",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+  headerIcon: {
+    width: 52,
+    height: 52,
+    backgroundColor: "#EEF2FF",
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 18,
+    shadowColor: "#6366F1",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  headerText: {
+    flex: 1,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0F1724",
+    marginBottom: 6,
+    letterSpacing: -0.8,
+  },
+  modalSubtitle: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#64748B",
+    letterSpacing: 0.3,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  inputSection: {
+    paddingHorizontal: 28,
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 10,
+    letterSpacing: 0.3,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 16,
+    padding: 18,
+    fontSize: 16,
+    color: "#111827",
+    backgroundColor: "#F9FAFB",
+    fontWeight: "500",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  tagSection: {
+    paddingHorizontal: 28,
+    marginBottom: 28,
+  },
+  tagLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 14,
+    letterSpacing: 0.3,
+  },
+  tagContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  tagButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 24,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  tagButtonActive: {
+    backgroundColor: "#EEF2FF",
+    borderColor: "#6366F1",
+    shadowColor: "#6366F1",
+    shadowOpacity: 0.2,
+  },
+  tagText: {
+    fontSize: 14,
+    color: "#64748B",
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  tagTextActive: {
+    color: "#6366F1",
+    fontWeight: "700",
+  },
+  uploadSection: {
+    paddingHorizontal: 28,
+    marginBottom: 28,
+  },
+  uploadLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 16,
+    letterSpacing: 0.3,
+  },
+  uploadButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+  },
+  uploadButton: {
+    width: 120,
+    height: 60,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  uploadButtonPrimary: {
+    backgroundColor: "#6366F1",
+    shadowColor: "#6366F1",
+    shadowOpacity: 0.3,
+  },
+  uploadButtonSecondary: {
+    backgroundColor: "#22C55E",
+    shadowColor: "#22C55E",
+    shadowOpacity: 0.3,
+  },
+  filesSection: {
+    paddingHorizontal: 28,
+    marginBottom: 28,
+  },
+  filesLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 14,
+    letterSpacing: 0.3,
+  },
+  fileItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  fileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  fileThumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+  },
+  fileInfo: {
+    flex: 1,
+  },
+  fileName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 2,
+  },
+  fileType: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#64748B",
+  },
+  removeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    padding: 28,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    backgroundColor: "#FAFBFC",
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    gap: 16,
+  },
+  cancelButton: {
+    flex: 1,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#64748B",
+    letterSpacing: 0.3,
+  },
+  saveButton: {
+    flex: 1,
+    height: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#6366F1",
+    borderRadius: 16,
+    shadowColor: "#6366F1",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
+  },
+});
 
 export default UploadDocModal;

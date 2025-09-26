@@ -52,6 +52,11 @@ export default function NewTopicCardModal({ visible, onClose, onSave, cardId = n
   }, [visible, initialCard]);
 
   const handleSave = async () => {
+    if (!formData.title.trim()) {
+      Alert.alert('Error', 'Title is required');
+      return;
+    }
+    
     try {
       setLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -145,12 +150,12 @@ export default function NewTopicCardModal({ visible, onClose, onSave, cardId = n
                 marginBottom: 8,
               }}
             >
-              Title (optional)
+              Title *
             </Text>
             <TextInput
               style={{
                 borderWidth: 1,
-                borderColor: '#e0e0e0',
+                borderColor: formData.title.trim() ? '#e0e0e0' : '#ef4444',
                 borderRadius: 12,
                 padding: 16,
                 fontSize: 16,
@@ -160,7 +165,7 @@ export default function NewTopicCardModal({ visible, onClose, onSave, cardId = n
               }}
               value={formData.title}
               onChangeText={(text) => setFormData({ ...formData, title: text })}
-              placeholder="Leave empty to use current date/time"
+              placeholder="Enter a title for your topic card"
               placeholderTextColor="#999"
               editable={!loading}
             />

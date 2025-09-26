@@ -107,6 +107,13 @@ export const getRecentTodoEntries = async (limit = 10) => {
       [limit]
     );
 
+    console.log("Retrieved todo entries:", rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      created_at: row.created_at,
+      created_at_type: typeof row.created_at
+    })));
+
     return rows.map((row) => ({
       ...row,
       synced: row.synced === 1,
@@ -127,6 +134,13 @@ export const getTodosByCategory = async (category) => {
       "SELECT * FROM todos WHERE category = ? ORDER BY created_at DESC",
       [category]
     );
+
+    console.log(`Retrieved todos for category ${category}:`, rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      created_at: row.created_at,
+      created_at_type: typeof row.created_at
+    })));
 
     return rows.map((row) => ({
       ...row,
@@ -266,8 +280,27 @@ export const getUnsyncedTodoEntries = async () => {
 // Delete todo entry by ID
 export const deleteTodoEntryById = async (id) => {
   try {
+    console.log("Attempting to delete todo with ID:", id);
     const db = await openDB();
-    await db.runAsync("DELETE FROM todos WHERE id = ?", [id]);
+    
+    // First check if the todo exists
+    const existingTodo = await db.getFirstAsync("SELECT id FROM todos WHERE id = ?", [id]);
+    if (!existingTodo) {
+      console.log("Todo not found in database with ID:", id);
+      throw new Error("Todo not found in database");
+    }
+    
+    console.log("Todo found, proceeding with deletion");
+    const result = await db.runAsync("DELETE FROM todos WHERE id = ?", [id]);
+    console.log("Delete result:", result);
+    
+    // Verify deletion
+    const deletedTodo = await db.getFirstAsync("SELECT id FROM todos WHERE id = ?", [id]);
+    if (deletedTodo) {
+      throw new Error("Failed to delete todo from database");
+    }
+    
+    console.log("Todo successfully deleted from database");
     return true;
   } catch (error) {
     console.error("Error deleting todo entry:", error);

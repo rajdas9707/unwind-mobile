@@ -1,5 +1,5 @@
 import { Alert } from "react-native";
-import database from "./db.js";
+import * as database from "./db.js";
 
 export function validateListName(name) {
   if (!name || typeof name !== "string") {
@@ -82,16 +82,16 @@ export function handleError(
 // Shopping Lists operations
 export async function createList(name) {
   try {
-    const validation = this.validateListName(name);
+    const validation = validateListName(name);
     if (!validation.isValid) {
-      this.handleError(validation.error, validation.error);
+      handleError(validation.error, validation.error);
       return null;
     }
 
     const listId = await database.createList(validation.name);
     return listId;
   } catch (error) {
-    this.handleError(error, "Failed to create shopping list");
+    handleError(error, "Failed to create shopping list");
     return null;
   }
 }
@@ -101,7 +101,7 @@ export async function getAllLists() {
     const lists = await database.getAllLists();
     return lists || [];
   } catch (error) {
-    this.handleError(error, "Failed to load shopping lists");
+    handleError(error, "Failed to load shopping lists");
     return [];
   }
 }
@@ -109,14 +109,14 @@ export async function getAllLists() {
 export async function getListById(listId) {
   try {
     if (!listId || !Number.isInteger(Number(listId))) {
-      this.handleError("Invalid list ID", "Invalid list ID");
+      handleError("Invalid list ID", "Invalid list ID");
       return null;
     }
 
     const list = await database.getListById(listId);
     return list;
   } catch (error) {
-    this.handleError(error, "Failed to load shopping list");
+    handleError(error, "Failed to load shopping list");
     return null;
   }
 }
@@ -124,20 +124,20 @@ export async function getListById(listId) {
 export async function updateList(listId, name) {
   try {
     if (!listId || !Number.isInteger(Number(listId))) {
-      this.handleError("Invalid list ID", "Invalid list ID");
+      handleError("Invalid list ID", "Invalid list ID");
       return false;
     }
 
-    const validation = this.validateListName(name);
+    const validation = validateListName(name);
     if (!validation.isValid) {
-      this.handleError(validation.error, validation.error);
+      handleError(validation.error, validation.error);
       return false;
     }
 
     await database.updateList(listId, validation.name);
     return true;
   } catch (error) {
-    this.handleError(error, "Failed to update shopping list");
+    handleError(error, "Failed to update shopping list");
     return false;
   }
 }
@@ -145,7 +145,7 @@ export async function updateList(listId, name) {
 export async function deleteList(listId) {
   try {
     if (!listId || !Number.isInteger(Number(listId))) {
-      this.handleError("Invalid list ID", "Invalid list ID");
+      handleError("Invalid list ID", "Invalid list ID");
       return false;
     }
 
@@ -166,7 +166,7 @@ export async function deleteList(listId) {
                 await database.deleteList(listId);
                 resolve(true);
               } catch (error) {
-                this.handleError(error, "Failed to delete shopping list");
+                handleError(error, "Failed to delete shopping list");
                 resolve(false);
               }
             },
@@ -176,7 +176,7 @@ export async function deleteList(listId) {
       );
     });
   } catch (error) {
-    this.handleError(error, "Failed to delete shopping list");
+    handleError(error, "Failed to delete shopping list");
     return false;
   }
 }
@@ -185,19 +185,19 @@ export async function deleteList(listId) {
 export async function createItem(listId, name, location = "") {
   try {
     if (!listId || !Number.isInteger(Number(listId))) {
-      this.handleError("Invalid list ID", "Invalid list ID");
+      handleError("Invalid list ID", "Invalid list ID");
       return null;
     }
 
-    const nameValidation = this.validateItemName(name);
+    const nameValidation = validateItemName(name);
     if (!nameValidation.isValid) {
-      this.handleError(nameValidation.error, nameValidation.error);
+      handleError(nameValidation.error, nameValidation.error);
       return null;
     }
 
-    const locationValidation = this.validateLocation(location);
+    const locationValidation = validateLocation(location);
     if (!locationValidation.isValid) {
-      this.handleError(locationValidation.error, locationValidation.error);
+      handleError(locationValidation.error, locationValidation.error);
       return null;
     }
 
@@ -208,7 +208,7 @@ export async function createItem(listId, name, location = "") {
     );
     return itemId;
   } catch (error) {
-    this.handleError(error, "Failed to create shopping item");
+    handleError(error, "Failed to create shopping item");
     return null;
   }
 }
@@ -216,14 +216,14 @@ export async function createItem(listId, name, location = "") {
 export async function getItemsByListId(listId) {
   try {
     if (!listId || !Number.isInteger(Number(listId))) {
-      this.handleError("Invalid list ID", "Invalid list ID");
+      handleError("Invalid list ID", "Invalid list ID");
       return [];
     }
 
     const items = await database.getItemsByListId(listId);
     return items || [];
   } catch (error) {
-    this.handleError(error, "Failed to load shopping items");
+    handleError(error, "Failed to load shopping items");
     return [];
   }
 }
@@ -231,14 +231,14 @@ export async function getItemsByListId(listId) {
 export async function getItemById(itemId) {
   try {
     if (!itemId || !Number.isInteger(Number(itemId))) {
-      this.handleError("Invalid item ID", "Invalid item ID");
+      handleError("Invalid item ID", "Invalid item ID");
       return null;
     }
 
     const item = await database.getItemById(itemId);
     return item;
   } catch (error) {
-    this.handleError(error, "Failed to load shopping item");
+    handleError(error, "Failed to load shopping item");
     return null;
   }
 }
@@ -246,19 +246,19 @@ export async function getItemById(itemId) {
 export async function updateItem(itemId, name, location = "") {
   try {
     if (!itemId || !Number.isInteger(Number(itemId))) {
-      this.handleError("Invalid item ID", "Invalid item ID");
+      handleError("Invalid item ID", "Invalid item ID");
       return false;
     }
 
-    const nameValidation = this.validateItemName(name);
+    const nameValidation = validateItemName(name);
     if (!nameValidation.isValid) {
-      this.handleError(nameValidation.error, nameValidation.error);
+      handleError(nameValidation.error, nameValidation.error);
       return false;
     }
 
-    const locationValidation = this.validateLocation(location);
+    const locationValidation = validateLocation(location);
     if (!locationValidation.isValid) {
-      this.handleError(locationValidation.error, locationValidation.error);
+      handleError(locationValidation.error, locationValidation.error);
       return false;
     }
 
@@ -269,7 +269,7 @@ export async function updateItem(itemId, name, location = "") {
     );
     return true;
   } catch (error) {
-    this.handleError(error, "Failed to update shopping item");
+    handleError(error, "Failed to update shopping item");
     return false;
   }
 }
@@ -277,14 +277,14 @@ export async function updateItem(itemId, name, location = "") {
 export async function toggleItemBought(itemId) {
   try {
     if (!itemId || !Number.isInteger(Number(itemId))) {
-      this.handleError("Invalid item ID", "Invalid item ID");
+      handleError("Invalid item ID", "Invalid item ID");
       return false;
     }
 
     await database.toggleItemBought(itemId);
     return true;
   } catch (error) {
-    this.handleError(error, "Failed to update item status");
+    handleError(error, "Failed to update item status");
     return false;
   }
 }
@@ -292,7 +292,7 @@ export async function toggleItemBought(itemId) {
 export async function deleteItem(itemId) {
   try {
     if (!itemId || !Number.isInteger(Number(itemId))) {
-      this.handleError("Invalid item ID", "Invalid item ID");
+      handleError("Invalid item ID", "Invalid item ID");
       return false;
     }
 
@@ -310,7 +310,7 @@ export async function deleteItem(itemId) {
               await database.deleteItem(itemId);
               resolve(true);
             } catch (error) {
-              this.handleError(error, "Failed to delete shopping item");
+              handleError(error, "Failed to delete shopping item");
               resolve(false);
             }
           },
@@ -319,7 +319,7 @@ export async function deleteItem(itemId) {
       ]);
     });
   } catch (error) {
-    this.handleError(error, "Failed to delete shopping item");
+    handleError(error, "Failed to delete shopping item");
     return false;
   }
 }
@@ -344,7 +344,7 @@ export async function clearAllData() {
                 await database.clearAllData();
                 resolve(true);
               } catch (error) {
-                this.handleError(error, "Failed to clear all data");
+                handleError(error, "Failed to clear all data");
                 resolve(false);
               }
             },
@@ -354,7 +354,7 @@ export async function clearAllData() {
       );
     });
   } catch (error) {
-    this.handleError(error, "Failed to clear all data");
+    handleError(error, "Failed to clear all data");
     return false;
   }
 }

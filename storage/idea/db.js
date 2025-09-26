@@ -25,6 +25,7 @@ export const initIdeasTable = async (db) => {
 };
 
 export const insertIdea = async ({
+  name = "",
   idea,
   urls = [],
   files = [],
@@ -34,17 +35,31 @@ export const insertIdea = async ({
     const db = await openDB();
     const urlsJson = JSON.stringify(urls);
     const filesJson = JSON.stringify(files);
+    
+    const currentTimestamp = new Date().toISOString();
+    console.log("Creating idea with timestamp:", currentTimestamp);
+    
     const result = await db.runAsync(
-      "INSERT INTO ideas (idea, urls, files, tag) VALUES (?, ?, ?, ?)",
-      [idea, urlsJson, filesJson, tag]
+      "INSERT INTO ideas (name, idea, urls, files, tag, time) VALUES (?, ?, ?, ?, ?, ?)",
+      [name, idea, urlsJson, filesJson, tag, currentTimestamp]
     );
+    
+    console.log("Idea created with ID:", result.lastInsertRowId);
+    
+    // Verify the created record
+    const createdIdea = await db.getFirstAsync(
+      "SELECT * FROM ideas WHERE id = ?",
+      [result.lastInsertRowId]
+    );
+    console.log("Created idea record:", createdIdea);
+    
     return result.lastInsertRowId;
   } catch (error) {
     console.log("error from insertIdea of storage/idea/db.js", error);
   }
 };
 
-export const updateIdea = async ({ id, idea, urls, files, tag }) => {
+export const updateIdea = async ({ id, name, idea, urls, files, tag }) => {
   try {
     const db = await openDB();
     const existing = await db.getFirstAsync(
@@ -53,6 +68,7 @@ export const updateIdea = async ({ id, idea, urls, files, tag }) => {
     );
     if (!existing) return;
 
+    const nextName = name !== undefined ? name : existing.name;
     const nextIdea = typeof idea === "string" ? idea : existing.idea;
     const nextUrls = urls !== undefined ? JSON.stringify(urls) : existing.urls;
     const nextFiles =
@@ -60,8 +76,8 @@ export const updateIdea = async ({ id, idea, urls, files, tag }) => {
     const nextTag = tag || existing.tag;
 
     await db.runAsync(
-      "UPDATE ideas SET idea = ?, urls = ?, files = ?, tag = ? WHERE id = ?",
-      [nextIdea, nextUrls, nextFiles, nextTag, id]
+      "UPDATE ideas SET name = ?, idea = ?, urls = ?, files = ?, tag = ? WHERE id = ?",
+      [nextName, nextIdea, nextUrls, nextFiles, nextTag, id]
     );
     return id;
   } catch (error) {
@@ -73,6 +89,16 @@ export const getIdeas = async () => {
   try {
     const db = await openDB();
     const rows = await db.getAllAsync("SELECT * FROM ideas ORDER BY time DESC");
+    
+    console.log("Retrieved ideas with timestamps:", rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      time: r.time,
+      timeType: typeof r.time,
+      parsedDate: new Date(r.time).toISOString(),
+      currentTime: new Date().toISOString()
+    })));
+    
     return rows.map((r) => ({
       ...r,
       urls: r.urls ? JSON.parse(r.urls) : [],

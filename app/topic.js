@@ -6,6 +6,9 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  StyleSheet,
+  ScrollView,
+  Platform,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -25,6 +28,7 @@ export default function TopicScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingCard, setEditingCard] = useState(null);
+  const [showCompleted, setShowCompleted] = useState(false);
   const router = useRouter();
 
   // Load cards when screen comes into focus
@@ -50,6 +54,7 @@ export default function TopicScreen() {
   const addCard = () => {
     setModalVisible(false);
     setEditingCard(null);
+    setShowCompleted(false); // Move to pending tab when adding new card
     loadCards();
   };
 
@@ -103,7 +108,6 @@ export default function TopicScreen() {
       <TouchableOpacity
         style={{
           marginBottom: 16,
-          opacity: isCompleted ? 0.6 : 1,
         }}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -112,7 +116,7 @@ export default function TopicScreen() {
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={isCompleted ? ['#95a5a6', '#7f8c8d'] : gradient}
+          colors={gradient}
           style={{
             borderRadius: 16,
             padding: 20,
@@ -121,7 +125,7 @@ export default function TopicScreen() {
               width: 0,
               height: 4,
             },
-            shadowOpacity: isCompleted ? 0.1 : 0.15,
+            shadowOpacity: 0.15,
             shadowRadius: 8,
             elevation: 6,
           }}
@@ -146,11 +150,10 @@ export default function TopicScreen() {
                     textShadowOffset: { width: 1, height: 1 },
                     textShadowRadius: 2,
                     flex: 1,
-                    textDecorationLine: isCompleted ? 'line-through' : 'none',
                   }}
                   numberOfLines={2}
                 >
-                  {item.displayTitle}
+                  {isCompleted ? '🎉 ' : '🚀 '}{item.displayTitle}{isCompleted ? ' 👑' : ' ⭐'}
                 </Text>
                 {isCompleted && (
                   <View style={{ 
@@ -160,7 +163,7 @@ export default function TopicScreen() {
                     paddingVertical: 4,
                     marginLeft: 8,
                   }}>
-                    <Ionicons name="checkmark-circle" size={16} color="white" />
+                    <Text style={{ fontSize: 16 }}>🏆</Text>
                   </View>
                 )}
               </View>
@@ -191,14 +194,14 @@ export default function TopicScreen() {
                       color: 'rgba(255,255,255,0.8)',
                       fontWeight: '600',
                     }}>
-                      Progress
+                      {isCompleted ? '🎯 Completed!' : '📈 Progress'}
                     </Text>
                     <Text style={{
                       fontSize: 12,
                       color: 'rgba(255,255,255,0.8)',
                       fontWeight: '600',
                     }}>
-                      {item.completed_topics}/{item.total_topics} topics
+                      {isCompleted ? '✨ All done!' : `🔥 ${item.completed_topics}/${item.total_topics} topics`}
                     </Text>
                   </View>
                   
@@ -223,7 +226,7 @@ export default function TopicScreen() {
                     color: 'rgba(255,255,255,0.7)',
                     fontStyle: 'italic',
                   }}>
-                    No topics yet - tap to add some!
+                    {isCompleted ? '🎉 Ready for new challenges!' : '💡 No topics yet - tap to add some!'}
                   </Text>
                 </View>
               )}
@@ -287,121 +290,261 @@ export default function TopicScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: "#F3F4F6",
-        paddingHorizontal: 18,
-      }}
+    <LinearGradient
+      colors={['#F8FAFC', '#F1F5F9', '#EEF2FF']}
+      style={styles.gradientContainer}
     >
-      <StatusBar style="dark" />
-      <Text
-        style={{
-          fontSize: 22,
-          fontWeight: "bold",
-          marginVertical: 18,
-          alignSelf: "center",
-          color: "#1F2937",
-        }}
-      >
-        📋 Topic Cards
-      </Text>
-
-      <FlatList
-        data={cards}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderCard}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          loading ? (
-            <View style={{ alignItems: "center", marginTop: 60 }}>
-              <Ionicons name="refresh" size={40} color="#666" />
-              <Text
-                style={{
-                  fontSize: 18,
-                  color: "#95a5a6",
-                  marginTop: 16,
-                  fontWeight: "600",
-                }}
-              >
-                Loading cards...
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="dark" />
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.titleIcon}>
+              <Ionicons name="library" size={28} color="#8B5CF6" />
+            </View>
+            <View style={styles.titleText}>
+              <Text style={styles.title}>Topic Cards</Text>
+              <Text style={styles.subtitle}>
+                {cards.length} {cards.length === 1 ? 'card' : 'cards'} created
               </Text>
             </View>
-          ) : (
-            <View style={{ alignItems: "center", marginTop: 60 }}>
-              <Ionicons name="library-outline" size={60} color="#ccc" />
-              <Text
-                style={{
-                  fontSize: 18,
-                  color: "#95a5a6",
-                  marginTop: 16,
-                  fontWeight: "600",
-                }}
-              >
-                No topic cards yet
-              </Text>
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: "#bdc3c7",
-                  marginTop: 8,
-                  textAlign: "center",
-                  paddingHorizontal: 40,
-                }}
-              >
-                Tap the + button to create your first card
-              </Text>
-            </View>
-          )
-        }
-      />
+          </View>
+        </View>
 
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={{
-          position: "absolute",
-          bottom: 30,
-          right: 25,
-          width: 62,
-          height: 62,
-          borderRadius: 31,
-          shadowColor: "#000",
-          shadowOpacity: 0.25,
-          shadowRadius: 6,
-          elevation: 6,
-        }}
-        onPress={() => {
-          setEditingCard(null);
-          setModalVisible(true);
-        }}
-        activeOpacity={0.8}
-      >
-        <LinearGradient
-          colors={["#667eea", "#764ba2"]}
-          style={{
-            width: 62,
-            height: 62,
-            borderRadius: 31,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+        {/* Toggle Button */}
+        <View style={styles.toggleContainer}>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              !showCompleted && styles.toggleButtonActive
+            ]}
+            onPress={() => setShowCompleted(false)}
+          >
+            <Text style={[
+              styles.toggleButtonText,
+              !showCompleted && styles.toggleButtonTextActive
+            ]}>
+              Pending ({cards.filter(c => !c.is_completed).length})
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              showCompleted && styles.toggleButtonActive
+            ]}
+            onPress={() => setShowCompleted(true)}
+          >
+            <Text style={[
+              styles.toggleButtonText,
+              showCompleted && styles.toggleButtonTextActive
+            ]}>
+              Completed ({cards.filter(c => c.is_completed).length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Cards List */}
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Ionicons name="add" size={30} color="#fff" />
-        </LinearGradient>
-      </TouchableOpacity>
+          <FlatList
+            data={cards.filter(card => showCompleted ? card.is_completed : !card.is_completed)}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderCard}
+            scrollEnabled={false}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              loading ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="refresh" size={40} color="#8B5CF6" />
+                  <Text style={styles.emptyTitle}>Loading cards...</Text>
+                </View>
+              ) : cards.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="library-outline" size={60} color="#8B5CF6" />
+                  <Text style={styles.emptyTitle}>📚 No topic cards yet</Text>
+                  <Text style={styles.emptySubtitle}>
+                    💡 Tap the + button to create your first card
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name={showCompleted ? "checkmark-circle-outline" : "time-outline"} size={60} color="#8B5CF6" />
+                  <Text style={styles.emptyTitle}>
+                    {showCompleted ? '🏆 No completed cards yet' : '🚀 No pending cards'}
+                  </Text>
+                  <Text style={styles.emptySubtitle}>
+                    {showCompleted ? 'Complete some cards to see them here' : '🎉 All cards are completed!'}
+                  </Text>
+                </View>
+              )
+            }
+          />
+        </ScrollView>
 
-      {/* Modal Component */}
-      <NewTopicCardModal
-        visible={modalVisible}
-        onClose={() => {
-          setModalVisible(false);
-          setEditingCard(null);
-        }}
-        onSave={addCard}
-        cardId={editingCard?.id}
-        initialCard={editingCard}
-      />
-    </SafeAreaView>
+        {/* Floating Action Button */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => {
+            setEditingCard(null);
+            setModalVisible(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={["#8B5CF6", "#6366F1"]}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="add" size={28} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Modal Component */}
+        <NewTopicCardModal
+          visible={modalVisible}
+          onClose={() => {
+            setModalVisible(false);
+            setEditingCard(null);
+          }}
+          onSave={addCard}
+          cardId={editingCard?.id}
+          initialCard={editingCard}
+        />
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
+
+const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: "transparent",
+    paddingTop: Platform.OS === "android" ? 50 : 0,
+  },
+  header: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    backdropFilter: "blur(10px)",
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  titleIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  titleText: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+  },
+  listContent: {
+    paddingTop: 20,
+    paddingBottom: 100,
+  },
+  emptyState: {
+    alignItems: "center",
+    marginTop: 60,
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    color: "#8B5CF6",
+    marginTop: 16,
+    fontWeight: "600",
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  fab: {
+    position: "absolute",
+    bottom: 30,
+    right: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  fabGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: 4,
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  toggleButtonActive: {
+    backgroundColor: "#8B5CF6",
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  toggleButtonText: {
+    color: "#6B7280",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  toggleButtonTextActive: {
+    color: "#fff",
+  },
+});
