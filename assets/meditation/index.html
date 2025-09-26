@@ -21,15 +21,6 @@
     *{box-sizing:border-box}
     html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Manrope,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto;touch-action:manipulation;max-width:100vw;overflow-x:hidden}
     .wrap{width:100%;max-width:min(1040px, 100%);margin:0 auto;padding:var(--space) var(--space-sm) calc(var(--space)*2)}
-    .header{display:flex;align-items:center;justify-content:space-between;padding:18px;border-radius:var(--radius);background:
-      radial-gradient(1400px 520px at -10% -20%, rgba(16,185,129,.20), transparent 40%),
-      linear-gradient(180deg,var(--panel),rgba(255,255,255,.65));
-      border:1px solid rgba(15,23,42,.08);box-shadow:var(--shadow);gap:16px;overflow:hidden}
-    .ttl{display:flex;align-items:center;gap:12px}
-    .badge{padding:6px 10px;border-radius:999px;background:rgba(16,185,129,.12);color:#065f46;border:1px solid rgba(5,150,105,.35);font-size:12px}
-    body.theme-dark .badge{background:rgba(16,185,129,.16);color:#a7f3d0;border-color:#115e59}
-    .title{font-size:var(--title-size);font-weight:800}
-    .muted{color:var(--muted);font-size:13px}
 
     .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;margin-top:18px}
     @media (max-width:1024px){.grid{grid-template-columns:1fr;gap:14px}}
@@ -37,11 +28,106 @@
     .card{background:var(--panel);border:1px solid rgba(15,23,42,.08);border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--card-pad);overflow:hidden}
     .row{display:flex;gap:10px;flex-wrap:wrap}
 
-    .clock-wrap{display:flex;align-items:center;justify-content:center;position:relative;width:100%;height:clamp(240px, 55vmin, 520px);border-radius:18px;background:
-      radial-gradient(800px 400px at 50% 0%, rgba(16,185,129,.15), rgba(6,182,212,.12), transparent 60%),
-      linear-gradient(135deg, rgba(139,92,246,.08), rgba(16,185,129,.05), transparent 70%),
-      linear-gradient(180deg,rgba(2,6,23,.02),transparent 60%);
-      animation: backgroundShift 8s ease-in-out infinite;}
+    .clock-wrap{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      width:100%;
+      height:clamp(240px, 55vmin, 520px);
+      border-radius:18px;
+      background:
+        radial-gradient(800px 400px at 50% 0%, rgba(16,185,129,.15), rgba(6,182,212,.12), transparent 60%),
+        linear-gradient(135deg, rgba(139,92,246,.08), rgba(16,185,129,.05), transparent 70%),
+        linear-gradient(180deg,rgba(2,6,23,.02),transparent 60%);
+      animation: backgroundShift 8s ease-in-out infinite;
+      overflow: hidden;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    
+    /* Night mode starry sky background */
+    body.theme-dark .clock-wrap {
+      background:
+        /* Stars layer */
+        radial-gradient(1px 1px at 20% 30%, #fff, transparent),
+        radial-gradient(1px 1px at 40% 70%, #fff, transparent),
+        radial-gradient(1px 1px at 90% 40%, #fff, transparent),
+        radial-gradient(1px 1px at 60% 20%, #fff, transparent),
+        radial-gradient(1px 1px at 10% 80%, #fff, transparent),
+        radial-gradient(1px 1px at 80% 10%, #fff, transparent),
+        radial-gradient(1px 1px at 30% 60%, #fff, transparent),
+        radial-gradient(1px 1px at 70% 90%, #fff, transparent),
+        radial-gradient(1px 1px at 50% 50%, #fff, transparent),
+        radial-gradient(1px 1px at 15% 45%, #fff, transparent),
+        radial-gradient(1px 1px at 85% 65%, #fff, transparent),
+        radial-gradient(1px 1px at 25% 85%, #fff, transparent),
+        radial-gradient(1px 1px at 75% 15%, #fff, transparent),
+        radial-gradient(1px 1px at 5% 25%, #fff, transparent),
+        radial-gradient(1px 1px at 95% 75%, #fff, transparent),
+        /* Nebula and cosmic background */
+        radial-gradient(600px 300px at 30% 20%, rgba(139,92,246,.15), transparent 50%),
+        radial-gradient(500px 400px at 70% 80%, rgba(6,182,212,.12), transparent 60%),
+        radial-gradient(400px 200px at 50% 10%, rgba(16,185,129,.08), transparent 70%),
+        /* Deep space gradient */
+        linear-gradient(180deg, rgba(2,6,23,.4), rgba(8,15,30,.2), transparent 80%);
+      animation: backgroundShift 12s ease-in-out infinite, starTwinkle 8s ease-in-out infinite;
+    }
+    
+    /* Floating particles around the timer */
+    .clock-wrap::before {
+      content: '';
+      position: absolute;
+      top: 10%;
+      left: 15%;
+      width: 4px;
+      height: 4px;
+      background: rgba(16,185,129,0.6);
+      border-radius: 50%;
+      animation: particleFloat1 6s ease-in-out infinite;
+      z-index: 1;
+    }
+    
+    .clock-wrap::after {
+      content: '';
+      position: absolute;
+      top: 20%;
+      right: 20%;
+      width: 3px;
+      height: 3px;
+      background: rgba(6,182,212,0.5);
+      border-radius: 50%;
+      animation: particleFloat2 8s ease-in-out infinite;
+      z-index: 1;
+    }
+    
+    /* Day mode particles - more energetic */
+    body:not(.theme-dark) .clock-wrap::before {
+      animation: particleFloat1 4s ease-in-out infinite;
+      background: rgba(255,193,7,0.7);
+    }
+    
+    body:not(.theme-dark) .clock-wrap::after {
+      animation: particleFloat2 5s ease-in-out infinite;
+      background: rgba(16,185,129,0.6);
+    }
+    
+    /* Dark mode particles - cosmic elements */
+    body.theme-dark .clock-wrap::before {
+      animation: particleFloat1 8s ease-in-out infinite, cosmicGlow 6s ease-in-out infinite;
+      background: radial-gradient(circle, rgba(139,92,246,0.8), rgba(139,92,246,0.3));
+      box-shadow: 0 0 10px rgba(139,92,246,0.5);
+      width: 6px;
+      height: 6px;
+    }
+    
+    body.theme-dark .clock-wrap::after {
+      animation: particleFloat2 10s ease-in-out infinite, cosmicGlow 8s ease-in-out infinite;
+      background: radial-gradient(circle, rgba(6,182,212,0.8), rgba(6,182,212,0.3));
+      box-shadow: 0 0 8px rgba(6,182,212,0.4);
+      width: 4px;
+      height: 4px;
+    }
     .breath{
       position:relative;
   width:min(80vw, 80vmin, calc(min(var(--screen-w), var(--screen-h)) * 0.5), 320px);
@@ -57,11 +143,21 @@
         rgba(236,72,153,.4),
         rgba(16,185,129,.4));
       display:flex;align-items:center;justify-content:center;
-      box-shadow:0 0 0 12px rgba(16,185,129,.12), 
-                  0 0 0 24px rgba(6,182,212,.08),
-                  0 20px 60px rgba(2,6,23,.3),
-                  0 0 40px rgba(16,185,129,.2);
-      animation:breathing 6s ease-in-out infinite, colorShift 10s ease-in-out infinite;
+      box-shadow:0 0 0 8px rgba(16,185,129,.12), 
+                  0 0 0 16px rgba(6,182,212,.08),
+                  0 15px 40px rgba(2,6,23,.3),
+                  0 0 25px rgba(16,185,129,.2);
+      animation:breathing 6s ease-in-out infinite, colorShift 10s ease-in-out infinite, floating 8s ease-in-out infinite;
+    }
+    
+    /* Day mode animation - more energetic */
+    body:not(.theme-dark) .breath {
+      animation:breathing 5s ease-in-out infinite, colorShift 8s ease-in-out infinite, floating 6s ease-in-out infinite, dayGlow 12s ease-in-out infinite;
+    }
+    
+    /* Dark mode animation - more calming */
+    body.theme-dark .breath {
+      animation:breathing 7s ease-in-out infinite, colorShift 12s ease-in-out infinite, floating 10s ease-in-out infinite, nightGlow 15s ease-in-out infinite;
     }
     .breath::before{content:"";position:absolute;inset:14px;border-radius:50%;background:radial-gradient(circle at 50% 30%, rgba(255,255,255,.85), rgba(255,255,255,.6) 40%, rgba(255,255,255,.25) 70%, transparent 80%)}
     body.theme-dark .breath::before{background:radial-gradient(circle at 50% 30%, rgba(255,255,255,.18), rgba(255,255,255,.10) 35%, rgba(255,255,255,.06) 60%, transparent 75%)}
@@ -85,8 +181,49 @@
     body.theme-dark .time{color:#e5e7eb}
 
     @keyframes breathing{
-      0%,100%{transform:scale(0.96); box-shadow:0 0 0 10px rgba(16,185,129,.08), 0 0 0 20px rgba(6,182,212,.05), 0 20px 60px rgba(2,6,23,.25), 0 0 30px rgba(16,185,129,.15)}
-      50%{transform:scale(1.06); box-shadow:0 0 0 18px var(--ring), 0 0 0 30px rgba(6,182,212,.1), 0 30px 80px rgba(2,6,23,.35), 0 0 50px rgba(16,185,129,.25)}
+      0%,100%{transform:scale(0.98); box-shadow:0 0 0 8px rgba(16,185,129,.08), 0 0 0 16px rgba(6,182,212,.05), 0 15px 40px rgba(2,6,23,.25), 0 0 20px rgba(16,185,129,.15)}
+      50%{transform:scale(1.02); box-shadow:0 0 0 12px var(--ring), 0 0 0 20px rgba(6,182,212,.1), 0 20px 50px rgba(2,6,23,.35), 0 0 30px rgba(16,185,129,.25)}
+    }
+    
+    @keyframes floating {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      25% { transform: translateY(-2px) rotate(0.5deg); }
+      50% { transform: translateY(-4px) rotate(0deg); }
+      75% { transform: translateY(-2px) rotate(-0.5deg); }
+    }
+    
+    @keyframes dayGlow {
+      0%, 100% { 
+        box-shadow: 0 0 0 8px rgba(16,185,129,.12), 
+                    0 0 0 16px rgba(6,182,212,.08),
+                    0 15px 40px rgba(2,6,23,.3),
+                    0 0 25px rgba(16,185,129,.2),
+                    0 0 35px rgba(255,193,7,.1);
+      }
+      50% { 
+        box-shadow: 0 0 0 12px rgba(16,185,129,.18), 
+                    0 0 0 20px rgba(6,182,212,.12),
+                    0 18px 50px rgba(2,6,23,.4),
+                    0 0 35px rgba(16,185,129,.3),
+                    0 0 45px rgba(255,193,7,.2);
+      }
+    }
+    
+    @keyframes nightGlow {
+      0%, 100% { 
+        box-shadow: 0 0 0 8px rgba(16,185,129,.12), 
+                    0 0 0 16px rgba(6,182,212,.08),
+                    0 15px 40px rgba(2,6,23,.3),
+                    0 0 25px rgba(16,185,129,.2),
+                    0 0 30px rgba(139,92,246,.1);
+      }
+      50% { 
+        box-shadow: 0 0 0 12px rgba(16,185,129,.15), 
+                    0 0 0 20px rgba(6,182,212,.1),
+                    0 20px 60px rgba(2,6,23,.5),
+                    0 0 40px rgba(16,185,129,.25),
+                    0 0 50px rgba(139,92,246,.2);
+      }
     }
     
     @keyframes backgroundShift {
@@ -101,6 +238,74 @@
       25% { filter: hue-rotate(90deg) saturate(1.2); }
       50% { filter: hue-rotate(180deg) saturate(1.1); }
       75% { filter: hue-rotate(270deg) saturate(1.2); }
+    }
+    
+    @keyframes particleFloat1 {
+      0%, 100% { 
+        transform: translateY(0px) translateX(0px) scale(1);
+        opacity: 0.6;
+      }
+      25% { 
+        transform: translateY(-8px) translateX(5px) scale(1.1);
+        opacity: 0.8;
+      }
+      50% { 
+        transform: translateY(-12px) translateX(-3px) scale(0.9);
+        opacity: 0.4;
+      }
+      75% { 
+        transform: translateY(-5px) translateX(8px) scale(1.05);
+        opacity: 0.7;
+      }
+    }
+    
+    @keyframes particleFloat2 {
+      0%, 100% { 
+        transform: translateY(0px) translateX(0px) scale(1);
+        opacity: 0.5;
+      }
+      30% { 
+        transform: translateY(-10px) translateX(-5px) scale(1.2);
+        opacity: 0.8;
+      }
+      60% { 
+        transform: translateY(-15px) translateX(4px) scale(0.8);
+        opacity: 0.3;
+      }
+      90% { 
+        transform: translateY(-3px) translateX(-6px) scale(1.05);
+        opacity: 0.6;
+      }
+    }
+    
+    @keyframes starTwinkle {
+      0%, 100% { 
+        filter: brightness(1) contrast(1);
+        opacity: 0.8;
+      }
+      25% { 
+        filter: brightness(1.5) contrast(1.2);
+        opacity: 1;
+      }
+      50% { 
+        filter: brightness(0.8) contrast(0.9);
+        opacity: 0.6;
+      }
+      75% { 
+        filter: brightness(1.3) contrast(1.1);
+        opacity: 0.9;
+      }
+    }
+    
+    @keyframes cosmicGlow {
+      0%, 100% { 
+        box-shadow: 0 0 10px rgba(139,92,246,0.5), 0 0 20px rgba(139,92,246,0.2);
+        transform: scale(1);
+      }
+      50% { 
+        box-shadow: 0 0 15px rgba(139,92,246,0.8), 0 0 30px rgba(139,92,246,0.4);
+        transform: scale(1.2);
+      }
     }
 
     .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
@@ -282,7 +487,7 @@
     -webkit-appearance: none;
     appearance: none;
     cursor: pointer;
-    position: relative;
+      position: relative;
   }
   body.theme-dark input[type=range] {
     background: rgba(255,255,255,0.1);
@@ -293,7 +498,7 @@
     height: 6px;
     border-radius: 3px;
     background: rgba(0,0,0,0.1);
-    border: none;
+      border: none;
   }
   body.theme-dark input[type=range]::-webkit-slider-track {
     background: rgba(255,255,255,0.1);
@@ -304,7 +509,7 @@
     appearance: none;
     width: 20px;
     height: 20px;
-    border-radius: 50%;
+      border-radius: 50%;
     background: linear-gradient(135deg, #10b981, #059669);
     cursor: pointer;
     border: 2px solid rgba(255,255,255,0.2);
@@ -357,60 +562,6 @@
   }
     select{flex:1;background:transparent;border:none;color:inherit;outline:none}
 
-    .theme-toggle{display:flex;align-items:center;gap:8px}
-    .switch {
-      position: relative;
-      width: 48px;
-      height: 28px;
-      background: #232b36;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      transition: background 0.22s cubic-bezier(.4,1.6,.6,1);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-      outline: none;
-      display: flex;
-      align-items: center;
-      padding: 0 2px;
-    }
-    .switch::after {
-      content: "";
-      position: absolute;
-      top: 3px;
-      left: 3px;
-      width: 22px;
-      height: 22px;
-      background: #fff;
-      border-radius: 50%;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-      transition: left 0.22s cubic-bezier(.4,1.6,.6,1), background 0.18s;
-      border: 1.5px solid #e5e7eb;
-    }
-    .switch.active {
-      background: #10b981;
-      box-shadow: 0 2px 12px rgba(16,185,129,0.18);
-    }
-    .switch.active::after {
-      left: 23px;
-      background: #fff;
-      border-color: #10b981;
-      box-shadow: 0 2px 12px rgba(16,185,129,0.18);
-    }
-    body.theme-dark .switch {
-      background: #101825;
-      box-shadow: 0 2px 12px rgba(16,185,129,0.10);
-    }
-    body.theme-dark .switch::after {
-      background: #232b36;
-      border-color: #232b36;
-    }
-    body.theme-dark .switch.active {
-      background: #10b981;
-    }
-    body.theme-dark .switch.active::after {
-      background: #fff;
-      border-color: #10b981;
-    }
     /* Day mode: lighter switch for contrast */
     body.theme-light .switch {
       background: #e2e8f0;
@@ -498,14 +649,38 @@
       background: rgba(255,255,255,0.05);
     }
     .seg button.active {
-      background: linear-gradient(135deg, #10b981, #059669);
-      color: #fff;
+      background: linear-gradient(135deg, #10b981, #059669) !important;
+      color: #fff !important;
       box-shadow: 
         0 4px 12px rgba(16,185,129,0.3),
         0 2px 4px rgba(16,185,129,0.2),
         inset 0 1px 0 rgba(255,255,255,0.2);
       transform: translateY(-1px);
       animation: moodPop 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+    }
+    
+    /* Override hover states when active */
+    .seg button.active:hover {
+      background: linear-gradient(135deg, #10b981, #059669) !important;
+      color: #fff !important;
+    }
+    
+    /* Ensure active state works in dark mode */
+    body.theme-dark .seg button.active {
+      background: linear-gradient(135deg, #10b981, #059669) !important;
+      color: #fff !important;
+      box-shadow: 
+        0 4px 12px rgba(16,185,129,0.4),
+        0 2px 4px rgba(16,185,129,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.2);
+      transform: translateY(-1px);
+      animation: moodPop 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+    }
+    
+    /* Override any hover states when active */
+    body.theme-dark .seg button.active:hover {
+      background: linear-gradient(135deg, #10b981, #059669) !important;
+      color: #fff !important;
     }
     @keyframes moodPop {
       0% { 
@@ -543,17 +718,6 @@
 </head>
 <body class="theme-dark">
   <div class="wrap">
-    <div class="header">
-      <div class="ttl">
-        <span class="badge">Meditation</span>
-        <div class="title">Guided Timer</div>
-      </div>
-      <div class="theme-toggle">
-        <span class="muted">Day</span>
-        <div id="switch" class="switch" role="switch" aria-label="Toggle dark mode"></div>
-        <span class="muted">Night</span>
-      </div>
-    </div>
 
     <div class="grid">
       <div class="card fade-enter">
@@ -654,7 +818,6 @@
     });
 
     const body = document.body;
-    const switchEl = document.getElementById('switch');
     const timeEl = document.getElementById('time');
     const statusEl = document.getElementById('status');
   const playPauseBtn = document.getElementById('playpause');
@@ -691,9 +854,9 @@
         pauseIcon.style.display = 'none';
         playPauseBtn.classList.add('primary');
       }
-      playPauseBtn.disabled = left === 0;
-      // Only enable reset if not running
-      resetBtn.disabled = running;
+    playPauseBtn.disabled = left === 0;
+    // Only enable reset if session is not started or is paused
+    resetBtn.disabled = running;
     }
 
     function setTimeFromMinutes(min){
@@ -745,11 +908,6 @@
   // Default to night mode
   body.classList.remove('theme-light');
   body.classList.add('theme-dark');
-  switchEl.classList.add('active');
-    switchEl.addEventListener('click', ()=>{
-      const dark = body.classList.toggle('theme-dark');
-      if(dark){ body.classList.remove('theme-light'); switchEl.classList.add('active'); } else { body.classList.add('theme-light'); switchEl.classList.remove('active'); }
-    });
 
     minutesSlider.addEventListener('input', (e)=>{ const v = Number(e.target.value); minutesLabel.textContent = `${v} min`; });
     minutesSlider.addEventListener('change', (e)=>{ setTimeFromMinutes(e.target.value); });
@@ -804,6 +962,11 @@
       } else {
         start();
       }
+    });
+    
+    // Reset button logic
+    resetBtn.addEventListener('click', function() {
+      reset();
     });
   </script>
 </body>
