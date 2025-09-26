@@ -455,7 +455,6 @@ export default function CategoryTasks() {
             <Ionicons name="arrow-back" size={20} color={categoryColor} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitleTop}>Tasks</Text>
             <View style={styles.headerTitleRow}>
               <Text style={styles.headerEmoji}>{categoryEmoji}</Text>
               <Text style={[styles.headerTitleBottom, { color: categoryColor }]}>{category}</Text>
