@@ -248,7 +248,7 @@ export default function CategoryTasks() {
 
       // Ensure we pass the real DB id
       await moveTaskToCarriedOverLocal(task.id);
-      await loadTasks();
+      await Promise.all([loadTasks(), loadBacklogs()]);
       Alert.alert("Task Moved", "Task has been moved to carried over tasks.", [
         { text: "OK" },
       ]);
