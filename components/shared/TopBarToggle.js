@@ -18,6 +18,8 @@ export default function TopBarToggle({
   counts = {},
   containerStyle,
   haptics = true,
+  leftText,
+  rightText,
 }) {
   const [containerWidth, setContainerWidth] = useState(0);
   const segmentWidth = containerWidth > 0 ? containerWidth / 2 : 0;
@@ -85,7 +87,12 @@ export default function TopBarToggle({
           ]}
           numberOfLines={1}
         >
-          {`Today's${Number.isFinite(counts.today) ? ` (${counts.today})` : ""}`}
+          {`${leftText ?? "Today's"}${Number.isFinite(counts.left)
+            ? ` (${counts.left})`
+            : Number.isFinite(counts.today)
+            ? ` (${counts.today})`
+            : ""
+          }`}
         </Text>
       </Pressable>
 
@@ -101,7 +108,12 @@ export default function TopBarToggle({
           ]}
           numberOfLines={1}
         >
-          {`Backlogs${Number.isFinite(counts.backlogs) ? ` (${counts.backlogs})` : ""}`}
+          {`${rightText ?? "Backlogs"}${Number.isFinite(counts.right)
+            ? ` (${counts.right})`
+            : Number.isFinite(counts.backlogs)
+            ? ` (${counts.backlogs})`
+            : ""
+          }`}
         </Text>
       </Pressable>
     </View>

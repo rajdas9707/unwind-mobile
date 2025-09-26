@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import TopBarToggle from "../components/shared/TopBarToggle";
 
 const { width, height } = Dimensions.get("window");
 
@@ -34,6 +35,7 @@ Notifications.setNotificationHandler({
 
 export default function ReminderScreen() {
   const [reminders, setReminders] = useState([]);
+  const [selectedKey, setSelectedKey] = useState("today"); // 'today' => Upcoming, 'backlogs' => Missed
   const [modalVisible, setModalVisible] = useState(false);
   const [taskName, setTaskName] = useState("");
   const [taskDesc, setTaskDesc] = useState("");
@@ -100,6 +102,20 @@ export default function ReminderScreen() {
       console.error("Error fetching reminders:", error);
     }
   };
+
+  const upcoming = useMemo(() => {
+    const now = new Date();
+    return reminders.filter((r) => new Date(r.datetime) > now);
+  }, [reminders]);
+
+  const missed = useMemo(() => {
+    const now = new Date();
+    return reminders.filter((r) => new Date(r.datetime) <= now);
+  }, [reminders]);
+
+  const visibleReminders = useMemo(() => {
+    return selectedKey === "backlogs" ? missed : upcoming;
+  }, [selectedKey, upcoming, missed]);
 
   // Modal animation helpers
   const openModal = () => {
@@ -255,24 +271,36 @@ export default function ReminderScreen() {
           </Text>
         </View>
 
+        {/* Toggle and counts */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
+          <TopBarToggle
+            selected={selectedKey}
+            leftText="Upcoming"
+            rightText="Missed"
+            counts={{ left: upcoming.length, right: missed.length }}
+            primaryColor="#ffffff"
+            containerStyle={{ width: 240, alignSelf: "center", backgroundColor: "rgba(255,255,255,0.85)" }}
+            onChange={(val) => setSelectedKey(val)}
+          />
+        </View>
+
         {/* Reminders List */}
-        {reminders.length === 0 ? (
+        {visibleReminders.length === 0 ? (
           <View style={styles.emptyState}>
             <LinearGradient
               colors={["rgba(255,255,255,0.95)", "rgba(255,255,255,0.8)"]}
               style={styles.emptyStateCard}
             >
               <Ionicons name="calendar-outline" size={64} color="#667eea" />
-              <Text style={styles.emptyStateText}>No Reminders Yet</Text>
+              <Text style={styles.emptyStateText}>No {selectedKey === "backlogs" ? "Missed" : "Upcoming"} Reminders</Text>
               <Text style={styles.emptyStateSubtext}>
-                Tap the + button to create your first reminder and stay
-                organized!
+                Tap the + button to add reminders and stay organized.
               </Text>
             </LinearGradient>
           </View>
         ) : (
           <FlatList
-            data={reminders}
+            data={visibleReminders}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={{
               paddingHorizontal: 20,
