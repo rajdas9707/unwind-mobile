@@ -471,6 +471,9 @@ export default function CategoryTasks() {
             }}
           />
         </View>
+        <Text style={[styles.headerStatus, { color: categoryColor }]}>
+          {topSelection === "backlogs" ? "Backlogs" : "Fresh"}
+        </Text>
       </View>
 
       <View style={styles.segmentedControl}>
@@ -772,6 +775,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 22,
     fontWeight: "800",
+  },
+  headerStatus: {
+    marginTop: 8,
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
   networkStatus: {
     flexDirection: "row",
