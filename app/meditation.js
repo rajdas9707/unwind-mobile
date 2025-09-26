@@ -20,7 +20,7 @@ export default function MeditationScreen() {
   const localUri = useMemo(() => {
     try {
       const asset = Asset.fromModule(
-        require("../assets/meditation/native-timer.html")
+        require("../assets/meditation/index.html")
       );
       return asset.uri;
     } catch {
