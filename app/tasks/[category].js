@@ -400,7 +400,7 @@ export default function CategoryTasks() {
                 statusFilter === "pending" && styles.segmentTextActive,
               ]}
             >
-              {`Pending (${pendingCount})`}
+              {`⏳ Pending (${pendingCount})`}
             </Text>
             <View
               style={[
@@ -437,7 +437,7 @@ export default function CategoryTasks() {
                 statusFilter === "completed" && styles.segmentTextActive,
               ]}
             >
-              {`Completed (${completedCount})`}
+              {`✅ Completed (${completedCount})`}
             </Text>
             <View
               style={[
@@ -770,25 +770,40 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 12,
+    backgroundColor: "#EEF2F7",
+    borderRadius: 14,
     overflow: "hidden",
+    padding: 4,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   segmentButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "transparent",
+    borderRadius: 12,
   },
   segmentButtonActive: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: "#CBD5E1",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   segmentButtonContent: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
   },
   segmentText: {
     fontSize: 14,
@@ -799,11 +814,13 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   badge: {
-    marginLeft: 8,
+    marginLeft: 4,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 9999,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   badgeText: {
     fontSize: 12,
