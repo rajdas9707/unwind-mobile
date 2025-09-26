@@ -20,6 +20,7 @@ import {
   toggleTodoCompleteLocal,
   deleteTodoEntryLocal,
   moveTaskToCarriedOverLocal,
+  getCategoryEmoji,
 } from "../../storage/todo/storage";
 // import { AuthContext } from "../../context/AuthProvider";
 import { checkNetworkStatus, useNetworkStatus } from "../../utils/networkUtils";
@@ -180,6 +181,7 @@ export default function CategoryTasks() {
   };
 
   const categoryColor = categoryColors[category] || "#10B981";
+  const categoryEmoji = getCategoryEmoji(category);
 
   const { pendingCount, completedCount } = useMemo(() => {
     const pending = tasks.filter((t) => !t.completed).length;
@@ -453,8 +455,11 @@ export default function CategoryTasks() {
             <Ionicons name="arrow-back" size={20} color={categoryColor} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitleTop}>{category}</Text>
-            <Text style={[styles.headerTitleBottom, { color: categoryColor }]}>Tasks</Text>
+            <Text style={styles.headerTitleTop}>Tasks</Text>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.headerEmoji}>{categoryEmoji}</Text>
+              <Text style={[styles.headerTitleBottom, { color: categoryColor }]}>{category}</Text>
+            </View>
           </View>
           <TopBarToggle
             selected={topSelection === "backlogs" ? "backlogs" : "today"}
