@@ -175,6 +175,24 @@ export const getCarriedOverTodosByCategory = async (category) => {
   }
 };
 
+// Get carried over entry by ID
+export const getCarriedOverEntryById = async (id) => {
+  try {
+    const db = await openDB();
+    const row = await db.getFirstAsync("SELECT * FROM carried_over_todos WHERE id = ?", [id]);
+    if (!row) return null;
+    return {
+      ...row,
+      synced: row.synced === 1,
+      completed: row.completed === 1,
+      server_meta: row.server_meta ? JSON.parse(row.server_meta) : null,
+    };
+  } catch (error) {
+    console.error("Error getting carried over entry by ID:", error);
+    throw error;
+  }
+};
+
 // Get todo entry by ID
 export const getTodoEntryById = async (id) => {
   try {
@@ -231,6 +249,22 @@ export const toggleTodoComplete = async ({ id, completed, updated_at }) => {
     return await getTodoEntryById(id);
   } catch (error) {
     console.error("Error toggling todo completion:", error);
+    throw error;
+  }
+};
+
+// Toggle carried-over completion status
+export const toggleCarriedOverComplete = async ({ id, completed, updated_at }) => {
+  try {
+    const db = await openDB();
+    await db.runAsync(
+      "UPDATE carried_over_todos SET completed = ?, updated_at = ?, synced = 0 WHERE id = ?",
+      [completed ? 1 : 0, updated_at, id]
+    );
+
+    return await getCarriedOverEntryById(id);
+  } catch (error) {
+    console.error("Error toggling carried over completion:", error);
     throw error;
   }
 };

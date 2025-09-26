@@ -260,6 +260,25 @@ export const toggleTodoCompleteLocal = async ({ id, completed }) => {
   }
 };
 
+// Toggle carried-over completion status
+export const toggleCarriedOverCompleteLocal = async ({ id, completed }) => {
+  try {
+    const updatedEntry = await db.toggleCarriedOverComplete({ 
+      id, 
+      completed, 
+      updated_at: new Date().toISOString() 
+    });
+    return {
+      ...updatedEntry,
+      priorityEmoji: getPriorityEmoji(updatedEntry.priority),
+      categoryEmoji: getCategoryEmoji(updatedEntry.category)
+    };
+  } catch (error) {
+    console.error("Error toggling carried over completion:", error);
+    throw error;
+  }
+};
+
 // Move task to carried over
 export const moveTaskToCarriedOverLocal = async (taskId) => {
   try {

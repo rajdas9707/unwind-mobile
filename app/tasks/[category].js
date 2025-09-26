@@ -18,6 +18,7 @@ import {
   createTodoEntryLocal,
   updateTodoEntryLocal,
   toggleTodoCompleteLocal,
+  toggleCarriedOverCompleteLocal,
   deleteTodoEntryLocal,
   moveTaskToCarriedOverLocal,
   getCategoryEmoji,
@@ -127,7 +128,7 @@ const CarriedOverTaskRow = ({
     <View style={[styles.taskItem, { borderLeftColor: categoryColor }]}>
       <TouchableOpacity
         onPress={() => {
-          toggleTaskCompletion(item.localId);
+          toggleTaskCompletion(item.id ?? item.localId);
         }}
       >
         <Ionicons
@@ -151,7 +152,7 @@ const CarriedOverTaskRow = ({
         </Text>
       </TouchableOpacity>
       <View style={styles.taskActions}>
-        <TouchableOpacity onPress={() => deleteTask(item.localId)}>
+        <TouchableOpacity onPress={() => deleteTask(item.id ?? item.localId)}>
           <Ionicons name="trash-outline" size={24} color="#EF4444" />
         </TouchableOpacity>
       </View>
@@ -266,21 +267,23 @@ export default function CategoryTasks() {
 
   const toggleTaskCompletion = async (taskId) => {
     try {
-      // Try to find task by both id and localId to handle different ID formats
-      const task = tasks.find((t) => t.id === taskId || t.localId === taskId);
-      if (!task) {
-        console.log("Task not found with ID:", taskId);
-        return;
+      // First try regular tasks
+      let task = tasks.find((t) => t.id === taskId || t.localId === taskId);
+      if (task) {
+        const newCompleted = !task.completed;
+        await toggleTodoCompleteLocal({ id: task.id, completed: newCompleted });
+        await loadTasks();
+      } else {
+        // Try carried-over list
+        const backlog = backlogs.find((t) => t.id === taskId || t.localId === taskId);
+        if (!backlog) {
+          console.log("Task not found with ID:", taskId);
+          return;
+        }
+        const newCompleted = !backlog.completed;
+        await toggleCarriedOverCompleteLocal({ id: backlog.id, completed: newCompleted });
+        await loadBacklogs();
       }
-
-      const newCompleted = !task.completed;
-
-      await toggleTodoCompleteLocal({
-        id: taskId,
-        completed: newCompleted,
-      });
-
-      await loadTasks();
 
       // Try to sync if online
       if (isOnline && task.synced) {
