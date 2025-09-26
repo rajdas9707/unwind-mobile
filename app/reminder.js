@@ -21,6 +21,7 @@ import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TopBarToggle from "../components/shared/TopBarToggle";
+import CircularTimePicker from "../components/shared/CircularTimePicker";
 
 const { width, height } = Dimensions.get("window");
 
@@ -618,181 +619,19 @@ export default function ReminderScreen() {
                 </View>
               )}
 
-              {/* Clock Style Time Picker */}
+              {/* Circular Time Picker */}
               {showTimePicker && (
                 <View style={styles.clockContainer}>
                   <Text style={styles.clockTitle}>🕐 Set Time</Text>
-
-                  {/* Clock Face */}
-                  <View style={styles.clockFace}>
-                    <View style={styles.clockCircle}>
-                      {/* Hour Numbers */}
-                      {Array.from({ length: 12 }, (_, i) => {
-                        const hourNum = i === 0 ? 12 : i;
-                        const angle = i * 30 - 90; // -90 to start at 12 o'clock
-                        const radian = (angle * Math.PI) / 180;
-                        const radius = 80;
-                        const x = Math.cos(radian) * radius;
-                        const y = Math.sin(radian) * radius;
-                        const currentHour = parseInt(hour) % 12 || 12;
-                        const isSelected = currentHour === hourNum;
-
-                        return (
-                          <TouchableOpacity
-                            key={i}
-                            style={[
-                              styles.clockNumber,
-                              {
-                                transform: [
-                                  { translateX: x },
-                                  { translateY: y },
-                                ],
-                              },
-                              isSelected && styles.clockNumberSelected,
-                            ]}
-                            onPress={() => {
-                              const newHour =
-                                hourNum === 12
-                                  ? parseInt(hour) >= 12
-                                    ? "12"
-                                    : "00"
-                                  : parseInt(hour) >= 12
-                                  ? (hourNum + 12).toString().padStart(2, "0")
-                                  : hourNum.toString().padStart(2, "0");
-                              setHour(newHour);
-                            }}
-                          >
-                            <Text
-                              style={[
-                                styles.clockNumberText,
-                                isSelected && styles.clockNumberTextSelected,
-                              ]}
-                            >
-                              {hourNum}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-
-                      {/* Center Dot */}
-                      <View style={styles.clockCenter} />
-                    </View>
-                  </View>
-
-                  {/* AM/PM Toggle */}
-                  <View style={styles.ampmContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.ampmButton,
-                        parseInt(hour) < 12 && styles.ampmButtonSelected,
-                      ]}
-                      onPress={() => {
-                        const currentHour = parseInt(hour) % 12;
-                        setHour(currentHour.toString().padStart(2, "0"));
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.ampmText,
-                          parseInt(hour) < 12 && styles.ampmTextSelected,
-                        ]}
-                      >
-                        AM
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.ampmButton,
-                        parseInt(hour) >= 12 && styles.ampmButtonSelected,
-                      ]}
-                      onPress={() => {
-                        const currentHour = parseInt(hour) % 12;
-                        const newHour =
-                          currentHour === 0 ? 12 : currentHour + 12;
-                        setHour(newHour.toString().padStart(2, "0"));
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.ampmText,
-                          parseInt(hour) >= 12 && styles.ampmTextSelected,
-                        ]}
-                      >
-                        PM
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Minutes */}
-                  <View style={styles.minutesContainer}>
-                    <Text style={styles.minutesLabel}>Minutes</Text>
-                    <View style={styles.minuteControls}>
-                      <TouchableOpacity
-                        style={styles.minuteArrow}
-                        onPress={() => {
-                          const minutes = [
-                            "00",
-                            "05",
-                            "10",
-                            "15",
-                            "20",
-                            "25",
-                            "30",
-                            "35",
-                            "40",
-                            "45",
-                            "50",
-                            "55",
-                          ];
-                          const currentIndex = minutes.indexOf(minute);
-                          const newIndex =
-                            currentIndex > 0
-                              ? currentIndex - 1
-                              : minutes.length - 1;
-                          setMinute(minutes[newIndex]);
-                        }}
-                      >
-                        <Ionicons name="chevron-up" size={20} color="#667eea" />
-                      </TouchableOpacity>
-
-                      <View style={styles.minuteDisplay}>
-                        <Text style={styles.minuteDisplayText}>:{minute}</Text>
-                      </View>
-
-                      <TouchableOpacity
-                        style={styles.minuteArrow}
-                        onPress={() => {
-                          const minutes = [
-                            "00",
-                            "05",
-                            "10",
-                            "15",
-                            "20",
-                            "25",
-                            "30",
-                            "35",
-                            "40",
-                            "45",
-                            "50",
-                            "55",
-                          ];
-                          const currentIndex = minutes.indexOf(minute);
-                          const newIndex =
-                            currentIndex < minutes.length - 1
-                              ? currentIndex + 1
-                              : 0;
-                          setMinute(minutes[newIndex]);
-                        }}
-                      >
-                        <Ionicons
-                          name="chevron-down"
-                          size={20}
-                          color="#667eea"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
+                  <CircularTimePicker
+                    hour={hour}
+                    minute={minute}
+                    accentColor="#667eea"
+                    onChange={({ hour: h, minute: m }) => {
+                      setHour(h);
+                      setMinute(m);
+                    }}
+                  />
                   <TouchableOpacity
                     style={styles.clockDoneButton}
                     onPress={() => setShowTimePicker(false)}
