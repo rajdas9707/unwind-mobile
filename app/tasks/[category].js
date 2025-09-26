@@ -113,13 +113,14 @@ const TaskItem = ({
 };
 
 export default function CategoryTasks() {
-  const { category } = useLocalSearchParams();
+  const { category, status } = useLocalSearchParams();
   const router = useRouter();
   const [tasks, setTasks] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTask, setNewTask] = useState("");
   const [intention, setIntention] = useState("");
   const [editingTaskId, setEditingTaskId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("pending");
   // const {idToken}=useContext(AuthContext) // removed, now handled in client.js
   const isOnline = useNetworkStatus();
   const categoryColors = {
@@ -136,6 +137,12 @@ export default function CategoryTasks() {
       await loadTasks();
     })();
   }, [category]);
+
+  useEffect(() => {
+    if (status === "completed" || status === "pending") {
+      setStatusFilter(status);
+    }
+  }, [status]);
 
   const loadTasks = async () => {
     try {
@@ -368,8 +375,51 @@ export default function CategoryTasks() {
         </View>
       </View>
 
+      <View style={styles.segmentedControl}>
+        <TouchableOpacity
+          style={[
+            styles.segmentButton,
+            statusFilter === "pending" && styles.segmentButtonActive,
+          ]}
+          onPress={() => {
+            setStatusFilter("pending");
+            router.setParams({ status: "pending" });
+          }}
+        >
+          <Text
+            style={[
+              styles.segmentText,
+              statusFilter === "pending" && styles.segmentTextActive,
+            ]}
+          >
+            Pending
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.segmentButton,
+            statusFilter === "completed" && styles.segmentButtonActive,
+          ]}
+          onPress={() => {
+            setStatusFilter("completed");
+            router.setParams({ status: "completed" });
+          }}
+        >
+          <Text
+            style={[
+              styles.segmentText,
+              statusFilter === "completed" && styles.segmentTextActive,
+            ]}
+          >
+            Completed
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <FlatList
-        data={tasks}
+        data={tasks.filter((t) =>
+          statusFilter === "pending" ? !t.completed : t.completed
+        )}
         renderItem={({ item, index }) => (
           <TaskItem
             item={item}
@@ -389,7 +439,9 @@ export default function CategoryTasks() {
               size={64}
               color="#9CA3AF"
             />
-            <Text style={styles.emptyText}>No tasks yet</Text>
+            <Text style={styles.emptyText}>
+              {statusFilter === "pending" ? "No pending tasks" : "No completed tasks"}
+            </Text>
             <Text style={styles.emptySubtext}>
               Add your first task to get started
             </Text>
@@ -671,5 +723,29 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827",
     textAlign: "center",
+  },
+  segmentedControl: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: "#E5E7EB",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  segmentButtonActive: {
+    backgroundColor: "#FFFFFF",
+  },
+  segmentText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  segmentTextActive: {
+    color: "#111827",
   },
 });
