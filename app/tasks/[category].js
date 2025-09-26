@@ -378,6 +378,13 @@ export default function CategoryTasks() {
           <Text style={[styles.header, { color: categoryColor }]}>
             {category} Tasks
           </Text>
+          <TouchableOpacity
+            onPress={() => router.push(`/tasks/${category}/carried-over`)}
+            style={styles.headerLinkButton}
+          >
+            <Ionicons name="time-outline" size={20} color={categoryColor} />
+            <Text style={[styles.headerLinkText, { color: categoryColor }]}>Carried</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -494,12 +501,6 @@ export default function CategoryTasks() {
 
       <View style={styles.floatingButtonsContainer}>
         <TouchableOpacity
-          style={[styles.pendingButton, { backgroundColor: "#F59E0B" }]}
-          onPress={() => router.push(`/tasks/${category}/carried-over`)}
-        >
-          <Ionicons name="time-outline" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <TouchableOpacity
           style={[styles.addButton, { backgroundColor: categoryColor }]}
           onPress={() => setModalVisible(true)}
         >
@@ -588,6 +589,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  headerLinkButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 999,
+  },
+  headerLinkText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   header: {
     fontSize: 30,
