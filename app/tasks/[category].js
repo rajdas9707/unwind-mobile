@@ -114,15 +114,61 @@ const TaskItem = ({
   );
 };
 
+const CarriedOverTaskRow = ({
+  item,
+  index,
+  toggleTaskCompletion,
+  deleteTask,
+  categoryColor,
+  openEditModal,
+}) => {
+  return (
+    <View style={[styles.taskItem, { borderLeftColor: categoryColor }]}>
+      <TouchableOpacity
+        onPress={() => {
+          toggleTaskCompletion(item.localId);
+        }}
+      >
+        <Ionicons
+          name={item.completed ? "checkbox" : "square-outline"}
+          size={24}
+          color={item.completed ? categoryColor : "#6B7280"}
+        />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.taskContent}
+        onPress={() => openEditModal(item)}
+      >
+        <Text style={[styles.taskText, item.completed && styles.completedTask]}>
+          {item.title}
+        </Text>
+        <Text style={styles.intentionText}>
+          Intention: {item.description || "None"}
+        </Text>
+        <Text style={styles.createdAtText}>
+          Carried Over: {formatDate(item.carried_over_at)} | Originally: {formatDate(item.original_created_at)}
+        </Text>
+      </TouchableOpacity>
+      <View style={styles.taskActions}>
+        <TouchableOpacity onPress={() => deleteTask(item.localId)}>
+          <Ionicons name="trash-outline" size={24} color="#EF4444" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
 export default function CategoryTasks() {
-  const { category, status } = useLocalSearchParams();
+  const { category, status, mode } = useLocalSearchParams();
   const router = useRouter();
   const [tasks, setTasks] = useState([]);
+  const [backlogs, setBacklogs] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTask, setNewTask] = useState("");
   const [intention, setIntention] = useState("");
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("pending");
+  const [topSelection, setTopSelection] = useState("today");
   const [carriedCount, setCarriedCount] = useState(0);
   // const {idToken}=useContext(AuthContext) // removed, now handled in client.js
   const isOnline = useNetworkStatus();
@@ -143,7 +189,7 @@ export default function CategoryTasks() {
 
   useEffect(() => {
     (async () => {
-      await loadTasks();
+      await Promise.all([loadTasks(), loadBacklogs()]);
     })();
   }, [category]);
 
@@ -152,6 +198,12 @@ export default function CategoryTasks() {
       setStatusFilter(status);
     }
   }, [status]);
+
+  useEffect(() => {
+    if (mode === "backlogs" || mode === "today") {
+      setTopSelection(mode);
+    }
+  }, [mode]);
 
   useEffect(() => {
     (async () => {
@@ -173,6 +225,15 @@ export default function CategoryTasks() {
       setTasks(categoryTasks);
     } catch (error) {
       console.error("Error loading tasks:", error);
+    }
+  };
+
+  const loadBacklogs = async () => {
+    try {
+      const carried = await fetchCarriedOverTodosByCategory(category);
+      setBacklogs(carried);
+    } catch (error) {
+      console.error("Error loading backlogs:", error);
     }
   };
 
@@ -395,14 +456,13 @@ export default function CategoryTasks() {
             <Text style={[styles.headerTitleBottom, { color: categoryColor }]}>Tasks</Text>
           </View>
           <TopBarToggle
-            selected="today"
-            counts={{ today: tasks.length, backlogs: carriedCount }}
+            selected={topSelection === "backlogs" ? "backlogs" : "today"}
+            counts={{ today: tasks.length, backlogs: backlogs.length }}
             primaryColor={categoryColor}
-            containerStyle={{ width: 180 }}
+            containerStyle={{ width: 200 }}
             onChange={(val) => {
-              if (val === "backlogs") {
-                router.replace(`/tasks/${category}/carried-over`);
-              }
+              setTopSelection(val === "backlogs" ? "backlogs" : "today");
+              router.setParams({ mode: val === "backlogs" ? "backlogs" : "today" });
             }}
           />
         </View>
@@ -486,19 +546,30 @@ export default function CategoryTasks() {
       </View>
 
       <FlatList
-        data={tasks.filter((t) =>
+        data={(topSelection === "backlogs" ? backlogs : tasks).filter((t) =>
           statusFilter === "pending" ? !t.completed : t.completed
         )}
         renderItem={({ item, index }) => (
-          <TaskItem
-            item={item}
-            index={index}
-            toggleTaskCompletion={toggleTaskCompletion}
-            deleteTask={deleteTask}
-            moveToCarriedOver={moveToCarriedOver}
-            categoryColor={categoryColor}
-            openEditModal={openEditModal}
-          />
+          topSelection === "backlogs" ? (
+            <CarriedOverTaskRow
+              item={item}
+              index={index}
+              toggleTaskCompletion={toggleTaskCompletion}
+              deleteTask={deleteTask}
+              categoryColor={categoryColor}
+              openEditModal={openEditModal}
+            />
+          ) : (
+            <TaskItem
+              item={item}
+              index={index}
+              toggleTaskCompletion={toggleTaskCompletion}
+              deleteTask={deleteTask}
+              moveToCarriedOver={moveToCarriedOver}
+              categoryColor={categoryColor}
+              openEditModal={openEditModal}
+            />
+          )
         )}
         keyExtractor={(item) => item.id.toString()}
         ListEmptyComponent={
