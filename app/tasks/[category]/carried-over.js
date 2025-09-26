@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   fetchCarriedOverTodosByCategory,
+  fetchTodosByCategory,
   updateTodoEntryLocal,
   toggleTodoCompleteLocal,
   deleteTodoEntryLocal,
@@ -104,6 +105,7 @@ export default function CarriedOverTasks() {
   const { category } = useLocalSearchParams();
   const router = useRouter();
   const [tasks, setTasks] = useState([]);
+  const [todayCount, setTodayCount] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTask, setNewTask] = useState("");
   const [intention, setIntention] = useState("");
@@ -126,6 +128,12 @@ export default function CarriedOverTasks() {
       try {
         if (isMounted) {
           await loadTasks();
+          try {
+            const todays = await fetchTodosByCategory(category);
+            if (isMounted) setTodayCount(todays.length);
+          } catch (e) {
+            console.log("Failed to load today count", e);
+          }
         }
       } catch (error) {
         console.error("Error in useEffect initialization:", error);
@@ -264,7 +272,7 @@ export default function CarriedOverTasks() {
       <View
         style={[
           styles.headerContainer,
-          { backgroundColor: `${categoryColor}30` },
+          { backgroundColor: `${categoryColor}10` },
         ]}
       >
         <View style={styles.headerRow}>
@@ -273,19 +281,34 @@ export default function CarriedOverTasks() {
               console.log("Navigating back to category tasks");
               router.back();
             }}
+            style={[styles.iconButton, { borderColor: categoryColor }]}
           >
-            <Ionicons name="arrow-back" size={24} color={categoryColor} />
+            <Ionicons name="arrow-back" size={20} color={categoryColor} />
           </TouchableOpacity>
-          <Text style={[styles.header, { color: categoryColor }]}>
-            {category} - Carried Over Tasks
-          </Text>
-          <TouchableOpacity
-            onPress={() => {
-              console.log("Debug icon pressed");
-            }}
-          >
-            <Ionicons name="bug-outline" size={24} color="#EF4444" />
-          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitleTop}>{category}</Text>
+            <Text style={[styles.headerTitleBottom, { color: categoryColor }]}>Carried Over</Text>
+          </View>
+          <View style={[styles.headerToggle, { borderColor: categoryColor }]}>
+            <TouchableOpacity
+              style={[styles.headerToggleBtn, styles.headerToggleBtnLeft]}
+              onPress={() => router.replace(`/tasks/${category}`)}
+            >
+              <Text style={styles.headerToggleText}>Today</Text>
+              <View style={styles.headerBadgeNeutral}>
+                <Text style={styles.headerBadgeNeutralText}>{todayCount}</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.headerToggleBtn, styles.headerToggleBtnRight]}
+              onPress={() => router.replace(`/tasks/${category}/carried-over`)}
+            >
+              <Text style={styles.headerToggleText}>Carried</Text>
+              <View style={[styles.headerBadge, { backgroundColor: categoryColor }]}>
+                <Text style={styles.headerBadgeText}>{tasks.length}</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -402,13 +425,80 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
   },
-  header: {
-    fontSize: 24,
-    fontWeight: "800",
-    textAlign: "center",
+  headerTitleContainer: {
     flex: 1,
-    marginLeft: 16,
+    alignItems: "center",
+  },
+  headerTitleTop: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#6B7280",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  headerTitleBottom: {
+    marginTop: 2,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  headerToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 999,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  headerToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  headerToggleBtnLeft: {
+    borderRightWidth: 1,
+    borderRightColor: "#E5E7EB",
+  },
+  headerToggleBtnRight: {},
+  headerToggleText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#374151",
+  },
+  headerBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+  },
+  headerBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  headerBadgeNeutral: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  headerBadgeNeutralText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#374151",
   },
   listContainer: {
     padding: 16,

@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   fetchTodosByCategory,
+  fetchCarriedOverTodosByCategory,
   createTodoEntryLocal,
   updateTodoEntryLocal,
   toggleTodoCompleteLocal,
@@ -121,6 +122,7 @@ export default function CategoryTasks() {
   const [intention, setIntention] = useState("");
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("pending");
+  const [carriedCount, setCarriedCount] = useState(0);
   // const {idToken}=useContext(AuthContext) // removed, now handled in client.js
   const isOnline = useNetworkStatus();
   const categoryColors = {
@@ -149,6 +151,17 @@ export default function CategoryTasks() {
       setStatusFilter(status);
     }
   }, [status]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const carried = await fetchCarriedOverTodosByCategory(category);
+        setCarriedCount(carried.length);
+      } catch (e) {
+        console.log("Failed to load carried-over count", e);
+      }
+    })();
+  }, [category, tasks]);
 
   const loadTasks = async () => {
     try {
@@ -380,13 +393,26 @@ export default function CategoryTasks() {
             <Text style={styles.headerTitleTop}>{category}</Text>
             <Text style={[styles.headerTitleBottom, { color: categoryColor }]}>Tasks</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => router.push(`/tasks/${category}/carried-over`)}
-            style={[styles.headerLinkButton, { borderColor: categoryColor }]}
-          >
-            <Ionicons name="time-outline" size={16} color={categoryColor} />
-            <Text style={[styles.headerLinkText, { color: categoryColor }]}>Carried</Text>
-          </TouchableOpacity>
+          <View style={[styles.headerToggle, { borderColor: categoryColor }]}>
+            <TouchableOpacity
+              style={[styles.headerToggleBtn, styles.headerToggleBtnLeft]}
+              onPress={() => router.replace(`/tasks/${category}`)}
+            >
+              <Text style={styles.headerToggleText}>Today</Text>
+              <View style={styles.headerBadgeNeutral}>
+                <Text style={styles.headerBadgeNeutralText}>{tasks.length}</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.headerToggleBtn, styles.headerToggleBtnRight]}
+              onPress={() => router.replace(`/tasks/${category}/carried-over`)}
+            >
+              <Text style={styles.headerToggleText}>Carried</Text>
+              <View style={[styles.headerBadge, { backgroundColor: categoryColor }]}>
+                <Text style={styles.headerBadgeText}>{carriedCount}</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -591,6 +617,54 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  headerToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 999,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  headerToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  headerToggleBtnLeft: {
+    borderRightWidth: 1,
+    borderRightColor: "#E5E7EB",
+  },
+  headerToggleBtnRight: {},
+  headerToggleText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#374151",
+  },
+  headerBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+  },
+  headerBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  headerBadgeNeutral: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  headerBadgeNeutralText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#374151",
   },
   headerLinkButton: {
     flexDirection: "row",
