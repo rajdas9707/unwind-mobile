@@ -120,6 +120,7 @@ export default function CategoryTasks() {
   const [newTask, setNewTask] = useState("");
   const [intention, setIntention] = useState("");
   const [editingTaskId, setEditingTaskId] = useState(null);
+  const [showCompleted, setShowCompleted] = useState(false);
   // const {idToken}=useContext(AuthContext) // removed, now handled in client.js
   const isOnline = useNetworkStatus();
   const categoryColors = {
@@ -309,6 +310,7 @@ export default function CategoryTasks() {
       setIntention("");
       await loadTasks();
       setModalVisible(false);
+      setShowCompleted(false);
 
       Alert.alert("Task Added", "Your task has been saved successfully!", [
         { text: "OK" },
@@ -368,8 +370,28 @@ export default function CategoryTasks() {
         </View>
       </View>
 
+      {/* Pending/Completed Toggle */}
+      <View style={styles.toggleContainer}>
+        <TouchableOpacity
+          style={[styles.toggleButton, !showCompleted && styles.toggleButtonActive]}
+          onPress={() => setShowCompleted(false)}
+        >
+          <Text style={[styles.toggleButtonText, !showCompleted && styles.toggleButtonTextActive]}>
+            Pending ({tasks.filter((t) => !t.completed).length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleButton, showCompleted && styles.toggleButtonActive]}
+          onPress={() => setShowCompleted(true)}
+        >
+          <Text style={[styles.toggleButtonText, showCompleted && styles.toggleButtonTextActive]}>
+            Completed ({tasks.filter((t) => t.completed).length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <FlatList
-        data={tasks}
+        data={tasks.filter((t) => (showCompleted ? t.completed : !t.completed))}
         renderItem={({ item, index }) => (
           <TaskItem
             item={item}
@@ -389,10 +411,22 @@ export default function CategoryTasks() {
               size={64}
               color="#9CA3AF"
             />
-            <Text style={styles.emptyText}>No tasks yet</Text>
-            <Text style={styles.emptySubtext}>
-              Add your first task to get started
-            </Text>
+            {tasks.length === 0 ? (
+              <>
+                <Text style={styles.emptyText}>No tasks yet</Text>
+                <Text style={styles.emptySubtext}>Add your first task to get started</Text>
+              </>
+            ) : showCompleted ? (
+              <>
+                <Text style={styles.emptyText}>No completed tasks</Text>
+                <Text style={styles.emptySubtext}>Complete tasks to see them here</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.emptyText}>No pending tasks</Text>
+                <Text style={styles.emptySubtext}>Great job! All tasks are completed</Text>
+              </>
+            )}
           </View>
         }
         contentContainerStyle={styles.listContainer}
@@ -513,6 +547,38 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: 16,
     paddingBottom: 100,
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: 4,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  toggleButtonActive: {
+    backgroundColor: "#8B5CF6",
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  toggleButtonText: {
+    color: "#6B7280",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  toggleButtonTextActive: {
+    color: "#fff",
   },
   taskItem: {
     flexDirection: "row",
