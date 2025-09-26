@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
+import * as Haptics from "expo-haptics";
 
 // A responsive, animated two-option toggle for top bars
 // Options: "Today's" (left) and "Backlogs" (right)
@@ -9,12 +10,14 @@ import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 // - primaryColor: string (highlight color)
 // - counts?: { today?: number, backlogs?: number }
 // - containerStyle?: any
+// - haptics?: boolean (default true)
 export default function TopBarToggle({
   selected = "today",
   onChange,
   primaryColor = "#3B82F6",
   counts = {},
   containerStyle,
+  haptics = true,
 }) {
   const [containerWidth, setContainerWidth] = useState(0);
   const segmentWidth = containerWidth > 0 ? containerWidth / 2 : 0;
@@ -23,10 +26,11 @@ export default function TopBarToggle({
   const anim = useRef(new Animated.Value(initialIndex)).current;
 
   useEffect(() => {
-    Animated.timing(anim, {
+    Animated.spring(anim, {
       toValue: selected === "backlogs" ? 1 : 0,
-      duration: 220,
       useNativeDriver: true,
+      friction: 10,
+      tension: 90,
     }).start();
   }, [selected]);
 
@@ -37,8 +41,15 @@ export default function TopBarToggle({
     });
   }, [anim, segmentWidth]);
 
-  const handlePress = (value) => {
+  const handlePress = async (value) => {
     if (value !== selected) {
+      try {
+        if (haptics) {
+          await Haptics.selectionAsync();
+        }
+      } catch (e) {
+        // no-op if haptics not available
+      }
       onChange && onChange(value);
     }
   };
@@ -65,6 +76,7 @@ export default function TopBarToggle({
       <Pressable
         style={[styles.segment, styles.segmentLeft]}
         onPress={() => handlePress("today")}
+        android_ripple={{ color: "rgba(0,0,0,0.05)", borderless: false }}
       >
         <Text
           style={[
@@ -80,6 +92,7 @@ export default function TopBarToggle({
       <Pressable
         style={[styles.segment, styles.segmentRight]}
         onPress={() => handlePress("backlogs")}
+        android_ripple={{ color: "rgba(0,0,0,0.05)", borderless: false }}
       >
         <Text
           style={[
