@@ -23,6 +23,10 @@ import {
   moveTaskToCarriedOverLocal,
   getCategoryEmoji,
 } from "../../storage/todo/storage";
+import { 
+  createReminderFromTodo,
+  fetchRemindersByTodoId 
+} from "../../storage/reminder/storage";
 // import { AuthContext } from "../../context/AuthProvider";
 import { checkNetworkStatus, useNetworkStatus } from "../../utils/networkUtils";
 
@@ -50,6 +54,7 @@ const TaskItem = ({
   moveToCarriedOver,
   categoryColor,
   openEditModal,
+  openReminderModal,
 }) => {
   // Debug: Log the item structure to see available fields
   console.log("TaskItem item structure:", {
@@ -103,6 +108,14 @@ const TaskItem = ({
             <Ionicons name="time-outline" size={24} color="#F59E0B" />
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          onPress={() => {
+            console.log(`Setting reminder for task: ${item.id}`);
+            openReminderModal(item);
+          }}
+        >
+          <Ionicons name="alarm-outline" size={24} color="#8B5CF6" />
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() => {
             console.log(`Deleting task: ${item.id}`);
@@ -172,6 +185,10 @@ export default function CategoryTasks() {
   const [statusFilter, setStatusFilter] = useState("pending");
   const [topSelection, setTopSelection] = useState("today");
   const [carriedCount, setCarriedCount] = useState(0);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [reminderDate, setReminderDate] = useState("");
+  const [reminderTime, setReminderTime] = useState("");
+  const [selectedTaskForReminder, setSelectedTaskForReminder] = useState(null);
   // const {idToken}=useContext(AuthContext) // removed, now handled in client.js
   const isOnline = useNetworkStatus();
   const categoryColors = {
@@ -363,6 +380,44 @@ export default function CategoryTasks() {
     setNewTask(task.title);
     setIntention(task.description || "");
     setModalVisible(true);
+  };
+
+  const openReminderModal = (task) => {
+    setSelectedTaskForReminder(task);
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setReminderDate(tomorrow.toISOString().split('T')[0]);
+    setReminderTime("09:00");
+    setShowReminderModal(true);
+  };
+
+  const createReminder = async () => {
+    if (!reminderDate || !reminderTime || !selectedTaskForReminder) {
+      Alert.alert("Missing Information", "Please select both date and time for the reminder.");
+      return;
+    }
+
+    try {
+      const datetime = `${reminderDate}T${reminderTime}:00`;
+      const reminderDateObj = new Date(datetime);
+      
+      if (isNaN(reminderDateObj.getTime())) {
+        Alert.alert("Invalid Date/Time", "Please choose a valid date and time.");
+        return;
+      }
+
+      await createReminderFromTodo(selectedTaskForReminder, datetime);
+      
+      Alert.alert("Reminder Set", "Your reminder has been created successfully!");
+      setShowReminderModal(false);
+      setSelectedTaskForReminder(null);
+      setReminderDate("");
+      setReminderTime("");
+    } catch (error) {
+      console.error("Error creating reminder:", error);
+      Alert.alert("Error", "Failed to create reminder. Please try again.");
+    }
   };
 
   const saveEditedTask = async () => {
@@ -580,6 +635,7 @@ export default function CategoryTasks() {
               moveToCarriedOver={moveToCarriedOver}
               categoryColor={categoryColor}
               openEditModal={openEditModal}
+              openReminderModal={openReminderModal}
             />
           )
         )}
@@ -667,6 +723,72 @@ export default function CategoryTasks() {
                   <Text style={styles.modalButtonText}>
                     {editingTaskId ? "Save Changes" : "Add Task"}
                   </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Reminder Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showReminderModal}
+        onRequestClose={() => setShowReminderModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowReminderModal(false)}
+        >
+          <View
+            style={styles.modalContent}
+            onStartShouldSetResponder={() => true}
+          >
+            <View
+              style={[
+                styles.modalGradient,
+                { backgroundColor: `${categoryColor}10` },
+              ]}
+            >
+              <Text style={styles.modalTitle}>Set Reminder</Text>
+              <Text style={styles.reminderTaskText}>
+                Task: {selectedTaskForReminder?.title}
+              </Text>
+              
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Date (YYYY-MM-DD)"
+                placeholderTextColor="#9CA3AF"
+                value={reminderDate}
+                onChangeText={setReminderDate}
+              />
+              
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Time (HH:MM)"
+                placeholderTextColor="#9CA3AF"
+                value={reminderTime}
+                onChangeText={setReminderTime}
+              />
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => setShowReminderModal(false)}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton,
+                    styles.modalAddButton,
+                    { backgroundColor: categoryColor },
+                  ]}
+                  onPress={createReminder}
+                >
+                  <Text style={styles.modalButtonText}>Set Reminder</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -894,6 +1016,13 @@ const styles = StyleSheet.create({
     color: "#111827",
     marginBottom: 20,
     textAlign: "center",
+  },
+  reminderTaskText: {
+    fontSize: 16,
+    color: "#6B7280",
+    marginBottom: 20,
+    textAlign: "center",
+    fontStyle: "italic",
   },
   modalInput: {
     backgroundColor: "#F9FAFB",

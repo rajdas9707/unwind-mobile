@@ -4,6 +4,7 @@ import { initIdeasTable } from "../idea/db";
 import { initJournalsTable } from "../journal/db";
 import { initMistakesTable } from "../mistakes/db";
 import { initOverthinkingsTable } from "../overthinking/db";
+import { initRemindersTable } from "../reminder/db";
 import { initTodosTable } from "../todo/db";
 import { initTopicsTable } from "../topic/db";
 import { initwaterRemindersTable } from "../waterreminder/db";
@@ -17,6 +18,7 @@ export const migrate = async (db) => {
     await initJournalsTable(db);
     await initMistakesTable(db);
     await initOverthinkingsTable(db);
+    await initRemindersTable(db);
     await initTopicsTable(db);
     await initwaterRemindersTable(db);
     await initTodosTable(db);

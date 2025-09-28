@@ -13,7 +13,6 @@ import {
   Animated,
   Alert,
 } from "react-native";
-import * as SQLite from "expo-sqlite";
 import * as Notifications from "expo-notifications";
 import { Calendar } from "react-native-calendars";
 import { Picker } from "@react-native-picker/picker";
@@ -23,6 +22,13 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TopBarToggle from "../components/shared/TopBarToggle";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { 
+  createReminderEntryLocal, 
+  fetchAllReminders, 
+  deleteReminderEntryLocal,
+  getTodoCategories 
+} from "../storage/reminder/storage";
+import { createTodoEntryLocal } from "../storage/todo/storage";
 
 const { width, height } = Dimensions.get("window");
 
@@ -48,41 +54,30 @@ export default function ReminderScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("Urgent"); // Default to "Urgent task"
+  const [todoCategories] = useState(getTodoCategories());
   const modalAnimation = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef();
   const modalScrollRef = useRef();
-  const dbRef = useRef(null);
 
-  // Get database connection
-  const getDatabase = async () => {
-    if (!dbRef.current) {
-      dbRef.current = await SQLite.openDatabaseAsync("remindertask.db");
-    }
-    return dbRef.current;
-  };
-
-  // Create table on first load
+  // Initialize on first load
   useEffect(() => {
-    const initDatabase = async () => {
+    const initApp = async () => {
       try {
-        const db = await getDatabase();
-        await db.execAsync(
-          "CREATE TABLE IF NOT EXISTS reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, datetime TEXT);"
-        );
         await fetchReminders();
+        initializeDefaults();
+
+        // Android Notification Channel
+        Notifications.setNotificationChannelAsync("reminder-channel", {
+          name: "Reminders",
+          importance: Notifications.AndroidImportance.HIGH,
+        });
       } catch (error) {
-        console.error("Database initialization error:", error);
+        console.error("App initialization error:", error);
       }
     };
 
-    initDatabase();
-    initializeDefaults();
-
-    // Android Notification Channel
-    Notifications.setNotificationChannelAsync("reminder-channel", {
-      name: "Reminders",
-      importance: Notifications.AndroidImportance.HIGH,
-    });
+    initApp();
   }, []);
 
   const initializeDefaults = () => {
@@ -98,11 +93,8 @@ export default function ReminderScreen() {
   // Fetch all reminders
   const fetchReminders = async () => {
     try {
-      const db = await getDatabase();
-      const result = await db.getAllAsync(
-        "SELECT * FROM reminders ORDER BY datetime ASC"
-      );
-      setReminders(result);
+      const reminders = await fetchAllReminders();
+      setReminders(reminders);
     } catch (error) {
       console.error("Error fetching reminders:", error);
     }
@@ -160,6 +152,7 @@ export default function ReminderScreen() {
     setShowTimePicker(false);
     setIsEditing(false);
     setEditingId(null);
+    setSelectedCategory("Urgent"); // Reset to default
     const today = new Date();
     setSelectedDate(today.toISOString().split("T")[0]);
     setHour(today.getHours().toString().padStart(2, "0"));
@@ -199,37 +192,41 @@ export default function ReminderScreen() {
     }
 
     try {
-      const db = await getDatabase();
-
       if (isEditing && editingId) {
-        // Update existing reminder
-        await db.runAsync(
-          "UPDATE reminders SET name = ?, description = ?, datetime = ? WHERE id = ?",
-          [taskName, taskDesc, reminderDate.toISOString(), editingId]
-        );
+        // Update existing reminder (for now, just show alert)
+        Alert.alert("Info", "Editing reminders is not yet implemented in the new system.");
+        return;
       } else {
-        // Add new reminder
-        await db.runAsync(
-          "INSERT INTO reminders (name, description, datetime) VALUES (?, ?, ?)",
-          [taskName, taskDesc, reminderDate.toISOString()]
-        );
-
-        // Schedule local notification
-        if (reminderDate > new Date()) {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: taskName,
-              body: taskDesc || "Reminder!",
-            },
-            trigger: reminderDate,
-          });
-        }
+        // Create both reminder and todo
+        const now = new Date().toISOString();
+        
+        // First create the todo
+        const todoData = {
+          title: taskName,
+          description: taskDesc,
+          category: selectedCategory,
+          priority: "medium"
+        };
+        
+        const todo = await createTodoEntryLocal(todoData);
+        
+        // Then create the reminder linked to the todo
+        const reminderData = {
+          name: taskName,
+          description: taskDesc,
+          datetime: reminderDate.toISOString(),
+          todo_id: todo.id,
+          todo_category: selectedCategory
+        };
+        
+        await createReminderEntryLocal(reminderData);
       }
 
       await fetchReminders();
       closeModal();
     } catch (error) {
       console.error("Error adding/updating reminder:", error);
+      Alert.alert("Error", "Failed to create reminder. Please try again.");
     }
   };
 
@@ -250,11 +247,11 @@ export default function ReminderScreen() {
   // Delete reminder
   const deleteReminder = async (id) => {
     try {
-      const db = await getDatabase();
-      await db.runAsync("DELETE FROM reminders WHERE id = ?", [id]);
+      await deleteReminderEntryLocal(id);
       await fetchReminders();
     } catch (error) {
       console.error("Error deleting reminder:", error);
+      Alert.alert("Error", "Failed to delete reminder. Please try again.");
     }
   };
 
@@ -555,6 +552,30 @@ export default function ReminderScreen() {
                   multiline
                   textAlignVertical="top"
                 />
+              </View>
+            </View>
+
+            {/* Todo Category Section */}
+            <View style={styles.simpleFormSection}>
+              <Text style={styles.simpleSectionTitle}>Todo Category</Text>
+              
+              <View style={styles.simpleInputGroup}>
+                <Text style={styles.simpleInputLabel}>Category *</Text>
+                <View style={styles.simplePickerContainer}>
+                  <Picker
+                    selectedValue={selectedCategory}
+                    onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+                    style={styles.simplePicker}
+                  >
+                    {todoCategories.map((category) => (
+                      <Picker.Item 
+                        key={category} 
+                        label={category} 
+                        value={category} 
+                      />
+                    ))}
+                  </Picker>
+                </View>
               </View>
             </View>
 
@@ -1249,6 +1270,16 @@ const styles = StyleSheet.create({
   simpleDateText: {
     fontSize: 16,
     color: "#333",
+  },
+  simplePickerContainer: {
+    backgroundColor: "#f8f9fa",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  simplePicker: {
+    height: 50,
   },
   simpleButtonContainer: {
     flexDirection: "row",

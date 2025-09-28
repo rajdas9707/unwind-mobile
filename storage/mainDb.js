@@ -1,6 +1,7 @@
 import * as SQLite from "expo-sqlite";
 import * as v1 from "./migrations/v1";
 import * as v2 from "./migrations/v2";
+import * as v3 from "./migrations/v3";
 
 // Singleton database connection
 let dbInstance = null;
@@ -97,7 +98,7 @@ async function runMigrations(db) {
     let currentVersion = result.user_version || 0;
 
     // List of all migrations in order
-    const migrations = [v1, v2];
+    const migrations = [v1, v2, v3];
 
     console.log("Migrations", migrations);
 
