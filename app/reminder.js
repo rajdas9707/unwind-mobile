@@ -123,18 +123,20 @@ export default function ReminderScreen() {
   }, [selectedKey, upcoming, missed]);
 
   // Modal animation helpers
-  const openModal = () => {
+  const openModal = (useDefaults = true) => {
     console.log("Opening modal...");
     setModalVisible(true);
     modalAnimation.setValue(0);
-    // Set defaults to current local date and time when opening
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = (now.getMonth() + 1).toString().padStart(2, "0");
-    const dd = now.getDate().toString().padStart(2, "0");
-    setSelectedDate(`${yyyy}-${mm}-${dd}`);
-    setHour(now.getHours().toString().padStart(2, "0"));
-    setMinute(now.getMinutes().toString().padStart(2, "0"));
+    // Set defaults to current local date and time when opening (only for new reminder)
+    if (useDefaults) {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = (now.getMonth() + 1).toString().padStart(2, "0");
+      const dd = now.getDate().toString().padStart(2, "0");
+      setSelectedDate(`${yyyy}-${mm}-${dd}`);
+      setHour(now.getHours().toString().padStart(2, "0"));
+      setMinute(now.getMinutes().toString().padStart(2, "0"));
+    }
     Animated.timing(modalAnimation, {
       toValue: 1,
       duration: 300,
@@ -170,8 +172,14 @@ export default function ReminderScreen() {
     if (event.type === "set" && selectedTime) {
       const hours = selectedTime.getHours().toString().padStart(2, "0");
       const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
-      setHour(hours);
-      setMinute(minutes);
+      const candidate = new Date(`${selectedDate}T${hours}:${minutes}:00`);
+      const now = new Date();
+      if (candidate <= now) {
+        Alert.alert("Invalid Time", "Please choose a future time.");
+      } else {
+        setHour(hours);
+        setMinute(minutes);
+      }
     }
     setShowTimePicker(false);
   };
@@ -195,6 +203,10 @@ export default function ReminderScreen() {
     const reminderDate = new Date(datetime);
     if (isNaN(reminderDate.getTime())) {
       Alert.alert("Invalid Date/Time", "Please choose a valid date and time.");
+      return;
+    }
+    if (reminderDate <= new Date()) {
+      Alert.alert("Invalid Date/Time", "Please choose a future date and time.");
       return;
     }
 
@@ -244,7 +256,7 @@ export default function ReminderScreen() {
     setMinute(reminderDate.getMinutes().toString().padStart(2, "0"));
     setIsEditing(true);
     setEditingId(reminder.id);
-    openModal();
+    openModal(false);
   };
 
   // Delete reminder
