@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import AnimatedCheckbox from "../../components/shared/AnimatedCheckbox";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import TopBarToggle from "../../components/shared/TopBarToggle";
 import {
@@ -63,18 +64,14 @@ const TaskItem = ({
   
   return (
     <View style={[styles.taskItem, { borderLeftColor: categoryColor }]}>
-      <TouchableOpacity
+      <AnimatedCheckbox
+        checked={!!item.completed}
+        activeColor={categoryColor}
         onPress={() => {
           console.log(`Toggling task completion: ${item.id}`);
           toggleTaskCompletion(item.id);
         }}
-      >
-        <Ionicons
-          name={item.completed ? "checkbox" : "square-outline"}
-          size={24}
-          color={item.completed ? categoryColor : "#6B7280"}
-        />
-      </TouchableOpacity>
+      />
       <TouchableOpacity
         style={styles.taskContent}
         onPress={() => {
@@ -126,17 +123,13 @@ const CarriedOverTaskRow = ({
 }) => {
   return (
     <View style={[styles.taskItem, { borderLeftColor: categoryColor }]}>
-      <TouchableOpacity
+      <AnimatedCheckbox
+        checked={!!item.completed}
+        activeColor={categoryColor}
         onPress={() => {
           toggleTaskCompletion(item.id ?? item.localId);
         }}
-      >
-        <Ionicons
-          name={item.completed ? "checkbox" : "square-outline"}
-          size={24}
-          color={item.completed ? categoryColor : "#6B7280"}
-        />
-      </TouchableOpacity>
+      />
       <TouchableOpacity
         style={styles.taskContent}
         onPress={() => openEditModal(item)}
