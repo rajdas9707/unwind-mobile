@@ -224,9 +224,34 @@ export default function CategoryTasks() {
     try {
       console.log(`Loading tasks for category: ${category}`);
       const categoryTasks = await fetchTodosByCategory(category);
-      // Filter for incomplete tasks
-      // const incompleteTasks = categoryTasks.filter((task) => !task.completed);
-      setTasks(categoryTasks);
+
+      // Move past-dated tasks to carried over
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const toMove = categoryTasks
+        .filter((task) => {
+          if (task.completed) return false;
+          const dateString = task.due_date || task.created_at;
+          if (!dateString) return false;
+          const taskDate = new Date(dateString);
+          if (isNaN(taskDate.getTime())) return false;
+          return taskDate < startOfToday;
+        })
+        .map((t) => t.id);
+
+      if (toMove.length > 0) {
+        console.log(`Moving ${toMove.length} past-dated task(s) to carried over`);
+        await Promise.all(toMove.map((id) => moveTaskToCarriedOverLocal(id)));
+        // Reload both lists after moving
+        const [updatedTasks, updatedBacklogs] = await Promise.all([
+          fetchTodosByCategory(category),
+          fetchCarriedOverTodosByCategory(category),
+        ]);
+        setTasks(updatedTasks);
+        setBacklogs(updatedBacklogs);
+      } else {
+        setTasks(categoryTasks);
+      }
     } catch (error) {
       console.error("Error loading tasks:", error);
     }
