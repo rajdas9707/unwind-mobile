@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import TopBarToggle from "../../components/shared/TopBarToggle";
@@ -189,6 +190,7 @@ export default function CategoryTasks() {
   const [reminderDate, setReminderDate] = useState("");
   const [reminderTime, setReminderTime] = useState("");
   const [selectedTaskForReminder, setSelectedTaskForReminder] = useState(null);
+  const [showNativeTimePicker, setShowNativeTimePicker] = useState(false);
   // const {idToken}=useContext(AuthContext) // removed, now handled in client.js
   const isOnline = useNetworkStatus();
   const categoryColors = {
@@ -390,6 +392,15 @@ export default function CategoryTasks() {
     setReminderDate(tomorrow.toISOString().split('T')[0]);
     setReminderTime("09:00");
     setShowReminderModal(true);
+  };
+
+  const handleNativeTimeChange = (event, selectedTime) => {
+    if (event?.type === "set" && selectedTime) {
+      const hours = selectedTime.getHours().toString().padStart(2, "0");
+      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
+      setReminderTime(`${hours}:${minutes}`);
+    }
+    setShowNativeTimePicker(false);
   };
 
   const createReminder = async () => {
@@ -765,13 +776,21 @@ export default function CategoryTasks() {
                 onChangeText={setReminderDate}
               />
               
-              <TextInput
+              <TouchableOpacity
                 style={styles.modalInput}
-                placeholder="Time (HH:MM)"
-                placeholderTextColor="#9CA3AF"
-                value={reminderTime}
-                onChangeText={setReminderTime}
-              />
+                activeOpacity={0.8}
+                onPress={() => setShowNativeTimePicker(true)}
+              >
+                <Text style={{ color: reminderTime ? "#111827" : "#9CA3AF", fontSize: 16 }}>
+                  {reminderTime
+                    ? new Date(`2000-01-01T${reminderTime}:00`).toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      })
+                    : "Time (HH:MM)"}
+                </Text>
+              </TouchableOpacity>
               
               <View style={styles.modalButtons}>
                 <TouchableOpacity
@@ -795,6 +814,20 @@ export default function CategoryTasks() {
           </View>
         </TouchableOpacity>
       </Modal>
+      {showNativeTimePicker && (
+        <DateTimePicker
+          value={(() => {
+            const date = new Date();
+            const [h, m] = (reminderTime || "09:00").split(":").map((v) => parseInt(v, 10) || 0);
+            date.setHours(h, m, 0, 0);
+            return date;
+          })()}
+          mode="time"
+          is24Hour={false}
+          display="default"
+          onChange={handleNativeTimeChange}
+        />
+      )}
     </View>
   );
 }
