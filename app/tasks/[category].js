@@ -480,81 +480,20 @@ export default function CategoryTasks() {
         </Text>
       </View>
 
-      <View style={styles.segmentedControl}>
-        <TouchableOpacity
-          style={[
-            styles.segmentButton,
-            statusFilter === "pending" && styles.segmentButtonActive,
-            statusFilter === "pending" && { borderColor: categoryColor },
-          ]}
-          onPress={() => {
-            setStatusFilter("pending");
-            router.setParams({ status: "pending" });
+      <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+        <TopBarToggle
+          selected={statusFilter === "completed" ? "backlogs" : "today"}
+          leftText={`Pending`}
+          rightText={`Completed`}
+          counts={{ left: currentPendingCount, right: currentCompletedCount }}
+          primaryColor={categoryColor}
+          containerStyle={{ width: 260, alignSelf: "center" }}
+          onChange={(val) => {
+            const newStatus = val === "backlogs" ? "completed" : "pending";
+            setStatusFilter(newStatus);
+            router.setParams({ status: newStatus });
           }}
-        >
-          <View style={styles.segmentButtonContent}>
-            <Text
-              style={[
-                styles.segmentText,
-                statusFilter === "pending" && styles.segmentTextActive,
-              ]}
-            >
-              {`⏳ Pending (${currentPendingCount})`}
-            </Text>
-            <View
-              style={[
-                styles.badge,
-                statusFilter === "pending" && { backgroundColor: categoryColor },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.badgeText,
-                  statusFilter === "pending" ? styles.badgeTextActive : styles.badgeTextInactive,
-                ]}
-              >
-                {currentPendingCount}
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.segmentButton,
-            statusFilter === "completed" && styles.segmentButtonActive,
-            statusFilter === "completed" && { borderColor: categoryColor },
-          ]}
-          onPress={() => {
-            setStatusFilter("completed");
-            router.setParams({ status: "completed" });
-          }}
-        >
-          <View style={styles.segmentButtonContent}>
-            <Text
-              style={[
-                styles.segmentText,
-                statusFilter === "completed" && styles.segmentTextActive,
-              ]}
-            >
-              {`✅ Completed (${currentCompletedCount})`}
-            </Text>
-            <View
-              style={[
-                styles.badge,
-                statusFilter === "completed" && { backgroundColor: categoryColor },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.badgeText,
-                  statusFilter === "completed" ? styles.badgeTextActive : styles.badgeTextInactive,
-                ]}
-              >
-                {currentCompletedCount}
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+        />
       </View>
 
       <FlatList
