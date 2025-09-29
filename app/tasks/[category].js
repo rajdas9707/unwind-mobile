@@ -26,7 +26,8 @@ import {
 } from "../../storage/todo/storage";
 import { 
   createReminderFromTodo,
-  fetchRemindersByTodoId 
+  fetchRemindersByTodoId,
+  updateReminderEntryLocal 
 } from "../../storage/reminder/storage";
 // import { AuthContext } from "../../context/AuthProvider";
 import { checkNetworkStatus, useNetworkStatus } from "../../utils/networkUtils";
@@ -191,6 +192,7 @@ export default function CategoryTasks() {
   const [reminderTime, setReminderTime] = useState("");
   const [selectedTaskForReminder, setSelectedTaskForReminder] = useState(null);
   const [showNativeTimePicker, setShowNativeTimePicker] = useState(false);
+  const [existingReminderId, setExistingReminderId] = useState(null);
   // const {idToken}=useContext(AuthContext) // removed, now handled in client.js
   const isOnline = useNetworkStatus();
   const categoryColors = {
@@ -386,12 +388,37 @@ export default function CategoryTasks() {
 
   const openReminderModal = (task) => {
     setSelectedTaskForReminder(task);
-    // Set default date to tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setReminderDate(tomorrow.toISOString().split('T')[0]);
-    setReminderTime("09:00");
-    setShowReminderModal(true);
+    (async () => {
+      try {
+        const reminders = await fetchRemindersByTodoId(task.id);
+        if (reminders && reminders.length > 0) {
+          const r = reminders[0];
+          setExistingReminderId(r.id);
+          const dt = new Date(r.datetime);
+          const yyyy = dt.getFullYear();
+          const mm = (dt.getMonth() + 1).toString().padStart(2, "0");
+          const dd = dt.getDate().toString().padStart(2, "0");
+          const hh = dt.getHours().toString().padStart(2, "0");
+          const min = dt.getMinutes().toString().padStart(2, "0");
+          setReminderDate(`${yyyy}-${mm}-${dd}`);
+          setReminderTime(`${hh}:${min}`);
+        } else {
+          setExistingReminderId(null);
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          setReminderDate(tomorrow.toISOString().split('T')[0]);
+          setReminderTime("09:00");
+        }
+      } catch (e) {
+        setExistingReminderId(null);
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        setReminderDate(tomorrow.toISOString().split('T')[0]);
+        setReminderTime("09:00");
+      } finally {
+        setShowReminderModal(true);
+      }
+    })();
   };
 
   const handleNativeTimeChange = (event, selectedTime) => {
@@ -418,13 +445,25 @@ export default function CategoryTasks() {
         return;
       }
 
-      await createReminderFromTodo(selectedTaskForReminder, datetime);
+      if (existingReminderId) {
+        await updateReminderEntryLocal({
+          id: existingReminderId,
+          name: selectedTaskForReminder.title,
+          description: selectedTaskForReminder.description || "",
+          datetime: reminderDateObj.toISOString(),
+          todo_id: selectedTaskForReminder.id,
+          todo_category: selectedTaskForReminder.category,
+        });
+      } else {
+        await createReminderFromTodo(selectedTaskForReminder, datetime);
+      }
       
       Alert.alert("Reminder Set", "Your reminder has been created successfully!");
       setShowReminderModal(false);
       setSelectedTaskForReminder(null);
       setReminderDate("");
       setReminderTime("");
+      setExistingReminderId(null);
     } catch (error) {
       console.error("Error creating reminder:", error);
       Alert.alert("Error", "Failed to create reminder. Please try again.");
