@@ -17,12 +17,16 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { auth } from "../../firebaseConfig";
-import { getProfile } from "../../api/client";
+import { auth } from "../../firebaseConfig"; // Assuming auth is exported from here
+import { getProfile, deleteUserAccount } from "../../api/client";
 import * as FileSystem from "expo-file-system/legacy";
 import * as SQLite from "expo-sqlite";
 import { closeDB, openDB } from "../../storage/mainDb";
-import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
+import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  deleteUser,
+} from "firebase/auth";
 // import { exportDatabase } from "../testDb";
 
 export default function AccountScreen() {
@@ -30,6 +34,8 @@ export default function AccountScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(userInfo.name);
   const [confirmVisible, setConfirmVisible] = useState(false);
+  const [clearDataModalVisible, setClearDataModalVisible] = useState(false);
+  const [clearDataPassword, setClearDataPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [stats, setStats] = useState({
@@ -178,11 +184,6 @@ export default function AccountScreen() {
     ]);
   };
 
-  const clearAllData = () => {
-    setConfirmPassword("");
-    setConfirmVisible(true);
-  };
-
   const openRateApp = async () => {
     try {
       const iosUrl =
@@ -202,6 +203,52 @@ export default function AccountScreen() {
       try {
         await Linking.openURL("https://myapp.com");
       } catch {}
+    }
+  };
+
+  const clearAllData = () => {
+    setClearDataPassword("");
+    setClearDataModalVisible(true);
+  };
+
+  const confirmDeleteAll = async () => {
+    if (!auth?.currentUser) {
+      Alert.alert("Not signed in", "Please sign in again and retry.");
+      return;
+    }
+    if (!clearDataPassword.trim()) {
+      Alert.alert("Password required", "Enter your password to proceed.");
+      return;
+    }
+    try {
+      setDeleting(true);
+      const email = userInfo?.email || auth.currentUser.email;
+      const credential = EmailAuthProvider.credential(email, clearDataPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+
+      await wipeAppSandbox();
+      // Re-open a fresh empty DB to reset any in-memory references
+      try {
+        await openDB();
+      } catch {}
+      setClearDataModalVisible(false);
+      setClearDataPassword("");
+      loadUserStats();
+      Alert.alert("Deleted", "All in-app data and files have been deleted.");
+    } catch (error) {
+      if (
+        error?.code === "auth/invalid-credential" ||
+        error?.code === "auth/wrong-password"
+      ) {
+        Alert.alert(
+          "Incorrect password",
+          "The password you entered is incorrect."
+        );
+      } else {
+        Alert.alert("Error", "Failed to delete data. Please try again.");
+      }
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -235,7 +282,14 @@ export default function AccountScreen() {
     }
   };
 
-  const confirmDeleteAll = async () => {
+  const handleDeleteAccount = () => {
+    
+
+    setConfirmPassword("");
+    setConfirmVisible(true);
+  };
+
+  const confirmDeleteAccount = async () => {
     if (!auth?.currentUser) {
       Alert.alert("Not signed in", "Please sign in again and retry.");
       return;
@@ -253,29 +307,71 @@ export default function AccountScreen() {
       const credential = EmailAuthProvider.credential(email, confirmPassword);
       await reauthenticateWithCredential(auth.currentUser, credential);
 
-      await wipeAppSandbox();
-      // Re-open a fresh empty DB to reset any in-memory references
-      try {
-        await openDB();
-      } catch {}
+      // Password is correct, show final confirmation
       setConfirmVisible(false);
-      setConfirmPassword("");
-      loadUserStats();
-      Alert.alert("Deleted", "All in-app data and files have been deleted.");
+
+      Alert.alert(
+        "🚨 Final Confirmation 🚨",
+        "You are about to permanently delete your account and all associated data. This action cannot be undone. Are you absolutely sure?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => setDeleting(false),
+          },
+          {
+            text: "Yes, Delete Everything",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                // 1. Call backend to delete cloud data and Firebase user.
+                // The idToken is automatically sent by the axios interceptor.
+                const result = await deleteUserAccount();
+                if (!result.success) {
+                  // The API client's error handler will throw an error,
+                  // but we can add an extra check here.
+                  throw new Error(
+                    result.error?.message || "Failed to delete account on server."
+                  );
+                }
+
+                // 2. Delete all local data
+                await wipeAppSandbox();
+
+                Alert.alert(
+                  "Account Deleted",
+                  "Your account and all associated data have been permanently deleted."
+                );
+                router.replace("/auth");
+              } catch (deleteError) {
+                console.error("Error during final deletion step:", deleteError);
+                Alert.alert(
+                  "Deletion Failed",
+                  `Could not complete the account deletion: ${deleteError.message}. Please sign out and try again.`
+                );
+                setDeleting(false);
+              }
+            },
+          },
+        ]
+      );
     } catch (error) {
+      setDeleting(false);
       if (
         error?.code === "auth/invalid-credential" ||
         error?.code === "auth/wrong-password"
       ) {
         Alert.alert(
           "Incorrect password",
-          "The password you entered is incorrect."
+          "The password you entered is incorrect. Please try again."
         );
       } else {
-        Alert.alert("Error", "Failed to delete data. Please try again.");
+        console.error("Error re-authenticating:", error);
+        Alert.alert(
+          "Error",
+          "An error occurred during re-authentication. Please try again."
+        );
       }
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -405,26 +501,6 @@ export default function AccountScreen() {
               </View>
             </LinearGradient>
           </View>
-
-          <LinearGradient
-            colors={["#F1F5F9", "#FFFFFF"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.historyCardGradient}
-          >
-            <TouchableOpacity
-              style={styles.historyRow}
-              onPress={() => router.push("/history")}
-            >
-              <View style={styles.historyLeft}>
-                <View style={[styles.iconChip, { backgroundColor: "#E2E8F0" }]}>
-                  <Ionicons name="time" size={18} color="#334155" />
-                </View>
-                <Text style={styles.historyText}>Meditation History</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#64748B" />
-            </TouchableOpacity>
-          </LinearGradient>
         </View>
 
         {/* Settings Section */}
@@ -443,19 +519,13 @@ export default function AccountScreen() {
             <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
-            <Ionicons name="download" size={20} color="#6B7280" />
-            <Text style={styles.settingText}>Export Data</Text>
-            <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.settingItem} onPress={clearAllData}>
             <Ionicons name="trash" size={20} color="#EF4444" />
             <Text style={[styles.settingText, { color: "#EF4444" }]}>
               Clear All Data
             </Text>
-            <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
           </TouchableOpacity>
+
         </View>
 
         {/* Support Section */}
@@ -487,15 +557,10 @@ export default function AccountScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Export Database Button */}
-        <TouchableOpacity
-          style={styles.exportButton}
-          onPress={() => {
-            console.log("Export Database Pressed");
-          }}
-        >
-          <Ionicons name="download" size={20} color="#FFFFFF" />
-          <Text style={styles.exportText}>Export Database</Text>
+        {/* Delete Account Button */}
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+          <Ionicons name="trash" size={20} color="#FFFFFF" />
+          <Text style={styles.deleteButtonText}>Delete Account</Text>
         </TouchableOpacity>
 
         {/* Sign Out Button */}
@@ -544,15 +609,15 @@ export default function AccountScreen() {
                   color: "#111827",
                 }}
               >
-                Delete All Data
+                ⚠️ Delete Your Account
               </Text>
             </View>
             <Text
               style={{ color: "#374151", lineHeight: 20, marginBottom: 14 }}
             >
-              This will permanently delete your in-app database and files stored
-              in this app's sandbox. Your phone storage outside the app won't be
-              touched. This action cannot be undone.
+              This is irreversible. It will permanently delete your account, all
+              local data, and all cloud-synced data. This action cannot be
+              undone.
             </Text>
             <Text style={{ color: "#6B7280", fontSize: 13, marginBottom: 8 }}>
               Confirm with your account password
@@ -589,7 +654,7 @@ export default function AccountScreen() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={confirmDeleteAll}
+                onPress={confirmDeleteAccount}
                 style={{
                   paddingVertical: 10,
                   paddingHorizontal: 14,
@@ -604,6 +669,106 @@ export default function AccountScreen() {
                   <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
                 )}
                 <Text style={{ color: "#fff", fontWeight: "700" }}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Confirm Clear Data Modal */}
+      <Modal
+        visible={clearDataModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setClearDataModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.6)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "88%",
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              padding: 20,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <Ionicons name="warning" size={22} color="#F59E0B" />
+              <Text
+                style={{
+                  marginLeft: 8,
+                  fontSize: 18,
+                  fontWeight: "700",
+                  color: "#111827",
+                }}
+              >
+                Delete All Local Data
+              </Text>
+            </View>
+            <Text
+              style={{ color: "#374151", lineHeight: 20, marginBottom: 14 }}
+            >
+              This will permanently delete all data stored on this device. Your
+              account and cloud-synced data will not be affected. This action
+              cannot be undone.
+            </Text>
+            <Text style={{ color: "#6B7280", fontSize: 13, marginBottom: 8 }}>
+              Confirm with your account password
+            </Text>
+            <TextInput
+              value={clearDataPassword}
+              onChangeText={setClearDataPassword}
+              placeholder="Enter password"
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry
+              style={{
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+                borderRadius: 10,
+                padding: 12,
+                marginBottom: 16,
+              }}
+              editable={!deleting}
+            />
+            <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+              <TouchableOpacity
+                onPress={() => setClearDataModalVisible(false)}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 10,
+                  backgroundColor: "#F3F4F6",
+                  marginRight: 8,
+                }}
+                disabled={deleting}
+              >
+                <Text style={{ color: "#374151", fontWeight: "700" }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmDeleteAll}
+                style={[styles.modalConfirmButton, deleting && styles.modalConfirmButtonDisabled]}
+                disabled={deleting}
+              >
+                {deleting && (
+                  <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
+                )}
+                <Text style={{ color: "#fff", fontWeight: "700" }}>
+                  Clear Data
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -767,32 +932,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 0.2,
   },
-  historyCardGradient: {
-    borderRadius: 14,
-    marginTop: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  historyRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  historyLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  historyText: {
-    marginLeft: 10,
-    fontSize: 16,
-    color: "#334155",
-    fontWeight: "600",
-  },
   settingItem: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
@@ -832,24 +971,35 @@ const styles = StyleSheet.create({
     color: "#EF4444",
     marginLeft: 8,
   },
-  exportButton: {
-    backgroundColor: "#8B5CF6",
+  deleteButton: {
+    backgroundColor: "#DC2626", // Red color for destructive action
     borderRadius: 12,
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
-    shadowColor: "#8B5CF6",
+    shadowColor: "#DC2626",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
   },
-  exportText: {
+  deleteButtonText: {
     fontSize: 16,
     fontWeight: "600",
     color: "#FFFFFF",
     marginLeft: 8,
+  },
+  modalConfirmButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: "#EF4444",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  modalConfirmButtonDisabled: {
+    backgroundColor: "#FCA5A5",
   },
 });
