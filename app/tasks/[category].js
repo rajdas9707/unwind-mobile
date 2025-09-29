@@ -777,18 +777,17 @@ export default function CategoryTasks() {
               />
               
               <TouchableOpacity
-                style={styles.modalInput}
+                style={styles.timeSelectButton}
                 activeOpacity={0.8}
                 onPress={() => setShowNativeTimePicker(true)}
               >
-                <Text style={{ color: reminderTime ? "#111827" : "#9CA3AF", fontSize: 16 }}>
-                  {reminderTime
-                    ? new Date(`2000-01-01T${reminderTime}:00`).toLocaleTimeString("en-US", {
-                        hour: "numeric",
-                        minute: "2-digit",
-                        hour12: true,
-                      })
-                    : "Time (HH:MM)"}
+                <Ionicons name="time" size={20} color="#667eea" />
+                <Text style={styles.timeSelectText}>
+                  {new Date(`2000-01-01T${(reminderTime || "09:00")}:00`).toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  })}
                 </Text>
               </TouchableOpacity>
               
