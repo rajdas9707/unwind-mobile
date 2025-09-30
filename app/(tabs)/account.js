@@ -507,13 +507,19 @@ export default function AccountScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity 
+            style={styles.settingItem}
+            onPress={() => router.push("/settings/notifications")}
+          >
             <Ionicons name="notifications" size={20} color="#6B7280" />
             <Text style={styles.settingText}>Notifications</Text>
             <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity 
+            style={styles.settingItem}
+            onPress={() => router.push("/settings/privacy")}
+          >
             <Ionicons name="shield-checkmark" size={20} color="#6B7280" />
             <Text style={styles.settingText}>Privacy</Text>
             <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />

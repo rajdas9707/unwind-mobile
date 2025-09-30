@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width * 0.9;
@@ -15,7 +16,25 @@ const CARD_HEIGHT = 120; // Reduced height
 
 const DocCard = ({ item }) => {
   const router = useRouter();
-  const iconColor = "#6366F1";
+  
+  // Dynamic colors based on category or file type
+  const getCardColors = () => {
+    const tag = item.tag?.toLowerCase() || 'personal';
+    switch (tag) {
+      case 'work':
+        return ['#667EEA', '#764BA2'];
+      case 'personal':
+        return ['#FF6B6B', '#4ECDC4'];
+      case 'education':
+        return ['#4ECDC4', '#44A08D'];
+      case 'health':
+        return ['#FF6B6B', '#FFE66D'];
+      case 'finance':
+        return ['#A8E6CF', '#88D8A3'];
+      default:
+        return ['#667EEA', '#764BA2'];
+    }
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never opened";
@@ -37,126 +56,142 @@ const DocCard = ({ item }) => {
     return "folder-outline";
   };
 
+  const cardColors = getCardColors();
+
   return (
     <TouchableOpacity
-      activeOpacity={0.8}
+      activeOpacity={0.85}
       style={{
-        backgroundColor: "#FAFBFC",
-        borderRadius: 20,
-        padding: 18,
         marginVertical: 6,
-        marginHorizontal: 8,
-        alignSelf: "center",
-        width: CARD_WIDTH - 16,
-        minHeight: CARD_HEIGHT,
-        shadowColor: "#6366F1",
-        shadowOpacity: 0.08,
-        shadowOffset: { width: 0, height: 3 },
-        shadowRadius: 12,
-        elevation: 4,
-        borderWidth: 1,
-        borderColor: "#F1F5F9",
+        marginHorizontal: 16,
+        borderRadius: 24,
+        shadowColor: cardColors[0],
+        shadowOpacity: 0.15,
+        shadowOffset: { width: 0, height: 6 },
+        shadowRadius: 16,
+        elevation: 8,
       }}
       onPress={() =>
         router.push({ pathname: "/document/[id]", params: { id: item.id } })
       }
     >
-      {/* Header Row */}
-      <View
+      <LinearGradient
+        colors={['#FFFFFF', '#F8FAFC']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          marginBottom: 12,
-        }}
-      >
-        <View
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 16,
-            backgroundColor: "#FFFFFF",
-            alignItems: "center",
-            justifyContent: "center",
-            marginRight: 14,
-            shadowColor: "#6366F1",
-            shadowOpacity: 0.1,
-            shadowOffset: { width: 0, height: 2 },
-            shadowRadius: 8,
-            elevation: 3,
-            borderWidth: 1,
-            borderColor: "#F1F5F9",
-          }}
-        >
-          <Ionicons name={getFileIcon()} size={26} color={iconColor} />
-        </View>
-
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "700",
-              color: "#111827",
-              marginBottom: 4,
-            }}
-            numberOfLines={1}
-          >
-            {item.docName}
-          </Text>
-          <Text style={{ fontSize: 13, color: "#64748B", fontWeight: "500" }}>
-            {(item.files || []).length} {item.files?.length === 1 ? 'file' : 'files'}
-          </Text>
-        </View>
-
-        <View
-          style={{
-            backgroundColor: "#EEF2FF",
-            borderRadius: 12,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderWidth: 1,
-            borderColor: "#E0E7FF",
-          }}
-        >
-          <Text style={{ fontSize: 12, color: "#6366F1", fontWeight: "600" }}>
-            {item.tag || "Personal"}
-          </Text>
-        </View>
-      </View>
-
-      {/* Footer Row */}
-      <View 
-        style={{ 
-          flexDirection: "row", 
-          justifyContent: "space-between",
-          alignItems: "center",
-          paddingTop: 12,
-          borderTopWidth: 1,
-          borderTopColor: "#F1F5F9",
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Ionicons name="time-outline" size={14} color="#9CA3AF" style={{ marginRight: 6 }} />
-          <Text style={{ fontSize: 12, color: "#9CA3AF", fontWeight: "500" }}>
-            {formatDate(item.lastOpenedAt)}
-          </Text>
-        </View>
-        
-        <View style={{ 
-          flexDirection: "row", 
-          alignItems: "center",
-          backgroundColor: "#F8FAFC",
-          paddingHorizontal: 10,
-          paddingVertical: 4,
-          borderRadius: 8,
+          borderRadius: 20,
+          padding: 18,
+          flex: 1,
+          minHeight: CARD_HEIGHT + 16,
           borderWidth: 1,
-          borderColor: "#E2E8F0",
-        }}>
-          <Text style={{ fontSize: 12, color: iconColor, fontWeight: "600", marginRight: 4 }}>
-            View
-          </Text>
-          <Ionicons name="chevron-forward" size={12} color={iconColor} />
-        </View>
+          borderColor: 'rgba(255, 255, 255, 0.8)',
+        }}
+      >
+        {/* Header Row */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 16,
+          }}
+        >
+          <LinearGradient
+            colors={cardColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 58,
+              height: 58,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 16,
+              shadowColor: cardColors[0],
+              shadowOpacity: 0.25,
+              shadowOffset: { width: 0, height: 4 },
+              shadowRadius: 12,
+              elevation: 6,
+            }}
+          >
+            <Ionicons name={getFileIcon()} size={28} color="#FFFFFF" />
+          </LinearGradient>
+
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: "#1F2937",
+                marginBottom: 6,
+                letterSpacing: -0.2,
+              }}
+              numberOfLines={1}
+            >
+              {item.docName}
+            </Text>
+            <Text style={{ fontSize: 14, color: "#6B7280", fontWeight: "500" }}>
+              {(item.files || []).length} {item.files?.length === 1 ? 'file' : 'files'}
+            </Text>
+          </View>
+
+          <LinearGradient
+            colors={[`${cardColors[0]}15`, `${cardColors[1]}15`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              borderRadius: 16,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderWidth: 1,
+              borderColor: `${cardColors[0]}30`,
+            }}
+          >
+            <Text style={{ fontSize: 13, color: cardColors[0], fontWeight: "700", letterSpacing: 0.3 }}>
+              {item.tag || "Personal"}
+            </Text>
+          </LinearGradient>
       </View>
+
+        {/* Footer Row */}
+        <View 
+          style={{ 
+            flexDirection: "row", 
+            justifyContent: "space-between",
+            alignItems: "center",
+            paddingTop: 16,
+            borderTopWidth: 1,
+            borderTopColor: "rgba(0, 0, 0, 0.06)",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Ionicons name="time-outline" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
+            <Text style={{ fontSize: 13, color: "#9CA3AF", fontWeight: "600" }}>
+              {formatDate(item.lastOpenedAt)}
+            </Text>
+          </View>
+          
+          <LinearGradient
+            colors={[`${cardColors[0]}20`, `${cardColors[1]}20`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ 
+              flexDirection: "row", 
+              alignItems: "center",
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: `${cardColors[0]}40`,
+            }}
+          >
+            <Text style={{ fontSize: 13, color: cardColors[0], fontWeight: "700", marginRight: 6 }}>
+              View
+            </Text>
+            <Ionicons name="chevron-forward" size={14} color={cardColors[0]} />
+          </LinearGradient>
+        </View>
+      </LinearGradient>
     </TouchableOpacity>
   );
 };

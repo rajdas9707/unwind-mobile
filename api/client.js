@@ -22,6 +22,25 @@ const apiClient = axios.create({
   timeout: 10000, // 10 seconds timeout for all requests
 });
 
+// Respect data sync settings from AsyncStorage
+let SYNC_ENABLED_CACHE = true; // default true
+
+async function isSyncEnabled() {
+  try {
+    const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+    const raw = await AsyncStorage.getItem("dataSyncSettings");
+    if (!raw) return true;
+    const parsed = JSON.parse(raw);
+    return parsed?.dataSyncEnabled !== false;
+  } catch (e) {
+    return true;
+  }
+}
+
+export async function setSyncEnabledInCache(enabled) {
+  SYNC_ENABLED_CACHE = !!enabled;
+}
+
 // Enhanced error handling for AbortController
 const handleApiError = (error) => {
   if (API_DEBUG) {
@@ -96,7 +115,7 @@ const handleApiError = (error) => {
   }
 };
 
-// Request interceptor for authentication
+// Request interceptor for authentication and sync check
 apiClient.interceptors.request.use(
   async (config) => {
     try {
@@ -104,7 +123,19 @@ apiClient.interceptors.request.use(
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      
+      // Check if sync is enabled for non-auth endpoints
+      const isAuthEndpoint = config.url.includes('/auth/');
+      if (!isAuthEndpoint) {
+        const syncEnabled = await isSyncEnabled();
+        if (!syncEnabled) {
+          throw new Error('Data sync is disabled. Enable sync in Privacy settings to use cloud features.');
+        }
+      }
     } catch (error) {
+      if (error.message.includes('Data sync is disabled')) {
+        throw error;
+      }
       console.log("Failed to get auth token:", error);
       // Don't block the request, let the server handle auth errors
     }
@@ -465,6 +496,30 @@ export async function deleteTodo({ id }) {
   if (result.success) {
     return result.data;
   } else {
+    throw new Error(result.error.message);
+  }
+}
+
+// Delete user account endpoint
+export async function deleteUserAccount() {
+  if (API_DEBUG) {
+    // eslint-disable-next-line no-console
+    console.log("deleteUserAccount called");
+  }
+
+  const result = await client.delete(`/api/auth/account`);
+
+  if (result.success) {
+    if (API_DEBUG) {
+      // eslint-disable-next-line no-console
+      console.log("deleteUserAccount result:", result.data);
+    }
+    return result.data;
+  } else {
+    if (API_DEBUG) {
+      // eslint-disable-next-line no-console
+      console.log("deleteUserAccount error:", result.error);
+    }
     throw new Error(result.error.message);
   }
 }

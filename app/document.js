@@ -18,9 +18,10 @@ import {
   Ionicons,
   FontAwesome5,
 } from "@expo/vector-icons";
-// import { LinearGradient } from "expo-linear-gradient";
+import { LinearGradient } from "expo-linear-gradient";
 import DocCardList from "../components/document/docCard";
 import UploadDocModal from "../components/document/UploadDocModal";
+import FilterModal from "../components/document/FilterModal";
 import { getDocuments } from "../storage/document/db";
 import { CATEGORIES } from "../utils/categories";
 
@@ -33,8 +34,11 @@ export default function Document() {
   const [activeTab, setActiveTab] = useState("All");
   const [fabOpen, setFabOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [docs, setDocs] = useState([]);
   const [filteredDocs, setFilteredDocs] = useState([]);
+  const [sortBy, setSortBy] = useState("name"); // name, date, size
+  const [sortOrder, setSortOrder] = useState("asc"); // asc, desc
   const fabAnim = useRef(new Animated.Value(0)).current;
 
 
@@ -48,20 +52,106 @@ export default function Document() {
     try {
       const data = await getDocuments();
       setDocs(data || []);
-      setFilteredDocs(data || []);
+      applyFilters(data || [], query, activeTab);
     } catch (error) {
       console.log("error loading documents", error);
     }
   };
 
+  // Search and filter logic
+  const applyFilters = (docsList, searchQuery, category) => {
+    let filtered = [...docsList];
+
+    // Apply category filter
+    if (category !== "All") {
+      filtered = filtered.filter((doc) => 
+        doc.tag?.toLowerCase() === category.toLowerCase()
+      );
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((doc) => {
+        const nameMatch = doc.docName?.toLowerCase().includes(query);
+        const tagMatch = doc.tag?.toLowerCase().includes(query);
+        const filesMatch = doc.files?.some(file => 
+          file.name?.toLowerCase().includes(query)
+        );
+        return nameMatch || tagMatch || filesMatch;
+      });
+    }
+
+    // Apply sorting
+    filtered = sortDocuments(filtered);
+    
+    setFilteredDocs(filtered);
+  };
+
+  const sortDocuments = (docsList) => {
+    return [...docsList].sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case "name":
+          aValue = a.docName?.toLowerCase() || "";
+          bValue = b.docName?.toLowerCase() || "";
+          break;
+        case "date":
+          aValue = new Date(a.lastOpenedAt || a.createdAt || 0);
+          bValue = new Date(b.lastOpenedAt || b.createdAt || 0);
+          break;
+        case "size":
+          aValue = (a.files || []).length;
+          bValue = (b.files || []).length;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (sortBy === "date") {
+        return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+      } else if (sortBy === "size") {
+        return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+      } else {
+        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      }
+    });
+  };
+
   const filterDocs = (tab) => {
     setActiveTab(tab);
-    if (tab === "All") {
-      setFilteredDocs(docs);
-    } else {
-      const filtered = docs.filter((doc) => doc.tag === tab);
-      setFilteredDocs(filtered);
-    }
+    applyFilters(docs, query, tab);
+  };
+
+  // Handle search input change
+  const handleSearchChange = (text) => {
+    setQuery(text);
+    applyFilters(docs, text, activeTab);
+  };
+
+  // Handle sort change
+  const handleSortChange = (newSortBy, newSortOrder) => {
+    setSortBy(newSortBy);
+    setSortOrder(newSortOrder);
+    applyFilters(docs, query, activeTab);
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setQuery("");
+    applyFilters(docs, "", activeTab);
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setQuery("");
+    setActiveTab("All");
+    setSortBy("name");
+    setSortOrder("asc");
+    applyFilters(docs, "", "All");
   };
 
   const handleSaveDocument = () => {
@@ -69,56 +159,106 @@ export default function Document() {
     loadDocs();
   };
 
+  // Use effect to reapply filters when sort changes
+  useEffect(() => {
+    if (docs.length > 0) {
+      applyFilters(docs, query, activeTab);
+    }
+  }, [sortBy, sortOrder]);
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#667eea" />
-      <View style={[styles.gradientBackground, { backgroundColor: '#F3F4F6' }] }>
+      <LinearGradient
+        colors={['#667EEA', '#764BA2', '#F093FB']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientBackground}
+      >
         <View style={styles.container}>
           <View style={styles.leftPane}>
             {/* Header */}
             <View style={styles.headerContainer}>
-              <View style={styles.headerRow}>
-                <View style={styles.titleSection}>
-                  <View style={styles.titleIcon}>
-                    <Feather name="folder" size={20} color="#6366F1" />
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFC']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.headerGradient}
+              >
+                <View style={styles.headerRow}>
+                  <View style={styles.titleSection}>
+                    <LinearGradient
+                      colors={['#667EEA', '#764BA2']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.titleIcon}
+                    >
+                      <Feather name="folder" size={24} color="#FFFFFF" />
+                    </LinearGradient>
+                    <View style={styles.titleTextContainer}>
+                      <Text style={styles.headerTitle}>My Documents</Text>
+                      <Text style={styles.headerSubtitle}>
+                        {filteredDocs.length} {filteredDocs.length === 1 ? 'document' : 'documents'}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.titleTextContainer}>
-                    <Text style={styles.headerTitle}>My Documents</Text>
-                    <Text style={styles.headerSubtitle}>
-                      {filteredDocs.length} {filteredDocs.length === 1 ? 'document' : 'documents'}
-                    </Text>
+                  <View style={styles.headerActions}>
+                    <TouchableOpacity style={styles.lockWrap}>
+                      <Ionicons name="shield-checkmark" size={20} color="#10B981" />
+                    </TouchableOpacity>
                   </View>
                 </View>
-                <View style={styles.headerActions}>
-                  <TouchableOpacity style={styles.lockWrap}>
-                    <Feather name="lock" size={18} color="#667085" />
-                  </TouchableOpacity>
-                </View>
-              </View>
+              </LinearGradient>
             </View>
 
             {/* Search */}
-            <View style={styles.searchWrap}>
-              <Feather
-                name="search"
-                size={18}
-                color="#9AA4B2"
-                style={{ marginLeft: 12 }}
-              />
+            <LinearGradient
+              colors={['#FFFFFF', '#F8FAFC']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.searchWrap}
+            >
+              <View style={styles.searchIconWrap}>
+                <Ionicons
+                  name="search"
+                  size={20}
+                  color="#667EEA"
+                />
+              </View>
               <TextInput
                 placeholder="Search documents..."
-                placeholderTextColor="#9AA4B2"
+                placeholderTextColor="#9CA3AF"
                 value={query}
-                onChangeText={setQuery}
+                onChangeText={handleSearchChange}
                 style={styles.searchInput}
+                returnKeyType="search"
+                clearButtonMode="while-editing"
               />
-              <TouchableOpacity style={styles.filterBtn}>
-                <Feather name="sliders" size={18} color="#9AA4B2" />
+              <TouchableOpacity 
+                style={styles.filterBtn}
+                onPress={() => setFilterModalVisible(true)}
+              >
+                <LinearGradient
+                  colors={['#667EEA', '#764BA2']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.filterGradient}
+                >
+                  <Ionicons name="options" size={18} color="#FFFFFF" />
+                  {(sortBy !== "name" || sortOrder !== "asc") && (
+                    <View style={styles.filterDot} />
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
             {/* Tabs */}
-            <View style={styles.tabsContainer}>
+            <LinearGradient
+              colors={['#F1F5F9', '#E2E8F0']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.tabsContainer}
+            >
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false}
@@ -133,16 +273,27 @@ export default function Document() {
                       style={[styles.tabItem, active && styles.tabActive]}
                       onPress={() => filterDocs(t)}
                     >
-                      <Text
-                        style={[styles.tabText, active && styles.tabTextActive]}
-                      >
-                        {t}
-                      </Text>
+                      {active ? (
+                        <LinearGradient
+                          colors={['#667EEA', '#764BA2']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.activeTabGradient}
+                        >
+                          <Text style={[styles.tabText, styles.tabTextActive]}>
+                            {t}
+                          </Text>
+                        </LinearGradient>
+                      ) : (
+                        <Text style={styles.tabText}>
+                          {t}
+                        </Text>
+                      )}
                     </TouchableOpacity>
                   );
                 })}
               </ScrollView>
-            </View>
+            </LinearGradient>
 
             {/* Cards */}
             <ScrollView 
@@ -157,14 +308,21 @@ export default function Document() {
           {/* Floating Action Button */}
           <View style={styles.fabWrap}>
             <TouchableOpacity
-              style={[styles.fab, styles.plusCircle, { backgroundColor: "#6366F1" }]}
+              style={styles.fab}
               onPress={() => {
                 setModalVisible(true);
               }}
-              activeOpacity={0.9}
+              activeOpacity={0.8}
               accessibilityLabel="Add Document"
             >
-              <Feather name={fabOpen ? "x" : "plus"} size={26} color="#fff" />
+              <LinearGradient
+                colors={['#FF6B6B', '#4ECDC4', '#45B7D1']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.fabGradient}
+              >
+                <Ionicons name={fabOpen ? "close" : "add"} size={28} color="#FFFFFF" />
+              </LinearGradient>
             </TouchableOpacity>
           </View>
 
@@ -175,31 +333,51 @@ export default function Document() {
             onClose={() => setModalVisible(false)}
             onSave={handleSaveDocument}
           />
+
+          <FilterModal
+            visible={filterModalVisible}
+            onClose={() => setFilterModalVisible(false)}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={handleSortChange}
+            onClearFilters={clearAllFilters}
+          />
         </View>
-  </View>
+      </LinearGradient>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1},
-  gradientBackground: { flex: 1, paddingTop: Platform.OS === "android" ? 25 : 0 },
-  container: { flex: 1 },
+  safe: { 
+    flex: 1,
+    backgroundColor: '#667EEA',
+  },
+  gradientBackground: { 
+    flex: 1, 
+    paddingTop: Platform.OS === "android" ? 25 : 0,
+  },
+  container: { 
+    flex: 1,
+  },
   leftPane: {
     flex: 1,
-    backgroundColor: "#fff",
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    // borderRadius: 24,
-    // borderWidth: 1,
-    borderColor: '#E5E7EB',
-    // backgroundColor: 'red'
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+    overflow: 'hidden',
   },
   headerContainer: {
-    marginBottom: 10,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    marginBottom: 16,
+  },
+  headerGradient: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   headerRow: {
     flexDirection: "row",
@@ -212,28 +390,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   titleIcon: {
-    width: 48,
-    height: 48,
-    backgroundColor: "#EEF2FF",
-    borderRadius: 16,
+    width: 54,
+    height: 54,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 16,
-    shadowColor: "#6366F1",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    marginRight: 18,
+    shadowColor: "#667EEA",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
   },
   titleTextContainer: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "800",
-    color: "#0F1724",
-    letterSpacing: -0.5,
-    marginBottom: 4,
+    color: "#1F2937",
+    letterSpacing: -0.8,
+    marginBottom: 6,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -247,35 +424,48 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   lockWrap: {
-    backgroundColor: "#F8FAFC",
-    padding: 12,
-    borderRadius: 12,
+    backgroundColor: "#ECFDF5",
+    padding: 14,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#D1FAE5",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   searchWrap: {
-    height: 56,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 16,
+    height: 60,
+    borderRadius: 20,
     flexDirection: "row",
     alignItems: "center",
+    marginHorizontal: 16,
     marginBottom: 16,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#E5E7EB",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  searchIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "rgba(102, 126, 234, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
   searchInput: { 
-    flex: 1, 
-    marginLeft: 8, 
+    flex: 1,
     fontSize: 16, 
-    color: "#0F1724",
+    color: "#1F2937",
     fontWeight: "500",
   },
   filterBtn: {
@@ -283,36 +473,45 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
-    backgroundColor: "#F1F5F9",
-    marginRight: 4,
+    borderRadius: 16,
+  },
+  filterGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  filterDot: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FF6B6B",
   },
   tabsContainer: {
-    // marginBottom: 10,
-    alignSelf: "flex-start",
-    backgroundColor: "#F1F5F9",
-    
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-    
-    // borderWidth: 1,
-    // borderColor: "#E2E8F0",
-    // borderRadius: 16,
-    // padding: 4,
-    // shadowColor: "#000",
-    // shadowOffset: { width: 0, height: 2 },
-    // shadowOpacity: 0.05,
-    // shadowRadius: 8,
-    // elevation: 2,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
   },
   tabsScrollView: {
     flexGrow: 0,
   },
   tabsContent: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 0,
     alignItems: "center",
-    gap: 8,
-    paddingVertical:3,
+    gap: 6,
+    paddingVertical: 0,
   },
   tabs: {
     flexDirection: "row",
@@ -332,52 +531,60 @@ const styles = StyleSheet.create({
     
   },
   tabItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderRadius: 16,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
-    marginHorizontal: 3,
-    minWidth: 90,
+    justifyContent: "center",
+    marginHorizontal: 2,
+    minWidth: 70,
+    minHeight: 36,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#E5E7EB",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   tabActive: {
-    backgroundColor: "#6366F1",
-    borderColor: "#6366F1",
-    shadowColor: "#6366F1",
-    shadowOffset: { width: 0, height: 4 },
+    borderColor: "transparent",
+    shadowColor: "#667EEA",
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-    transform: [{ scale: 1.05 }],
+    shadowRadius: 16,
+    elevation: 8,
+    transform: [{ scale: 1.02 }],
+  },
+  activeTabGradient: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 70,
+    minHeight: 36,
   },
   tabText: { 
-    color: "#64748B", 
+    color: "#6B7280", 
     fontSize: 14, 
     fontWeight: "600",
-    letterSpacing: 0.3,
+    letterSpacing: 0.1,
   },
   tabTextActive: { 
     color: "#FFFFFF", 
     fontWeight: "700",
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
   cardsContainer: {
     flex: 1,
-    marginTop:4,
-    paddingTop: 0,
-    borderRightColor:'red'
+    paddingHorizontal: 0,
   },
   cardsContent: {
     paddingBottom: 100,
     flexGrow: 1,
-    paddingTop: 0,
+    paddingTop: 4,
   },
   card: {
     width: CARD_SIZE,
@@ -439,40 +646,27 @@ const styles = StyleSheet.create({
 
   fabWrap: {
     position: "absolute",
-    right: 36,
-    bottom: 34,
+    right: 20,
+    bottom: 24,
     alignItems: "center",
   },
   fab: {
-    width: 62,
-    height: 62,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#FF6B6B",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  fabGradient: {
+    width: 64,
+    height: 64,
     borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
   },
-  plusCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 32,
-    backgroundColor: "#0B5FFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  smallFab: {
-    position: "absolute",
-    right: 0,
-    bottom: 6,
-    alignItems: "center",
-  },
-  smallFabBtn: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    minWidth: 170,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "flex-start",
-  },
-  smallFabLabel: { marginLeft: 10, color: "#0B5FFF", fontWeight: "600" },
 });
