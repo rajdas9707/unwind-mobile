@@ -9,6 +9,8 @@ import {
   TextInput,
   Alert,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import AnimatedCheckbox from "../../components/shared/AnimatedCheckbox";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -92,21 +94,23 @@ const TaskItem = ({
       <View style={styles.taskActions}>
         {!item.completed && (
           <TouchableOpacity
+            style={styles.actionButton}
             onPress={() => {
               console.log(`Moving task to carried over: ${item.id}`);
               moveToCarriedOver(item.id);
             }}
           >
-            <Ionicons name="time-outline" size={24} color="#F59E0B" />
+            <Ionicons name="time-outline" size={22} color="#F59E0B" />
           </TouchableOpacity>
         )}
         <TouchableOpacity
+          style={styles.actionButton}
           onPress={() => {
             console.log(`Deleting task: ${item.id}`);
             deleteTask(item.id);
           }}
         >
-          <Ionicons name="trash-outline" size={24} color="#EF4444" />
+          <Ionicons name="trash-outline" size={22} color="#EF4444" />
         </TouchableOpacity>
       </View>
     </View>
@@ -145,8 +149,8 @@ const CarriedOverTaskRow = ({
         </Text>
       </TouchableOpacity>
       <View style={styles.taskActions}>
-        <TouchableOpacity onPress={() => deleteTask(item.id ?? item.localId)}>
-          <Ionicons name="trash-outline" size={24} color="#EF4444" />
+        <TouchableOpacity style={styles.actionButton} onPress={() => deleteTask(item.id ?? item.localId)}>
+          <Ionicons name="trash-outline" size={22} color="#EF4444" />
         </TouchableOpacity>
       </View>
     </View>
@@ -172,6 +176,13 @@ export default function CategoryTasks() {
     Urgent: "#EF4444",
     Important: "#8B5CF6",
     "Low Energy": "#3B82F6",
+  };
+
+  const categoryGradients = {
+    "2-Minute": ["#10B981", "#059669"],
+    Urgent: ["#EF4444", "#DC2626"],
+    Important: ["#8B5CF6", "#7C3AED"],
+    "Low Energy": ["#3B82F6", "#2563EB"],
   };
 
   const categoryColor = categoryColors[category] || "#10B981";
@@ -460,11 +471,10 @@ export default function CategoryTasks() {
 
   return (
     <View style={styles.container}>
-      <View
-        style={[
-          styles.headerContainer,
-          { backgroundColor: `${categoryColor}10` },
-        ]}
+      <LinearGradient
+        colors={[`${categoryColor}15`, `${categoryColor}05`, "transparent"]}
+        locations={[0, 0.6, 1]}
+        style={styles.headerContainer}
       >
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -496,7 +506,7 @@ export default function CategoryTasks() {
         <Text style={[styles.headerStatus, { color: categoryColor }]}>
           {topSelection === "backlogs" ? "Backlogs" : "Fresh"}
         </Text>
-      </View>
+      </LinearGradient>
 
       <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
         <TopBarToggle
@@ -564,7 +574,7 @@ export default function CategoryTasks() {
           style={[styles.addButton, { backgroundColor: categoryColor }]}
           onPress={() => setModalVisible(true)}
         >
-          <Ionicons name="add" size={24} color="#FFFFFF" />
+          <Ionicons name="add" size={28} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -574,11 +584,16 @@ export default function CategoryTasks() {
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <TouchableOpacity
+        <BlurView
           style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setModalVisible(false)}
+          intensity={20}
+          tint="dark"
         >
+          <TouchableOpacity
+            style={{ flex: 1, justifyContent: "center" }}
+            activeOpacity={1}
+            onPress={() => setModalVisible(false)}
+          >
           <View
             style={styles.modalContent}
             onStartShouldSetResponder={() => true}
@@ -628,7 +643,8 @@ export default function CategoryTasks() {
               </View>
             </View>
           </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </BlurView>
       </Modal>
     </View>
   );
@@ -637,13 +653,18 @@ export default function CategoryTasks() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#F8FAFC",
   },
   headerContainer: {
     padding: 24,
     paddingTop: 60,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 12,
   },
   headerRow: {
     flexDirection: "row",
@@ -713,17 +734,33 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   headerTitleContainer: {
     flex: 1,
     alignItems: "center",
+  },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerEmoji: {
+    fontSize: 28,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   headerTitleTop: {
     fontSize: 12,
@@ -733,17 +770,23 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   headerTitleBottom: {
-    marginTop: 2,
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   headerStatus: {
-    marginTop: 8,
+    marginTop: 12,
     textAlign: "center",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1,
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 1.2,
     textTransform: "uppercase",
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   networkStatus: {
     flexDirection: "row",
@@ -755,45 +798,57 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   listContainer: {
-    padding: 16,
-    paddingBottom: 100,
+    padding: 20,
+    paddingBottom: 120,
+    paddingTop: 8,
   },
   taskItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    backdropFilter: "blur(10px)",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    marginHorizontal: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-    borderLeftWidth: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+    borderLeftWidth: 5,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   taskContent: {
     flex: 1,
     marginHorizontal: 12,
   },
   taskText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#1F2937",
+    lineHeight: 24,
+    letterSpacing: 0.3,
   },
   completedTask: {
     textDecorationLine: "line-through",
     color: "#9CA3AF",
   },
   intentionText: {
-    fontSize: 14,
+    fontSize: 15,
     color: "#6B7280",
-    marginTop: 6,
+    marginTop: 8,
+    lineHeight: 22,
+    fontWeight: "500",
+    fontStyle: "italic",
   },
   createdAtText: {
-    fontSize: 12,
+    fontSize: 13,
     color: "#9CA3AF",
-    marginTop: 4,
+    marginTop: 8,
+    fontWeight: "600",
+    letterSpacing: 0.2,
   },
   unsyncedText: {
     fontSize: 12,
@@ -804,85 +859,125 @@ const styles = StyleSheet.create({
   taskActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 16,
+  },
+  actionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.5)",
   },
   syncButton: {
     padding: 4,
   },
   emptyContainer: {
     alignItems: "center",
-    marginTop: 40,
+    marginTop: 60,
+    paddingHorizontal: 32,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#6B7280",
-    marginTop: 16,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#4B5563",
+    marginTop: 20,
+    letterSpacing: 0.3,
+    textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
-    color: "#9CA3AF",
-    marginTop: 8,
+    fontSize: 16,
+    color: "#6B7280",
+    marginTop: 12,
+    textAlign: "center",
+    fontWeight: "500",
+    lineHeight: 24,
   },
   modalOverlay: {
     flex: 1,
-    justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   modalContent: {
     marginHorizontal: 0,
-    borderRadius: 16,
+    borderRadius: 24,
     overflow: "hidden",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.98)",
+    backdropFilter: "blur(20px)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    elevation: 15,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   modalGradient: {
-    padding: 24,
-    backgroundColor: "#FFFFFF",
+    padding: 28,
+    backgroundColor: "transparent",
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 20,
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#1F2937",
+    marginBottom: 24,
     textAlign: "center",
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(0, 0, 0, 0.05)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   modalInput: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    fontSize: 16,
-    color: "#111827",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    backgroundColor: "rgba(249, 250, 251, 0.8)",
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    fontSize: 17,
+    color: "#1F2937",
+    borderWidth: 2,
+    borderColor: "rgba(229, 231, 235, 0.6)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    fontWeight: "500",
   },
   modalButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 16,
-    gap: 12,
+    marginTop: 24,
+    gap: 16,
   },
   modalButton: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: "rgba(243, 244, 246, 0.8)",
+    borderRadius: 16,
+    padding: 18,
     flex: 1,
+    borderWidth: 1,
+    borderColor: "rgba(229, 231, 235, 0.5)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   modalAddButton: {
     backgroundColor: "#8B5CF6",
   },
   floatingButtonsContainer: {
     position: "absolute",
-    bottom: 30,
-    right: 30,
+    bottom: 32,
+    right: 24,
     flexDirection: "row",
-    gap: 16,
+    gap: 20,
+    alignItems: "center",
   },
   pendingButton: {
     width: 60,
@@ -898,23 +993,27 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   addButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: "#8B5CF6",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#8B5CF6",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    transform: [{ scale: 1 }],
   },
   modalButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#1F2937",
     textAlign: "center",
+    letterSpacing: 0.3,
   },
   segmentedControl: {
     flexDirection: "row",
