@@ -160,6 +160,14 @@ export default function IdeaScreen() {
       color: "#06B6D4",
       click: () => router.push("/topic"),
     },
+    {
+      id: 7,
+      title: "Pomodoro Timer",
+      subtitle: "Focus with technique",
+      icon: "timer",
+      color: "#FF6B6B",
+      click: () => router.push("/pomodoro"),
+    },
   ];
 
   const guides = [

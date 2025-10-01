@@ -50,6 +50,7 @@ export default function RootLayout() {
           {/* <Stack.Screen name="document" options={{ title: "Document" }} /> */}
 
           <Stack.Screen name="tasks/[category]" options={{ title: "Tasks" }} />
+          <Stack.Screen name="pomodoro" options={{ title: "Pomodoro Timer", headerShown: false }} />
           {/* carried-over route removed; unified under tasks/[category] with toggle */}
         </Stack>
         <StatusBar style="auto" />

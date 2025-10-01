@@ -2,6 +2,16 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import * as Haptics from "expo-haptics";
 
+// Helper function to determine if a color is light or dark
+const isLightColor = (color) => {
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 155;
+};
+
 // A responsive, animated two-option toggle for top bars
 // Options: "Today's" (left) and "Backlogs" (right)
 // Props:
@@ -20,7 +30,7 @@ export default function TopBarToggle({
   haptics = true,
   leftText,
   rightText,
-  activeTextColor = "#FFFFFF",
+  activeTextColor,
   inactiveTextColor = "#374151",
   backgroundColor = "#EEF2F7",
   borderColor = "#E5E7EB",
