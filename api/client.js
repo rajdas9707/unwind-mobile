@@ -4,8 +4,10 @@ import { auth } from "../firebaseConfig";
 // import { Alert } from "react-native";
 // import { useNetworkStatus } from "../utils/networkUtils";
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || "http://192.168.29.225:5000";
-const API_DEBUG = process.env.EXPO_PUBLIC_API_DEBUG === "true";
+  // process.env.EXPO_PUBLIC_API_URL || "http://192.168.29.225:5000"|| "http://20.255.57.181:5001";
+  process.env.EXPO_PUBLIC_API_URL ||  "http://20.255.57.181:5000";
+
+  const API_DEBUG = process.env.EXPO_PUBLIC_API_DEBUG === "true";
 
 // Centralized error handling result type
 export const ApiResult = {
@@ -290,6 +292,16 @@ export async function createJournalEntry({ content, date, tags, mood }) {
       // eslint-disable-next-line no-console
       console.log("createJournalEntry error:", result.error);
     }
+    throw new Error(result.error.message);
+  }
+}
+
+export async function getJournalEntry({ id, signal }) {
+  const result = await client.get(`/api/journal/${id}`, { signal });
+
+  if (result.success) {
+    return result.data;
+  } else {
     throw new Error(result.error.message);
   }
 }

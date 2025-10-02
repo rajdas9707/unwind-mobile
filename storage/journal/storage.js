@@ -1,6 +1,6 @@
 import { Alert } from "react-native";
 
-import { createJournalEntry, deleteJournalEntry } from "../../api/client";
+import { createJournalEntry, deleteJournalEntry, getJournalEntry } from "../../api/client";
 import { useNetworkStatus } from "../../utils/networkUtils";
 import {
   deleteJournalEntryById,
@@ -234,6 +234,45 @@ export const fetchJournalEntryById = async (id) => {
     ...entry,
     sentiment: getSentimentEmoji(entry.content),
   };
+};
+
+// Get combined local and server data for a journal entry (if synced)
+export const fetchJournalEntryWithServerData = async (id, signal) => {
+  // First get the local entry
+  const localEntry = await getJournalEntryById(id);
+  
+  if (!localEntry) return null;
+
+  const result = {
+    local: {
+      ...localEntry,
+      sentiment: getSentimentEmoji(localEntry.content),
+    },
+    server: null,
+    isSynced: localEntry.synced || false
+  };
+
+  // If entry is synced and has server_id, try to fetch server data
+  if (localEntry.synced && localEntry.server_id) {
+    try {
+      const serverEntry = await getJournalEntry({ 
+        id: localEntry.server_id, 
+        signal 
+      });
+      
+      if (serverEntry) {
+        result.server = {
+          ...serverEntry,
+          sentiment: getSentimentEmoji(serverEntry.content || ''),
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to fetch server data for journal entry:', error);
+      // Don't throw error, just continue without server data
+    }
+  }
+
+  return result;
 };
 
 // Update journal entry with validation
