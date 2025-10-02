@@ -1,6 +1,15 @@
 // Lightweight API client for authorized requests to the backend
 import axios from "axios";
 import { auth } from "../firebaseConfig";
+// Import the specialized clients
+import { processJournalWithAI, getLLMServiceStatus, askAI, testLLMIntegration } from './llmClient.js';
+import { 
+  listJournalEntries as serverListJournalEntries, 
+  getJournalEntry as serverGetJournalEntry,
+  deleteJournalEntry as serverDeleteJournalEntry,
+  updateJournalEntry as serverUpdateJournalEntry,
+  getAnalyzedJournalEntries as serverGetAnalyzedJournalEntries
+} from './serverClient.js';
 // import { Alert } from "react-native";
 // import { useNetworkStatus } from "../utils/networkUtils";
 const API_BASE_URL =
@@ -246,30 +255,16 @@ export function getHelpCenterUrl() {
 
 // Meditation is now served locally inside the app; no remote URL
 
-// Journal endpoints
+// Journal endpoints (Updated to use server client for consistency)
 export async function listJournalEntries({
   date,
   page = 1,
   limit = 50,
   signal,
 } = {}) {
-  const params = new URLSearchParams();
-  if (date) params.set("date", date);
-  if (page) params.set("page", String(page));
-  if (limit) params.set("limit", String(limit));
-  const qs = params.toString() ? `?${params.toString()}` : "";
-  if (API_DEBUG) {
-    // eslint-disable-next-line no-console
-    console.log("qs", qs);
-  }
-
-  const result = await client.get(`/api/journal${qs}`, { signal });
-
-  if (result.success) {
-    return result.data;
-  } else {
-    throw new Error(result.error.message);
-  }
+  // Delegate to server client
+  const { listJournalEntries: serverListJournalEntries } = await import('./serverClient.js');
+  return await serverListJournalEntries({ date, page, limit, signal });
 }
 
 export async function createJournalEntry({ content, date, tags, mood }) {
@@ -297,69 +292,33 @@ export async function createJournalEntry({ content, date, tags, mood }) {
 }
 
 export async function getJournalEntry({ id, signal }) {
-  const result = await client.get(`/api/journal/${id}`, { signal });
-
-  if (result.success) {
-    return result.data;
-  } else {
-    throw new Error(result.error.message);
-  }
+  // Delegate to server client
+  const { getJournalEntry: serverGetJournalEntry } = await import('./serverClient.js');
+  return await serverGetJournalEntry({ id, signal });
 }
 
 export async function deleteJournalEntry({ id }) {
-  const result = await client.delete(`/api/journal/${id}`);
-
-  if (result.success) {
-    return result.data;
-  } else {
-    throw new Error(result.error.message);
-  }
+  // Delegate to server client
+  const { deleteJournalEntry: serverDeleteJournalEntry } = await import('./serverClient.js');
+  return await serverDeleteJournalEntry({ id });
 }
 
-// Overthinking endpoints
+// Overthinking endpoints (Updated to use server client)
 export async function listOverthinkingEntries({
   date,
   page = 1,
   limit = 50,
   signal,
 } = {}) {
-  const params = new URLSearchParams();
-  if (date) params.set("date", date);
-  if (page) params.set("page", String(page));
-  if (limit) params.set("limit", String(limit));
-  const qs = params.toString() ? `?${params.toString()}` : "";
-
-  const result = await client.get(`/api/overthinking${qs}`, { signal });
-
-  if (result.success) {
-    return result.data;
-  } else {
-    throw new Error(result.error.message);
-  }
+  // Delegate to server client
+  const { listOverthinkingEntries: serverListOverthinkingEntries } = await import('./serverClient.js');
+  return await serverListOverthinkingEntries({ date, page, limit, signal });
 }
 
 export async function createOverthinkingEntry({ thought, solution, date }) {
-  const body = { thought, solution, date };
-  if (API_DEBUG) {
-    // eslint-disable-next-line no-console
-    console.log("createOverthinkingEntry called with:", body);
-  }
-
-  const result = await client.post(`/api/overthinking`, body);
-
-  if (result.success) {
-    if (API_DEBUG) {
-      // eslint-disable-next-line no-console
-      console.log("createoverthinking result:", result.data);
-    }
-    return result.data;
-  } else {
-    if (API_DEBUG) {
-      // eslint-disable-next-line no-console
-      console.log("createOverthinkingEntry error:", result.error);
-    }
-    throw new Error(result.error.message);
-  }
+  // Delegate to server client
+  const { createOverthinkingEntry: serverCreateOverthinkingEntry } = await import('./serverClient.js');
+  return await serverCreateOverthinkingEntry({ thought, solution, date });
 }
 
 export async function deleteOverthinkingEntry({ id }) {
@@ -531,6 +490,105 @@ export async function deleteUserAccount() {
     if (API_DEBUG) {
       // eslint-disable-next-line no-console
       console.log("deleteUserAccount error:", result.error);
+    }
+    throw new Error(result.error.message);
+  }
+}
+
+// ===== NEW ARCHITECTURE: DUAL CLIENT APPROACH =====
+
+/**
+ * Create journal entry with AI analysis (NEW FLOW)
+ * This now uses the LLM service first, which then stores in backend
+ */
+export async function createJournalWithAnalysis({ content, date, tags, mood, analyzeWithAI = true, signal }) {
+  if (API_DEBUG) {
+    // eslint-disable-next-line no-console
+    console.log("createJournalWithAnalysis called (NEW FLOW):", {
+      contentLength: content?.length,
+      date,
+      tagsCount: tags?.length,
+      mood,
+      analyzeWithAI
+    });
+  }
+
+  if (!analyzeWithAI) {
+    // If no AI analysis requested, use the regular journal creation
+    return await createJournalEntry({ content, date, tags, mood });
+  }
+
+  // Get user ID from auth
+  const userId = auth.currentUser?.uid;
+  if (!userId) {
+    throw new Error('User not authenticated');
+  }
+
+  // Call LLM service first (which will analyze and then store in backend)
+  const result = await processJournalWithAI({
+    content,
+    date,
+    tags,
+    mood,
+    userId,
+    signal
+  });
+
+  if (API_DEBUG) {
+    // eslint-disable-next-line no-console
+    console.log("createJournalWithAnalysis result (NEW FLOW):", {
+      success: result.success,
+      entryId: result.entry?._id,
+      sentiment: result.analysis?.sentiment,
+      score: result.analysis?.overallScore,
+      analysisCompleted: result.processing?.analysisCompleted,
+      storageCompleted: result.processing?.storageCompleted
+    });
+  }
+
+  return result;
+}
+
+// ===== AI FUNCTIONS (DELEGATE TO LLM CLIENT) =====
+
+// AI functions - these now use the LLM client directly
+export const getJournalAIStatus = getLLMServiceStatus;
+export const testJournalIntegration = testLLMIntegration;
+export { askAI } from './llmClient.js';
+
+// Add new analyzed journal entries function
+export { getAnalyzedJournalEntries } from './serverClient.js';
+export { updateJournalEntry } from './serverClient.js';
+
+/**
+ * Analyze existing journal entry with AI (uses server client)
+ * Note: This still goes through the backend server for existing entries
+ */
+export async function analyzeJournalEntry({ id, forceReanalysis = false }) {
+  const body = { forceReanalysis };
+  
+  if (API_DEBUG) {
+    // eslint-disable-next-line no-console
+    console.log("analyzeJournalEntry called with:", { id, forceReanalysis });
+  }
+
+  const result = await client.post(`/api/journal/${id}/analyze`, body);
+
+  if (result.success) {
+    if (API_DEBUG) {
+      // eslint-disable-next-line no-console
+      console.log("analyzeJournalEntry result:", {
+        sentiment: result.data.analysis?.sentiment,
+        score: result.data.analysis?.overallScore,
+        summaryPoints: result.data.analysis?.summary?.length,
+        issuesFound: result.data.analysis?.wrongdoingsAndSolutions?.length
+      });
+    }
+    return result.data;
+  } else {
+    if (API_DEBUG) {
+      // eslint-disable-next-line no-console
+      console.log("analyzeJournalEntry error:", result.error);
     }
     throw new Error(result.error.message);
   }
